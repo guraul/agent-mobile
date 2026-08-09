@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lock Screen</title>
+  <link rel="stylesheet" href="../styles/theme.css">
+  <link rel="stylesheet" href="../styles/components.css">
+</head>
+<body>
+  <div class="screen">
+    <div class="lockscreen" style="padding-top: 60px;">
+
+      <!-- Lock icon -->
+      <svg class="icon icon-md lockscreen__lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+
+      <!-- Date + time -->
+      <span class="lockscreen__date" id="lock-date"></span>
+      <span class="lockscreen__time" id="lock-time">9:41</span>
+
+      <!-- Pulse ambient briefing (tap → Talk) -->
+      <div class="lockscreen__brief" onclick="parent.navigateTo('pages/conversation.html')">
+        <div class="flex-row" style="gap: var(--space-sm); align-items: center;">
+          <span class="status-dot status-dot--running status-dot--lg status-dot--breathe"></span>
+          <span class="type-body-strong">Pulse is here.</span>
+        </div>
+        <div class="flex-col" style="gap: 2px;">
+          <span class="type-caption text-muted">1 thing needs you:</span>
+          <span class="type-body">Review the auth migration</span>
+        </div>
+        <span class="type-caption text-muted">Blocking tomorrow's deploy — I can roll it back if you'd rather wait.</span>
+      </div>
+
+      <span class="lockscreen__tap">tap to talk</span>
+
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      var d = new Date();
+      var days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+      var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      document.getElementById('lock-date').textContent = days[d.getDay()] + ', ' + months[d.getMonth()] + ' ' + d.getDate();
+      var h = d.getHours();
+      var m = d.getMinutes();
+      var ampm = h >= 12 ? '' : ''; // 24h-style on iOS is regional; keep simple 12h
+      h = h % 12 || 12;
+      document.getElementById('lock-time').textContent = h + ':' + (m < 10 ? '0' + m : m);
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,170 @@
+/* ============================================================
+   theme.css - All design tokens from DESIGN.md
+   Single source of truth. Do not duplicate values elsewhere.
+   ============================================================ */
+
+:root {
+  /* === COLORS - Surfaces === */
+  --color-canvas: #0c0a09;
+  --color-surface-1: #141211;
+  --color-surface-2: #1c1917;
+  --color-surface-3: #24211e;
+  --color-inverse: #f5f4f2;
+
+  /* === COLORS - Text === */
+  --color-ink: #f5f4f2;
+  --color-body: #cbc9c6;
+  --color-muted: #8a8884;
+  --color-disabled: #5c5a57;
+  --color-on-accent: #1a1410;
+  --color-on-inverse: #1a1410;
+  --color-on-surface-3: #f5f4f2;
+
+  /* === COLORS - Accent === */
+  --color-accent: #f5a624;
+  --color-accent-bright: #ffb84d;
+  --color-accent-pressed: #d18d1e;
+  --color-accent-focus: rgba(245, 166, 36, 0.4);
+  --color-accent-subtle: rgba(245, 166, 36, 0.12);
+
+  /* === COLORS - Semantic === */
+  --color-status-running: #f5a624;
+  --color-status-idle: #8a8884;
+  --color-status-success: #5db872;
+  --color-status-error: #c75c4c;
+  --color-status-warning: #ffb84d;
+
+  --color-status-running-fill: rgba(245, 166, 36, 0.15);
+  --color-status-idle-fill: rgba(138, 136, 132, 0.15);
+  --color-status-success-fill: rgba(93, 184, 114, 0.15);
+  --color-status-error-fill: rgba(199, 92, 76, 0.15);
+  --color-status-warning-fill: rgba(255, 184, 77, 0.15);
+
+  --color-status-running-border: rgba(245, 166, 36, 0.3);
+  --color-status-idle-border: rgba(138, 136, 132, 0.3);
+  --color-status-success-border: rgba(93, 184, 114, 0.3);
+  --color-status-error-border: rgba(199, 92, 76, 0.3);
+  --color-status-warning-border: rgba(255, 184, 77, 0.3);
+
+  /* === COLORS - Agent Identity === */
+  --color-agent-opencode: #7c8aa0;
+  --color-agent-claude: #a08272;
+  --color-agent-codex: #7a9a92;
+
+  --color-agent-opencode-fill: rgba(124, 138, 160, 0.15);
+  --color-agent-claude-fill: rgba(160, 130, 114, 0.15);
+  --color-agent-codex-fill: rgba(122, 154, 146, 0.15);
+
+  /* === COLORS - Borders === */
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-strong: rgba(255, 255, 255, 0.16);
+  --color-border-focused: rgba(245, 166, 36, 0.4);
+  --color-border-error: rgba(199, 92, 76, 0.5);
+  --color-border-disabled: rgba(255, 255, 255, 0.04);
+
+  /* === COLORS - Scrim === */
+  --color-scrim: rgba(0, 0, 0, 0.5);
+
+  /* === TYPOGRAPHY - Font Families === */
+  --font-sans: Inter, "SF Pro Text", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", ui-monospace, Menlo, monospace;
+
+  /* === TYPOGRAPHY - Scale === */
+  --type-display-size: 28px;
+  --type-display-weight: 600;
+  --type-display-line-height: 32.2px;
+  --type-display-letter-spacing: -0.5px;
+
+  --type-headline-size: 22px;
+  --type-headline-weight: 600;
+  --type-headline-line-height: 26.4px;
+  --type-headline-letter-spacing: -0.3px;
+
+  --type-title-size: 17px;
+  --type-title-weight: 600;
+  --type-title-line-height: 22.1px;
+  --type-title-letter-spacing: -0.2px;
+
+  --type-body-size: 16px;
+  --type-body-weight: 400;
+  --type-body-line-height: 24px;
+  --type-body-letter-spacing: 0;
+
+  --type-body-strong-size: 16px;
+  --type-body-strong-weight: 500;
+  --type-body-strong-line-height: 24px;
+  --type-body-strong-letter-spacing: 0;
+
+  --type-caption-size: 13px;
+  --type-caption-weight: 400;
+  --type-caption-line-height: 18.2px;
+  --type-caption-letter-spacing: 0.1px;
+
+  --type-caption-strong-size: 13px;
+  --type-caption-strong-weight: 500;
+  --type-caption-strong-line-height: 18.2px;
+  --type-caption-strong-letter-spacing: 0.1px;
+
+  --type-button-size: 15px;
+  --type-button-weight: 500;
+  --type-button-line-height: 18px;
+  --type-button-letter-spacing: 0;
+
+  --type-mono-body-size: 14px;
+  --type-mono-body-weight: 400;
+  --type-mono-body-line-height: 22.4px;
+  --type-mono-body-letter-spacing: 0;
+
+  --type-mono-caption-size: 12px;
+  --type-mono-caption-weight: 400;
+  --type-mono-caption-line-height: 18px;
+  --type-mono-caption-letter-spacing: 0;
+
+  /* === SPACING === */
+  --space-xxs: 4px;
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 20px;
+  --space-xl: 24px;
+  --space-xxl: 32px;
+  --space-section: 32px;
+
+  /* === RADIUS === */
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 9999px;
+  --radius-full: 9999px;
+
+  /* === MOTION (variables only, no animation implementation) === */
+  --duration-instant: 100ms;
+  --duration-quick: 150ms;
+  --duration-standard: 200ms;
+  --duration-deliberate: 300ms;
+  --duration-ambient: 2000ms;
+
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-ambient: ease-in-out;
+
+  --scale-pressed: 0.96;
+
+  /* === SHADOWS === */
+  --shadow-fab: 0 4px 16px rgba(0, 0, 0, 0.35);
+  --shadow-sheet: 0 -4px 32px rgba(0, 0, 0, 0.4);
+  --shadow-modal: 0 8px 32px rgba(0, 0, 0, 0.4);
+
+  /* === BLUR === */
+  --blur-sheet: blur(24px) saturate(150%);
+  --blur-sticky: blur(20px) saturate(150%);
+
+  /* === ICONS === */
+  --icon-xs: 14px;
+  --icon-sm: 16px;
+  --icon-md: 20px;
+  --icon-lg: 24px;
+  --icon-stroke: 2px;
+}

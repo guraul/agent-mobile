@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mission</title>
+  <link rel="stylesheet" href="../styles/theme.css">
+  <link rel="stylesheet" href="../styles/components.css">
+</head>
+<body>
+  <div class="screen">
+    <!-- Header -->
+    <div class="screen-header">
+      <div class="screen-header__left">
+        <button class="icon-btn" onclick="parent.navigateTo('pages/dashboard.html')" aria-label="Back">
+          <svg class="icon icon-md" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+      </div>
+      <div class="screen-header__title">Mission</div>
+      <div class="screen-header__right">
+        <button class="icon-btn" onclick="alert('More options')" aria-label="More">
+          <svg class="icon icon-md" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Subtitle -->
+    <div style="padding: 0 var(--space-md) var(--space-sm);">
+      <span class="type-caption text-muted">What I'm working on</span>
+    </div>
+
+    <!-- Scrollable content -->
+    <div class="screen__content" style="gap: var(--space-md);">
+
+      <!-- Section 2: Mission Identity Card -->
+      <div class="card card--comfortable">
+        <div class="flex-col" style="gap: var(--space-sm);">
+          <div class="flex-row justify-between" style="flex-wrap: wrap; gap: var(--space-xs);">
+            <div class="flex-row gap-sm">
+              <div class="agent-badge" style="background: var(--color-accent); color: var(--color-on-accent);">
+                <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+              </div>
+              <div class="flex-col" style="gap: 2px;">
+                <span class="type-body-strong">Refactoring authentication module</span>
+                <span class="type-caption text-muted">Authentication flow</span>
+              </div>
+            </div>
+            <span class="status-pill status-pill--running">
+              <span class="status-dot status-dot--running status-dot--sm"></span>
+              On it
+            </span>
+          </div>
+          <span class="type-body">I'm improving your authentication flow.</span>
+        </div>
+      </div>
+
+      <!-- Section 3: AI Brief Card -->
+      <div class="card">
+        <div class="flex-col" style="gap: var(--space-sm);">
+          <span class="type-title">Current Focus</span>
+          <span class="type-body">I've reviewed the auth flow and found a few things to update.</span>
+
+          <div style="margin: 0 calc(-1 * var(--space-md));">
+            <div class="row-item">
+              <span class="status-dot status-dot--success"></span>
+              <div class="row-item__content">
+                <span class="type-body-strong">Completed</span>
+                <span class="type-caption">I've checked all authentication paths</span>
+              </div>
+            </div>
+            <div class="divider"></div>
+            <div class="row-item">
+              <span class="status-dot status-dot--running"></span>
+              <div class="row-item__content">
+                <span class="type-body-strong">Current</span>
+                <span class="type-caption">Updating session handling</span>
+              </div>
+            </div>
+            <div class="divider"></div>
+            <div class="row-item">
+              <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="var(--color-muted)" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+              <div class="row-item__content">
+                <span class="type-body-strong">Next</span>
+                <span class="type-caption">Run integration tests</span>
+              </div>
+            </div>
+          </div>
+
+          <span class="type-caption text-muted">Almost there — just need to verify the changes</span>
+        </div>
+      </div>
+
+      <!-- Section 4: Conversation / Interaction Area -->
+      <div class="card">
+        <div class="flex-col" style="gap: var(--space-sm);">
+          <span class="type-caption-strong">LATEST EXCHANGE</span>
+
+          <!-- AI message -->
+          <div class="flex-row" style="gap: var(--space-sm); align-items: flex-start;">
+            <div class="agent-badge" style="background: var(--color-accent); color: var(--color-on-accent); flex-shrink: 0;">
+              <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+            </div>
+            <div class="flex-col" style="flex: 1; gap: var(--space-xxs);">
+              <span class="type-body-strong">AI</span>
+              <span class="type-body">I found a potential issue in users.ts. Should I update the validation logic?</span>
+              <div class="flex-row" style="gap: var(--space-xs); margin-top: var(--space-xxs);">
+                <button class="btn btn--primary" onclick="alert('Approved')">Go ahead</button>
+                <button class="btn btn--ghost" onclick="alert('Open discussion')">Let's talk</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <!-- User message -->
+          <div class="flex-row" style="gap: var(--space-sm); align-items: flex-start;">
+            <div style="width: 32px; height: 32px; border-radius: var(--radius-full); background: var(--color-surface-2); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+              <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="var(--color-muted)" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </div>
+            <div class="flex-col" style="flex: 1; gap: var(--space-xxs);">
+              <span class="type-body-strong">You</span>
+              <span class="type-body text-muted">Continue with the safer approach</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 5: Approval Required -->
+      <div class="card">
+        <div class="flex-col" style="gap: var(--space-sm);">
+          <div class="status-callout status-callout--warning">
+            <svg class="icon icon-lg" viewBox="0 0 24 24" fill="none" stroke="var(--color-status-warning)" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <div class="status-callout__content">
+              <span class="type-title text-warning">Your decision is needed</span>
+              <span class="type-body">I changed the authentication logic. Could you review before I continue?</span>
+            </div>
+          </div>
+          <div class="flex-row" style="gap: var(--space-xs);">
+            <button class="btn btn--primary" style="flex: 1;" onclick="alert('Review Changes')">Review Changes</button>
+            <button class="btn btn--ghost" onclick="alert('Ask AI')">Ask AI</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 6: Mission Notes -->
+      <div class="card">
+        <div class="flex-col" style="gap: var(--space-sm);">
+          <span class="type-caption-strong">MISSION NOTES</span>
+
+          <div style="margin: 0 calc(-1 * var(--space-md));">
+            <div class="row-item">
+              <span class="status-dot status-dot--success"></span>
+              <div class="row-item__content">
+                <span class="type-body-strong">Analyzed authentication module</span>
+                <span class="type-caption">Reviewed all existing auth flows and dependencies</span>
+              </div>
+            </div>
+            <div class="divider"></div>
+            <div class="row-item">
+              <span class="status-dot status-dot--success"></span>
+              <div class="row-item__content">
+                <span class="type-body-strong">Updated token handling</span>
+                <span class="type-caption">Made token handling safer with automatic rotation</span>
+              </div>
+            </div>
+            <div class="divider"></div>
+            <div class="row-item">
+              <span class="status-dot status-dot--success"></span>
+              <div class="row-item__content">
+                <span class="type-body-strong">Added validation tests</span>
+                <span class="type-caption">Covered edge cases for token expiry and rotation</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Section 7: Bottom Prompt Card (sticky) -->
+    <div style="padding: var(--space-sm) var(--space-md); background: var(--color-canvas);">
+      <div class="card" style="padding: var(--space-sm);">
+        <div class="flex-col" style="gap: var(--space-xs);">
+          <div class="flex-row" style="gap: var(--space-xs);">
+            <div class="input-wrapper" style="flex: 1;">
+              <input type="text" placeholder="What can I help with?" />
+            </div>
+            <button class="icon-btn" style="background: var(--color-accent); color: var(--color-on-accent);" onclick="toggleSheet()" aria-label="Send">
+              <svg class="icon icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+            </button>
+          </div>
+          <div class="flex-row" style="gap: var(--space-xxs);">
+            <button class="chip-btn" onclick="alert('Explain this')">Explain this</button>
+            <button class="chip-btn" onclick="alert('Show changes')">Show changes</button>
+            <button class="chip-btn" onclick="alert('Continue')">Continue</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Sheet -->
+    <div class="bottom-sheet-scrim bottom-sheet-scrim--hidden" id="sheet-scrim" onclick="toggleSheet()"></div>
+    <div class="bottom-sheet bottom-sheet--hidden" id="sheet-panel">
+      <div class="bottom-sheet__grabber"></div>
+      <div class="bottom-sheet__title">Talk to Pulse</div>
+      <div class="input-wrapper" style="margin-bottom: var(--space-sm);">
+        <input type="text" placeholder="What can I help with?" />
+      </div>
+      <div class="flex-row" style="gap: var(--space-xs);">
+        <button class="btn btn--secondary" style="flex:1;" onclick="toggleSheet()">Cancel</button>
+        <button class="btn btn--primary" style="flex:1;" onclick="alert('Prompt sent'); toggleSheet()">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function toggleSheet() {
+      var scrim = document.getElementById('sheet-scrim');
+      var sheet = document.getElementById('sheet-panel');
+      scrim.classList.toggle('bottom-sheet-scrim--hidden');
+      sheet.classList.toggle('bottom-sheet--hidden');
+    }
+  </script>
+</body>
+</html>
