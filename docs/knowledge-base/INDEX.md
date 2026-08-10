@@ -1,6 +1,6 @@
 # Agent Mobile 项目知识库 · 索引总览
 
-> 最后更新：2026-08-10 · commit：`c836209`（reactCompiler 禁用 + BottomSheet 修复 + dev server 托管）
+> 最后更新：2026-08-10 · commit：`c8f76d8`（reactCompiler 禁用 + BottomSheet 修复 + dev server 托管）
 > 维护：见 [CONVENTIONS.md](CONVENTIONS.md)「知识库维护约定」
 
 ## 使用说明

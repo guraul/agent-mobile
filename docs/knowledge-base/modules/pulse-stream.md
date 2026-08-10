@@ -1,6 +1,6 @@
 # modules/pulse-stream.md —— Pulse 事件流
 
-> 最后更新：2026-08-10 · commit：`c836209`（修复 reactCompiler 导致的重开失败）
+> 最后更新：2026-08-10 · commit：`c8f76d8`（修复 reactCompiler 导致的重开失败）
 
 ## 模块职责
 

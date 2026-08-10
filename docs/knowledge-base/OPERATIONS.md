@@ -1,6 +1,6 @@
 # OPERATIONS.md —— 构建与运维
 
-> 最后更新：2026-08-10 · commit：`c836209`（新增 dev server 托管）
+> 最后更新：2026-08-10 · commit：`c8f76d8`（新增 dev server 托管）
 
 ## 环境变量清单
 

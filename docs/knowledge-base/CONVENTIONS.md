@@ -1,6 +1,6 @@
 # CONVENTIONS.md —— 约定与陷阱
 
-> 最后更新：2026-08-10 · commit：`c836209`（reactCompiler 禁用 + BottomSheet/accessible 修复）
+> 最后更新：2026-08-10 · commit：`c8f76d8`（reactCompiler 禁用 + BottomSheet/accessible 修复）
 
 ## 代码风格与命名约定
 
