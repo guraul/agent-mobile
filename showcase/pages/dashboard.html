@@ -20,67 +20,103 @@
       </div>
     </div>
 
-    <!-- Greeting -->
-    <div style="padding: 0 var(--space-md) var(--space-sm);">
+    <!-- Greeting + presence -->
+    <div style="padding: var(--space-sm) var(--space-md) var(--space-sm);">
       <span class="type-headline" id="greeting"></span>
+      <div class="flex-row" style="gap: var(--space-sm); align-items: center; margin-top: var(--space-xs);">
+        <span class="status-dot status-dot--running status-dot--sm status-dot--breathe"></span>
+        <span class="type-caption-strong">I'm here.</span>
+        <span class="type-caption text-muted">Watching 3 projects and your day.</span>
+      </div>
     </div>
 
-    <!-- Scrollable content -->
-    <div class="screen__content" style="gap: var(--space-md); padding-top: var(--space-xs);">
+    <!-- Event stream (scrollable) -->
+    <div class="screen__content event-stream" id="event-stream" style="padding-top: var(--space-xs);">
 
-      <!-- Live briefing (presence + what I'm doing + what needs you + actions) -->
-      <div class="card card--comfortable">
-        <div class="flex-col" style="gap: var(--space-sm);">
-          <div class="flex-row" style="gap: var(--space-sm); align-items: center;">
-            <span class="status-dot status-dot--running status-dot--lg"></span>
-            <span class="type-headline">I'm here.</span>
-            <div style="flex: 1;"></div>
+      <div class="event-section">
+        <span class="event-section__label">Needs you</span>
+        <div class="event-list">
+          <button class="event-item event-item--warning" data-event="migration">
+            <span class="event-item__type">ACTION</span>
+            <span class="event-item__content">
+              <span class="event-item__title">Review the auth migration</span>
+              <span class="event-item__summary">Session handling is done — one migration is blocking tomorrow's deploy.</span>
+            </span>
             <span class="status-pill status-pill--warning">
               <span class="status-dot status-dot--warning status-dot--sm"></span>
-              1 thing needs you
+              Needs you
             </span>
-          </div>
-
-          <span class="type-body">Keeping an eye on 3 projects and your day.</span>
-
-          <div class="flex-col" style="gap: var(--space-xs);">
-            <span class="type-body">I spent today mostly on the auth module — session handling's done, one migration needs your eyes before I push it.</span>
-            <span class="type-body">Beyond that: your 3pm with Mei moved to 4, I confirmed. Coffee subscription renews Friday, I let it through. And I drafted a reply to that recruiter — want to look before I send?</span>
-          </div>
-
-          <div class="flex-row" style="gap: var(--space-xs); flex-wrap: wrap;">
-            <button class="btn btn--primary" style="flex: 1; min-width: 0;" onclick="parent.navigateTo('pages/conversation.html')">Review the migration</button>
-            <button class="btn btn--secondary" onclick="parent.navigateTo('pages/conversation.html')">See the email draft</button>
-          </div>
+            <svg class="icon icon-sm event-item__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+          </button>
         </div>
       </div>
 
-      <!-- Faint divider -->
-      <div class="divider--faint"></div>
+      <div class="event-section">
+        <span class="event-section__label">Today</span>
+        <div class="event-list">
+          <button class="event-item" data-event="calendar">
+            <span class="event-item__type">CALENDAR</span>
+            <span class="event-item__content">
+              <span class="event-item__title">3pm with Mei moved to 4</span>
+              <span class="event-item__summary">Confirmed with her assistant.</span>
+            </span>
+            <span class="status-pill status-pill--success">
+              <span class="status-dot status-dot--success status-dot--sm"></span>
+              Confirmed
+            </span>
+            <svg class="icon icon-sm event-item__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+          </button>
 
-      <!-- Daily Brief (narrative, no card) -->
-      <div class="flex-col" style="gap: var(--space-xs); padding: 0 var(--space-xxs);">
-        <span class="type-caption-strong">Earlier today</span>
-        <span class="type-body">Started around 9 with the auth refactor. Cleaned up session handling, wrote tests for the new validation. The migration came up after lunch — that's the one waiting on you. Slow afternoon otherwise; your inbox is clear, and I drafted the one reply that mattered.</span>
-        <span class="type-body text-muted">Nothing else needs you tonight.</span>
+          <button class="event-item" data-event="subscription">
+            <span class="event-item__type">SUBSCRIPTION</span>
+            <span class="event-item__content">
+              <span class="event-item__title">Coffee subscription renews Friday</span>
+              <span class="event-item__summary">Same plan as last month, $18.</span>
+            </span>
+            <span class="status-pill status-pill--success">
+              <span class="status-dot status-dot--success status-dot--sm"></span>
+              Let through
+            </span>
+            <svg class="icon icon-sm event-item__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+          </button>
+
+          <button class="event-item" data-event="email">
+            <span class="event-item__type">DRAFT</span>
+            <span class="event-item__content">
+              <span class="event-item__title">Reply to the recruiter</span>
+              <span class="event-item__summary">Drafted — want to look before I send?</span>
+            </span>
+            <span class="status-pill status-pill--idle">
+              <span class="status-dot status-dot--idle status-dot--sm"></span>
+              Draft
+            </span>
+            <svg class="icon icon-sm event-item__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+          </button>
+        </div>
       </div>
 
     </div>
 
-    <!-- Prompt Entry (sticky above tab bar) -->
-    <div style="padding: var(--space-sm) var(--space-md) 0 var(--space-md); border-top: 1px solid var(--color-border); background: var(--color-canvas);">
+    <!-- Bottom Sheet (event detail + actions + prompt) -->
+    <div class="bottom-sheet-scrim bottom-sheet-scrim--hidden" id="sheet-scrim" onclick="closeSheet()"></div>
+    <div class="bottom-sheet bottom-sheet--hidden" id="sheet">
+      <div class="bottom-sheet__grabber"></div>
+      <div class="flex-row" style="gap: var(--space-xs); align-items: center; margin-bottom: var(--space-xs);">
+        <span class="event-item__type" id="sheet-type"></span>
+        <div style="flex: 1;"></div>
+        <span class="status-pill" id="sheet-status"></span>
+      </div>
+      <div class="bottom-sheet__title" id="sheet-title"></div>
+      <p class="type-body" id="sheet-detail" style="margin: 0 0 var(--space-md);"></p>
+      <div class="flex-col" id="sheet-actions" style="gap: var(--space-xs); margin-bottom: var(--space-lg);"></div>
+      <div class="divider--faint" style="margin-bottom: var(--space-md);"></div>
       <div class="flex-row" style="gap: var(--space-xs);">
         <div class="input-wrapper" style="flex: 1;">
-          <input type="text" placeholder="What can I help with?" onclick="parent.navigateTo('pages/conversation.html')" />
+          <input type="text" id="sheet-prompt" placeholder="Ask about this…" />
         </div>
-        <button class="icon-btn" style="background: var(--color-accent); color: var(--color-on-accent);" onclick="parent.navigateTo('pages/conversation.html')" aria-label="Send">
+        <button class="icon-btn" style="background: var(--color-accent); color: var(--color-on-accent);" onclick="alert('Sent to Talk')" aria-label="Send">
           <svg class="icon icon-md" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
         </button>
-      </div>
-      <div class="flex-row" style="gap: var(--space-xxs); padding: var(--space-xs) 0 var(--space-sm);">
-        <button class="chip-btn" onclick="parent.navigateTo('pages/conversation.html')">What needs me?</button>
-        <button class="chip-btn" onclick="parent.navigateTo('pages/conversation.html')">Summarize today</button>
-        <button class="chip-btn" onclick="parent.navigateTo('pages/conversation.html')">Check schedule</button>
       </div>
     </div>
 
@@ -114,6 +150,80 @@
       else g = 'Good evening.';
       document.getElementById('greeting').textContent = g;
     })();
+
+    var events = {
+      migration: {
+        type: 'ACTION',
+        title: 'Review the auth migration',
+        status: '<span class="status-dot status-dot--warning status-dot--sm"></span> Needs you',
+        detail: 'Session handling is done and tested. One database migration still needs your eyes before I push it — it touches the sessions table and blocks tomorrow\'s deploy. I can roll it back if you\'d rather wait.',
+        actions: [
+          { label: 'Review the migration', variant: 'btn--primary', goto: 'pages/conversation.html' },
+          { label: 'Pause', variant: 'btn--ghost', alert: 'Paused' }
+        ]
+      },
+      calendar: {
+        type: 'CALENDAR',
+        title: '3pm with Mei moved to 4',
+        status: '<span class="status-dot status-dot--success status-dot--sm"></span> Confirmed',
+        detail: 'Her assistant moved the call from 3pm to 4pm. I confirmed on your behalf and added 30 minutes of buffer before it.',
+        actions: [
+          { label: 'See the updated day', variant: 'btn--ghost', alert: 'Calendar' }
+        ]
+      },
+      subscription: {
+        type: 'SUBSCRIPTION',
+        title: 'Coffee subscription renews Friday',
+        status: '<span class="status-dot status-dot--success status-dot--sm"></span> Let through',
+        detail: 'Same plan as last month, $18, renews Friday. I let it through since it matches your usual plan.',
+        actions: [
+          { label: 'Change plan', variant: 'btn--ghost', alert: 'Subscriptions' }
+        ]
+      },
+      email: {
+        type: 'DRAFT',
+        title: 'Reply to the recruiter',
+        status: '<span class="status-dot status-dot--idle status-dot--sm"></span> Draft',
+        detail: 'I drafted a reply declining for now but staying in touch. Want to look before I send?',
+        actions: [
+          { label: 'See the draft', variant: 'btn--primary', goto: 'pages/conversation.html' },
+          { label: 'Send it', variant: 'btn--secondary', alert: 'Sent' }
+        ]
+      }
+    };
+
+    function openSheet(id) {
+      var e = events[id];
+      document.getElementById('sheet-type').textContent = e.type;
+      document.getElementById('sheet-title').textContent = e.title;
+      document.getElementById('sheet-status').innerHTML = e.status;
+      document.getElementById('sheet-detail').textContent = e.detail;
+
+      var actions = document.getElementById('sheet-actions');
+      actions.innerHTML = '';
+      e.actions.forEach(function(a) {
+        var btn = document.createElement('button');
+        btn.className = 'btn ' + a.variant;
+        btn.textContent = a.label;
+        btn.onclick = a.goto ? function() { parent.navigateTo(a.goto); } : function() { alert(a.alert); };
+        actions.appendChild(btn);
+      });
+
+      document.getElementById('sheet-prompt').value = '';
+      document.getElementById('sheet-scrim').classList.remove('bottom-sheet-scrim--hidden');
+      document.getElementById('sheet').classList.remove('bottom-sheet--hidden');
+    }
+
+    function closeSheet() {
+      document.getElementById('sheet-scrim').classList.add('bottom-sheet-scrim--hidden');
+      document.getElementById('sheet').classList.add('bottom-sheet--hidden');
+    }
+
+    document.querySelectorAll('.event-item').forEach(function(item) {
+      item.addEventListener('click', function() {
+        openSheet(item.getAttribute('data-event'));
+      });
+    });
   </script>
 </body>
 </html>
