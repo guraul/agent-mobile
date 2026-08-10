@@ -41,17 +41,19 @@ Identity (Settings)        ──┘      Me (Identity)
 
 ### V2 完整 Sitemap
 
+> 本文档已按 **V3 事件流实现** 更新（见 §4 详细结构）：Pulse 首页 = 事件流 + 全屏弹出框，Daily Brief 迁入 Memory，Prompt Entry 移入事件弹出框。
+
 ```
 Pulse Showcase
 │
-├── Pulse          ← 首页：AI 的存在 + 当前简报 + 今日总结
-│   └── Prompt Entry → Talk
+├── Pulse          ← 首页：AI 的存在 + 事件流
+│   └── 点击事件 → 全屏弹出框（详情 + 行动 + 指令）
 │
 ├── Talk           ← 全屏对话：和 Pulse 深度交流
 │   └── 返回 Pulse（tab 切换）
 │
 ├── Memory         ← 故事：Pulse 讲述你们的共同记忆
-│   └── 纯叙事，无数据库感
+│   └── 今日总结（Daily Brief）+ 叙事长文
 │
 └── Me             ← 关系：「我们如何一起工作」
     └── 「想调整？我们聊聊」→ Talk
@@ -101,15 +103,15 @@ Pulse Showcase
 - 不做 Agent 列表
 - 不做任务列表
 - 不做 log feed
-- 不做 5 张卡片的信息堆叠
-- 不需要进入第二层页面才能了解 AI 状态
+- 不做卡片堆叠（V2 版）
+- 不做底部常驻 Prompt Entry（移入事件弹出框）
+- 不做 Daily Brief / 今日总结（迁入 Memory）
 
 **做什么：**
-- 时间感知问候
-- Pulse 的一段话（当前简报 = 融合 Mission）
-- 今日总结（Daily Brief = 替代 Activity）
-- 需要你关注的事（融入简报，不独立成卡）
-- Prompt Entry（→ 进入 Talk）
+- 时间感知问候 + presence 行（呼吸点 + "I'm here."）
+- **事件流**：一个事件 = 一个可点击单元（类型左上角 + 标题 + 摘要 + 状态右下角）
+- 事件分区：Needs you（待办）/ Today（今日发生）
+- 点击事件 → **全屏弹出框**：事件上下文 + 行动按钮 + 指令输入（含语音入口）
 
 **信息密度目标：** 首屏 2 个焦点——「Pulse 在」+「有件事需要你看」。
 
@@ -138,7 +140,7 @@ Pulse Showcase
 
 ### Page 3: Memory（故事 / 共同记忆）
 
-**一句话职责：** Pulse 讲述你们的共同记忆。
+**一句话职责：** Pulse 讲述你们的共同记忆，并沉淀每日总结。
 
 **不做什么：**
 - 不做 "Recent Memories" 列表
@@ -147,6 +149,7 @@ Pulse Showcase
 - 不做数据库记录式的时间戳
 
 **做什么：**
+- **今日总结（"Today" 模块）**：过去时的 Daily Brief 迁入此处 —— 首页事件流只放"现在"，Memory 沉淀"今天都发生了什么"
 - 自然语言叙事（第一人称）
 - 像 Pulse 在写日记 / 回忆录
 - 时间流动感（「我们第一次合作是三月……」）
@@ -175,68 +178,59 @@ Pulse Showcase
 
 ### Pulse（首页）详细结构
 
+> 当前实现（V3 事件流版，对应 `pages/dashboard.html`）：
+
 ```
 ┌─────────────────────────────┐
 │  ScreenHeader              │
 │  "Pulse"        🔔          │  ← 标题 + 通知
 ├─────────────────────────────┤
-│                             │
 │  Good evening.              │  ← 时间问候（type-headline）
-│                             │
-│  ┌─────────────────────┐  │
-│  │  ● I'm here.         │  │  ← Presence（呼吸点 + 一句话）
-│  │    monitoring 3       │  │     不是卡片标题，是对话开头
-│  │    projects.          │  │
-│  └─────────────────────┘  │
-│                             │
-│  ┌─────────────────────┐  │
-│  │  I'm working on your │  │  ← 当前简报（= 融合 Mission）
-│  │  authentication      │  │     一段自然语言，包含：
-│  │  module.              │  │     - 在做什么
-│  │                       │  │     - 做到哪了
-│  │  I've reviewed the    │  │     - 需要你做什么
-│  │  auth paths and I'm   │  │
-│  │  updating session     │  │
-│  │  handling now.        │  │
-│  │                       │  │
-│  │  Can you take a look  │  │  ← 需要关注的事（融入对话）
-│  │  at users.ts before   │  │     不是 callout 卡片
-│  │  I continue?          │  │     是 Pulse 在问你
-│  │                       │  │
-│  │  [ Review changes ]   │  │  ← 行动按钮（→ Talk）
-│  └─────────────────────┘  │
-│                             │
-│  ─────────────────────     │  ← 分隔（极淡）
-│                             │
-│  Earlier today              │  ← Daily Brief（= 替代 Activity）
-│                             │
-│  I spent most of today      │     一段话总结
-│  improving authentication.  │     不是 12 条日志
-│  Everything went well       │     不是 list
-│  except one migration.      │     不是 timeline
-│  I'd like you to review it. │
-│                             │
-│  I also noticed your test   │  ← 主动建议（融入 brief）
-│  coverage has been slipping │     不是独立 Insights 卡片
-│  this week.                 │
-│                             │
+│  ● I'm here. Watching 3     │  ← Presence 行（呼吸点 + 一句话）
+│    projects and your day.   │     呼吸点动画同 lockscreen
 ├─────────────────────────────┤
-│  [ What can I help with? ] │  ← Prompt Entry
-│  [Review code] [Run tests]  │     点击 → Talk
-├─────────────────────────────┤
-│  Pulse │ Talk │ Memory │ Me │  ← Bottom Tabs
+│  NEEDS YOU                  │  ← 事件分区
+│  ┌───────────────────────┐  │
+│  │  ACTION                │  │  ← 类型 = 行首标题（左上角）
+│  │  Review the auth       │  │
+│  │  migration             │  │
+│  │  Session handling is   │  │  ← 摘要（单行省略）
+│  │  done — blocking…      │  │
+│  │                Needs you│  │  ← 状态沉右下角（11px）
+│  └───────────────────────┘  │
+│                             │
+│  TODAY                      │  ← 事件分区 2
+│  ┌───────────────────────┐  │
+│  │  CALENDAR / 3pm moved │  │  每个事件行可点击
+│  │  SUBSCRIPTION / renew │  │  → 全屏弹出框
+│  │  DRAFT / recruiter    │  │
+│  └───────────────────────┘  │
+│                             │
+│  ┌───────────────────────┐  │  ← 全屏 BottomSheet（覆盖全屏）
+│  │  grabber + Close      │  │     点击事件后打开：
+│  │  CALENDAR   ✓ Confirmed│  │     - 事件完整上下文
+│  │  "3pm with Mei moved…"│  │     - 行动按钮（Review / Pause / Send）
+│  │                       │  │     - 底部指令输入（含语音入口）
+│  │  [ See the updated day ]│ │
+│  │  ─────────────────    │  │
+│  │  [ Ask about this… ] 🎤▶ │  │  ← Prompt Entry（仅在弹出框内）
+│  └───────────────────────┘  │
+│                             │
+│  Pulse │ Talk │ Memory │ Me │  ← Bottom Tabs（固定视口底部）
 └─────────────────────────────┘
 ```
 
-**关键设计决策：**
+**关键设计决策（V3 更新）：**
 
 | 决策 | 理由 |
 |---|---|
-| Mission 内容融入一段话 | 不需要独立页面。AI 在简报，不是在给你看工单。 |
-| Daily Brief 是一段自然语言 | 替代 12 条日志。AI 在总结，不是在 dump 记录。 |
-| Insights 融入 Daily Brief | 不独立成卡。Pulse 主动提起，像在聊天。 |
-| 「Review changes」按钮 → Talk | 点击后进入对话，在对话里讨论，不是看 callout。 |
-| 首屏焦点 = 「Pulse 在」+「需要你看 users.ts」 | 2 个焦点，不是 5 个。 |
+| 首页 = 事件流，不是卡片堆叠 | 一个事件 = 一个信息单位，扫读效率高；类型标识为行首标题 |
+| 状态沉右下角 + 缩小一号 | 元信息不抢注意力，状态色仍一瞥可辨 |
+| 点击事件 → 全屏弹出框 | 详情、行动、指令在同一场景，不打断上下文 |
+| Prompt Entry 只在弹出框内 | 指令是针对具体事件的（"Ask about this…"），首页不留常驻输入 |
+| 行动按钮（Review 等）移入弹出框 | 首页只负责"告知"，操作发生在事件场景内 |
+| Daily Brief 迁入 Memory | 过去时的总结归属"记忆"语境，首页事件流只放"现在" |
+| TabBar 固定视口底部 | `html, body { height: 100% }` 修复高度塌缩 |
 
 ---
 
@@ -447,23 +441,27 @@ Pulse Showcase
                     └──────────┬───────────┘
                                │
                                ▼
-                    ┌──────────────────────┐
-                    │     Pulse (Home)     │  ← 默认首页
-                    │                      │
-                    │  AI 简报 + Daily Brief│
-                    │  + Prompt Entry      │
-                    └──┬────────┬──────────┘
-                       │        │
-          tap Prompt   │        │ tap "Review changes"
-          Entry        │        │
-                       ▼        ▼
-                    ┌──────────────────────┐
-                    │    Talk (Conversation)│  ← 产品核心
-                    │                      │
-                    │  全屏对话             │
-                    │  Pulse 主动发起       │
-                    │  嵌入辅助卡片         │
-                    └──────────┬───────────┘
+                     ┌──────────────────────┐
+                     │     Pulse (Home)     │  ← 默认首页
+                     │                      │
+                     │  AI 存在 + 事件流    │
+                     └──┬────────┬──────────┘
+                        │        │
+          tap 事件行     │        │ tap "Review"
+          (弹出框)       │        │ (弹出框内)
+                        ▼        ▼
+                     ┌──────────────────────┐
+                     │  Event BottomSheet   │  ← 全屏：详情 + 行动 + 指令
+                     └──┬───────────────────┘
+                        │ tap "Review"（行动按钮）
+                        ▼
+                     ┌──────────────────────┐
+                     │    Talk (Conversation)│  ← 产品核心
+                     │                      │
+                     │  全屏对话             │
+                     │  Pulse 主动发起       │
+                     │  嵌入辅助卡片         │
+                     └──────────┬───────────┘
                                │
                                │ tab: Pulse / Memory / Me
                                ▼
@@ -488,8 +486,9 @@ Pulse Showcase
 | 起点 | 动作 | 终点 | 类型 |
 |---|---|---|---|
 | App 启动 | — | Pulse | 默认 |
-| Pulse | 点击 Prompt Entry | Talk | Tab 切换 |
-| Pulse | 点击 "Review changes" | Talk | Tab 切换（带上下文） |
+| Pulse | 点击事件行 | 事件全屏弹出框 | 模态（就地操作） |
+| Pulse | 弹出框内行动按钮（Review 等） | Talk | 切换（带事件上下文） |
+| Pulse | 弹出框内指令输入 | alert（模拟） | 模拟发送 → Talk |
 | Pulse | 点击底部 Talk tab | Talk | Tab 切换 |
 | Pulse | 点击底部 Memory tab | Memory | Tab 切换 |
 | Pulse | 点击底部 Me tab | Me | Tab 切换 |
@@ -510,28 +509,25 @@ Pulse Showcase
 时间     用户动作              看到                       感受
 ──────────────────────────────────────────────────────────────
 0s      打开 App              "Good evening."             "嗨"
-1s      看到 Pulse            ● "I'm here."               "AI 在"
-                             "monitoring 3 projects"
-2s      读简报                "I'm working on your        "哦，在做 auth"
-                             auth module..."
-3s      读到需要关注           "Can you take a look at     "需要我看"
-                             users.ts?"
-5s      点击 "Review changes"  → Talk                      进入对话
-6s      看到对话上下文         Pulse: "I've been working    "接着说"
-                             on your auth module..."
-8s      回复                  "Sure, what did you         开始对话
-                             change?"
-10s     Pulse 回复            "Updated password             "好，看懂了"
-                             validation..."
-12s     看到 Pulse 主动说      "By the way, I noticed       "还能这样？"
+1s      看到 presence 行      ● "I'm here."               "AI 在"
+                             "Watching 3 projects"
+2s      扫事件流              NEEDS YOU: "Review the      "有件事要我看"
+                             auth migration"
+5s      点击事件              → 全屏弹出框                进入事件上下文
+6s      看到上下文 + 操作      "blocking tomorrow's        "需要拍板"
+                             deploy" [Review] [Pause]
+8s      就地输入指令          "Ask about this…" 输入      不用跳转
+10s     Pulse 回复 / 行动      （模拟 → Talk）             开始对话
+12s     Pulse 主动说           "By the way, I noticed       "还能这样？"
                              test coverage dropped..."
 15s     回复                  "Yeah, look into it"         授权
-20s     切到 Memory tab        读到 "We started working      "它真的记得"
+20s     切到 Memory tab        读到 "Today" 总结 +         "它真的记得"
+                             "We started working
                              together in March..."
 30s     满意，关闭 App                                     "这就是伙伴"
 ```
 
-**体验节奏：感知（0-2s）→ 了解（2-5s）→ 对话（5-15s）→ 回顾（20-30s）**
+**体验节奏：感知（0-2s）→ 扫描（2-5s）→ 深入事件（5-10s）→ 对话（10-15s）→ 回顾（20-30s）**
 
 ### 场景 B：早上打开 App，想了解昨天
 
@@ -539,13 +535,14 @@ Pulse Showcase
 时间     用户动作              看到                       感受
 ──────────────────────────────────────────────────────────────
 0s      打开 App              "Good morning."             "早"
-2s      看到 Daily Brief      "I spent most of yesterday  "昨天做了什么"
-                             improving authentication."
-5s      读到细节              "Everything went well       "顺利就好"
-                             except one migration."
-8s      看到 Pulse 的建议      "I'd like you to review it"  "好，我去看看"
-10s     点击 Prompt Entry     → Talk                      进入对话
-12s     输入                  "Show me the migration"      开始工作
+2s      首页没有昨天           Pulse 首页只有"现在"        正确，昨天不在这
+5s      切到 Memory tab        "Today" 模块：             "昨天做了什么"
+                             "Started around 9 with
+                             the auth refactor..."
+8s      读到待办来源           "...one migration is        "哦，就是那件事"
+                             waiting on you"
+10s     切回 Pulse tab         NEEDS YOU 事件还在          上下文衔接
+12s     点击事件 → 弹出框      [Review] → Talk            开始工作
 ```
 
 ### 场景 C：调整工作方式
@@ -645,13 +642,13 @@ V1 的核心问题是同一信息在 4 个页面重复。V2 的信息归属：
 
 | 信息 | V1 出现位置（重复） | V2 唯一归属 |
 |---|---|---|
-| "Refactoring auth module" | Pulse / Mission / Activity / Memory | Pulse 的简报（1 处） |
-| "Review users.ts" | Pulse callout / Mission / Activity / Conversation | Talk 对话（1 处） |
-| "Auth module 完成了" | Pulse Today / Mission Brief / Mission Notes / Activity | Pulse 的 Daily Brief（1 处） |
+| "Refactoring auth module" | Pulse / Mission / Activity / Memory | Pulse 的事件流（1 处） |
+| "Review users.ts" | Pulse callout / Mission / Activity / Conversation | 事件弹出框 + Talk 对话（1 个事件源头） |
+| "Auth module 完成了" | Pulse Today / Mission Brief / Mission Notes / Activity | Memory 的今日总结（1 处） |
 | "Test coverage dropped" | Pulse Insights / Activity / Memory | Talk 对话里 Pulse 主动提起（1 处） |
-| "I'm monitoring 3 projects" | Pulse / Identity Knowledge | Pulse 的简报（1 处） |
+| "I'm monitoring 3 projects" | Pulse / Identity Knowledge | Pulse 的 presence 行（1 处） |
 
-**原则：每条信息只在一个地方出现，其他地方通过对话引用。**
+**原则：每条信息只在一个地方出现，其他地方通过事件引用或对话引用。**
 
 ---
 
@@ -661,18 +658,18 @@ V1 的核心问题是同一信息在 4 个页面重复。V2 的信息归属：
 
 | V2 页面 | 文件 | V1 来源 | 改动 |
 |---|---|---|---|
-| Pulse | `pages/dashboard.html` | dashboard.html（重写） | 删除 Today's Work / Insights 卡片，Mission 内容融入对话，新增 Daily Brief 段 |
+| Pulse | `pages/dashboard.html` | dashboard.html（重写 ×2） | 卡片堆叠 → 事件流 + 全屏弹出框（V3）；删除底部 Prompt Entry / 行动按钮；Daily Brief 迁出 |
 | Talk | `pages/conversation.html`（新文件） | 无（全新） | 全屏对话流 + 常驻输入栏 |
-| Memory | `pages/history.html` | history.html（重写） | 删除列表/计数/分类，改为叙事长文 |
+| Memory | `pages/history.html` | history.html（重写） | 删除列表/计数/分类，改为叙事长文；顶部新增 "Today" 今日总结模块（Daily Brief 迁入） |
 | Me | `pages/settings.html` | settings.html（重写） | 6 卡 → 3 陈述，"Let's talk" → Talk |
-| 删除 | `pages/job-detail.html` | job-detail.html | 不再使用（Mission 已融入 Pulse） |
-| 删除 | `pages/jobs.html` | jobs.html | 不再使用（Activity 已变 Daily Brief） |
+| 删除 | `pages/job-detail.html` | job-detail.html | 不再使用（Mission 已融入 Pulse 事件流） |
+| 删除 | `pages/jobs.html` | jobs.html | 不再使用（Activity 已变 Daily Brief → Memory） |
 
 | Sidebar / Bottom Tab | 变化 |
 |---|---|
 | Sidebar nav | 5 项 → 4 项（Pulse / Talk / Memory / Me） |
 | Bottom tab bar | 3 项 → 4 项（Pulse / Talk / Memory / Me） |
-| Pulse 的 Prompt Entry | 点击 → `navigateTo('pages/conversation.html')` |
+| Pulse 事件行 | 点击 → 事件全屏弹出框（`openSheet(id)`） |
 
 ---
 

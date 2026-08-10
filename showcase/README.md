@@ -12,15 +12,17 @@ Open `index.html` in a browser.
 showcase/
 ├── index.html              Showcase shell (sidebar + iPhone preview)
 ├── styles/
-│   ├── theme.css           All DESIGN.md tokens (colors, type, spacing, etc.)
+│   ├── theme.css           All design tokens (colors, type, spacing, etc.)
 │   ├── components.css      Component styles (Button, Card, Input, etc.)
 │   └── layout.css          Showcase frame + iPhone 16 Pro mockup
 ├── pages/
-│   ├── dashboard.html      Agent overview (Tab 1)
-│   ├── jobs.html           Activity log feed (Tab 2)
-│   ├── job-detail.html     Single agent detail (pushed screen)
-│   ├── history.html        Completed job history
-│   └── settings.html       Settings (Tab 3)
+│   ├── dashboard.html      Pulse home: event stream + full-screen sheet
+│   ├── conversation.html   Talk (full-screen conversation)
+│   ├── history.html        Memory (Today summary + narrative)
+│   ├── settings.html       Me (relationship statements)
+│   ├── lockscreen.html     Ambient lock screen
+│   ├── widget.html         Ambient widget
+│   └── _archive_v1/        Archived V1 pages (jobs, job-detail)
 ├── scripts/
 │   └── navigation.js       Sidebar page switching
 └── assets/
@@ -30,6 +32,7 @@ showcase/
 ## Theme
 
 All design tokens come from DESIGN.md. See `styles/theme.css`.
+Docs moved to `../docs/knowledge_base/`.
 
 ## Phone
 

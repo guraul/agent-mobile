@@ -42,12 +42,12 @@
               <span class="event-item__title">Review the auth migration</span>
               <span class="event-item__summary">Session handling is done — one migration is blocking tomorrow's deploy.</span>
             </span>
-            <span class="status-pill status-pill--warning">
-              <span class="status-dot status-dot--warning status-dot--sm"></span>
-              Needs you
-            </span>
-            <svg class="icon icon-sm event-item__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-          </button>
+            <span class="event-item__status">
+              <span class="status-pill status-pill--warning">
+                <span class="status-dot status-dot--warning status-dot--sm"></span>
+                Needs you
+              </span>
+            </span></button>
         </div>
       </div>
 
@@ -60,12 +60,12 @@
               <span class="event-item__title">3pm with Mei moved to 4</span>
               <span class="event-item__summary">Confirmed with her assistant.</span>
             </span>
-            <span class="status-pill status-pill--success">
-              <span class="status-dot status-dot--success status-dot--sm"></span>
-              Confirmed
-            </span>
-            <svg class="icon icon-sm event-item__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-          </button>
+            <span class="event-item__status">
+              <span class="status-pill status-pill--success">
+                <span class="status-dot status-dot--success status-dot--sm"></span>
+                Confirmed
+              </span>
+            </span></button>
 
           <button class="event-item" data-event="subscription">
             <span class="event-item__type">SUBSCRIPTION</span>
@@ -73,12 +73,12 @@
               <span class="event-item__title">Coffee subscription renews Friday</span>
               <span class="event-item__summary">Same plan as last month, $18.</span>
             </span>
-            <span class="status-pill status-pill--success">
-              <span class="status-dot status-dot--success status-dot--sm"></span>
-              Let through
-            </span>
-            <svg class="icon icon-sm event-item__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-          </button>
+            <span class="event-item__status">
+              <span class="status-pill status-pill--success">
+                <span class="status-dot status-dot--success status-dot--sm"></span>
+                Let through
+              </span>
+            </span></button>
 
           <button class="event-item" data-event="email">
             <span class="event-item__type">DRAFT</span>
@@ -86,12 +86,12 @@
               <span class="event-item__title">Reply to the recruiter</span>
               <span class="event-item__summary">Drafted — want to look before I send?</span>
             </span>
-            <span class="status-pill status-pill--idle">
-              <span class="status-dot status-dot--idle status-dot--sm"></span>
-              Draft
-            </span>
-            <svg class="icon icon-sm event-item__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-          </button>
+            <span class="event-item__status">
+              <span class="status-pill status-pill--idle">
+                <span class="status-dot status-dot--idle status-dot--sm"></span>
+                Draft
+              </span>
+            </span></button>
         </div>
       </div>
 
@@ -105,15 +105,21 @@
         <span class="event-item__type" id="sheet-type"></span>
         <div style="flex: 1;"></div>
         <span class="status-pill" id="sheet-status"></span>
+        <button class="icon-btn" onclick="closeSheet()" aria-label="Close" style="margin-left: var(--space-xs);">
+          <svg class="icon icon-md" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
       </div>
       <div class="bottom-sheet__title" id="sheet-title"></div>
       <p class="type-body" id="sheet-detail" style="margin: 0 0 var(--space-md);"></p>
       <div class="flex-col" id="sheet-actions" style="gap: var(--space-xs); margin-bottom: var(--space-lg);"></div>
       <div class="divider--faint" style="margin-bottom: var(--space-md);"></div>
-      <div class="flex-row" style="gap: var(--space-xs);">
+      <div class="flex-row" style="gap: var(--space-xs); margin-top: auto; padding-top: var(--space-md);">
         <div class="input-wrapper" style="flex: 1;">
           <input type="text" id="sheet-prompt" placeholder="Ask about this…" />
         </div>
+        <button class="icon-btn" onclick="alert('Voice input')" aria-label="Voice input">
+          <svg class="icon icon-md" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+        </button>
         <button class="icon-btn" style="background: var(--color-accent); color: var(--color-on-accent);" onclick="alert('Sent to Talk')" aria-label="Send">
           <svg class="icon icon-md" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
         </button>

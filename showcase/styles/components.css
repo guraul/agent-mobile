@@ -6,6 +6,8 @@
 /* === RESET (page-level) === */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+html, body { height: 100%; }
+
 html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 
 body {
@@ -390,8 +392,6 @@ body {
 .bottom-tab-bar__item--active span { color: var(--color-accent); }
 
 /* === BOTTOM SHEET (§7.5) === */
-.bottom-sheet-scrim--hidden { display: none; }
-.bottom-sheet--hidden { display: none; }
 .bottom-sheet-scrim {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
@@ -399,17 +399,20 @@ body {
 }
 .bottom-sheet {
   position: absolute;
+  top: 0;
   bottom: 0;
   left: 0;
   right: 0;
+  height: 100%;
   background-color: var(--color-surface-3);
-  border-top-left-radius: var(--radius-lg);
-  border-top-right-radius: var(--radius-lg);
-  border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
+  border-radius: 0;
   padding: var(--space-lg) var(--space-xl) var(--space-xl);
   box-shadow: var(--shadow-sheet);
+  display: flex;
+  flex-direction: column;
 }
+.bottom-sheet-scrim--hidden { display: none; }
+.bottom-sheet--hidden { display: none; }
 .bottom-sheet__grabber {
   width: 36px;
   height: 4px;
@@ -619,8 +622,9 @@ body {
 }
 .event-item {
   display: flex;
-  align-items: center;
-  gap: var(--space-sm);
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-xxs);
   padding: var(--space-sm) var(--space-md);
   min-height: 56px;
   border: none;
@@ -635,14 +639,15 @@ body {
 .event-item:last-child { border-bottom: none; }
 .event-item:active { background-color: var(--color-surface-2); }
 .event-item__type {
-  font-family: var(--font-mono);
-  font-size: var(--type-mono-caption-size);
-  line-height: var(--type-mono-caption-line-height);
+  font-family: var(--font-sans);
+  font-size: var(--type-caption-strong-size);
+  font-weight: var(--type-caption-strong-weight);
+  line-height: var(--type-caption-strong-line-height);
   letter-spacing: 0.8px;
   color: var(--color-muted);
   white-space: nowrap;
-  align-self: flex-start;
-  padding-top: 3px;
+  align-self: auto;
+  padding-top: 0;
 }
 .event-item__content {
   flex: 1;
@@ -653,22 +658,28 @@ body {
 }
 .event-item__title {
   font-family: var(--font-sans);
-  font-size: var(--type-body-strong-size);
-  font-weight: var(--type-body-strong-weight);
-  line-height: var(--type-body-strong-line-height);
+  font-size: var(--type-caption-strong-size);
+  font-weight: var(--type-caption-strong-weight);
+  line-height: var(--type-caption-strong-line-height);
   color: var(--color-ink);
 }
 .event-item__summary {
   font-family: var(--font-sans);
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line-height);
+  font-size: var(--type-caption-strong-size);
+  font-weight: var(--type-caption-strong-weight);
+  line-height: var(--type-caption-strong-line-height);
   color: var(--color-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.event-item__chevron { color: var(--color-muted); flex-shrink: 0; }
-.event-item .status-pill { flex-shrink: 0; }
+.event-item__status { align-self: flex-end; }
+.event-item__status .status-pill {
+  font-size: 11px;
+  font-weight: 400;
+  padding: 1px var(--space-xxs);
+  gap: 4px;
+}
 
 /* === CHAT STREAM (Talk) === */
 .chat-stream {

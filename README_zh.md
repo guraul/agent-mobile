@@ -11,15 +11,20 @@ AI 编码代理（OpenCode、Claude Code、Codex）的移动端遥控应用。
 ## 仓库结构
 
 ```
-├── DESIGN.md                 完整设计系统规范（令牌、组件、界面）
-├── DESIGN_DIRECTION.md       设计方向（为什么 & 怎么做）
 ├── src/                      React/TSX 源码
 │   ├── components/           UI 基础组件
 │   ├── screens/              应用界面（Agents、Activity、Settings 等）
 │   └── theme/                设计令牌（颜色、字体、间距等）
 ├── showcase/                 最终 UI 的静态 HTML 预览
 │   └── README.md             展示站使用方法与结构
-└── docs/                     组件与界面评审文档
+└── docs/
+    └── knowledge_base/       设计规范与评审文档
+        ├── DESIGN.md         完整设计系统规范（令牌、组件、界面）
+        ├── DESIGN_DIRECTION.md  设计方向（为什么 & 怎么做）
+        ├── VISION_REVIEW.md  产品愿景评审
+        ├── AI_INTERACTION_DESIGN.md  首页交互设计（事件流版）
+        ├── SHOWCASE_*.md     展示站实现与评审文档
+        └── *_REVIEW.md       组件与界面评审文档
 ```
 
 ## 展示站

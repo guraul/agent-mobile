@@ -11,15 +11,20 @@ A design-first project: the visual identity, component system, and screens for a
 ## Repository Layout
 
 ```
-├── DESIGN.md                 Full design system spec (tokens, components, screens)
-├── DESIGN_DIRECTION.md       Design direction (why & how)
 ├── src/                      React/TSX source
 │   ├── components/           UI primitives & components
 │   ├── screens/              App screens (Agents, Activity, Settings, ...)
 │   └── theme/                Design tokens (colors, typography, spacing, ...)
 ├── showcase/                 Static HTML preview of the final UI
 │   └── README.md             Showcase usage & structure
-└── docs/                     Component & screen review documents
+└── docs/
+    └── knowledge_base/       Design specs & review docs
+        ├── DESIGN.md         Full design system spec (tokens, components, screens)
+        ├── DESIGN_DIRECTION.md  Design direction (why & how)
+        ├── VISION_REVIEW.md  Product vision review
+        ├── AI_INTERACTION_DESIGN.md  Home interaction design (event stream)
+        ├── SHOWCASE_*.md     Showcase implementation & review docs
+        └── *_REVIEW.md       Component & screen review docs
 ```
 
 ## Showcase
