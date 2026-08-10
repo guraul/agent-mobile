@@ -1,0 +1,2 @@
+minimumReleaseAgeExclude:
+  - lucide-react-native@1.31.0

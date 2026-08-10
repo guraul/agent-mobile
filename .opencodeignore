@@ -1,0 +1,6 @@
+.git/
+**/.DS_Store
+agent-mobile-app/node_modules/
+agent-mobile-app/dist/
+agent-mobile-app/.expo/
+agent-mobile-app/expo-env.d.ts
