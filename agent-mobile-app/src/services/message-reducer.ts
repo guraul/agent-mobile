@@ -32,6 +32,9 @@ function upsertPart(parts: OpenCodePart[], part: OpenCodePart): OpenCodePart[] {
  * arrives via separate `message.part.updated` events, so parts are left untouched here.
  * If the message isn't in the list yet (new streaming reply), insert a placeholder so
  * subsequent `message.part.updated` events have a target to fill.
+ *
+ * The list is kept chronological (oldest first, matching `listMessages`), so a
+ * brand-new message is inserted by creation time, typically at the end.
  */
 export function applyMessageUpdated(
   messages: OpenCodeMessage[],
@@ -49,7 +52,13 @@ export function applyMessageUpdated(
         : { created: Date.now() },
   };
   if (idx === -1) {
-    return [...messages, { info: nextInfo, parts: [] }];
+    const created = nextInfo.time?.created ?? Date.now();
+    const insertAt = messages.findIndex((m) => (m.info.time?.created ?? 0) > created);
+    const placeholder: OpenCodeMessage = { info: nextInfo, parts: [] };
+    if (insertAt === -1) return [...messages, placeholder];
+    const next = [...messages];
+    next.splice(insertAt, 0, placeholder);
+    return next;
   }
   const next = [...messages];
   next[idx] = { ...next[idx], info: nextInfo };

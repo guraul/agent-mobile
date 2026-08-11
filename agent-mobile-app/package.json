@@ -45,7 +45,9 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "e2e": "node scripts/e2e/pulse-e2e.mjs",
+    "e2e:nosend": "E2E_NO_SEND=1 node scripts/e2e/pulse-e2e.mjs"
   },
   "private": true
 }

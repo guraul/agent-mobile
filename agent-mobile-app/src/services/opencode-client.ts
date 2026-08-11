@@ -97,8 +97,28 @@ export const opencodeClient = {
     });
   },
 
-  listMessages(id: string): Promise<OpenCodeMessage[]> {
-    return request<OpenCodeMessage[]>(`/session/${id}/message`);
+  listMessages(id: string, options?: { limit?: number; offset?: number }): Promise<OpenCodeMessage[]> {
+    const qs: string[] = [];
+    if (options?.limit != null) qs.push(`limit=${options.limit}`);
+    if (options?.offset != null) qs.push(`offset=${options.offset}`);
+    const q = qs.length ? `?${qs.join("&")}` : "";
+    return request<OpenCodeMessage[]>(`/session/${id}/message${q}`);
+  },
+
+  getSessionStatus(directory?: string): Promise<Record<string, "busy" | "retry" | "idle">> {
+    const q = directory ? `?directory=${encodeURIComponent(directory)}` : "";
+    return request<Record<string, "busy" | "retry" | "idle">>(`/session/status${q}`);
+  },
+
+  replyPermission(
+    id: string,
+    permissionID: string,
+    response: "once" | "always" | "reject",
+  ): Promise<boolean> {
+    return request<boolean>(`/session/${id}/permissions/${permissionID}`, {
+      method: "POST",
+      body: JSON.stringify({ response }),
+    });
   },
 
   sendMessage(

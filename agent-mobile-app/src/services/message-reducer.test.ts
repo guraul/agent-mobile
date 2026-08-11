@@ -20,11 +20,25 @@ describe("applyMessageUpdated", () => {
     expect(out[0].parts).toEqual(base[0].parts);
   });
 
-  it("inserts placeholder for a new message", () => {
+  it("inserts placeholder for a new message at the end (chronological)", () => {
     const out = applyMessageUpdated(base, { id: "msg9", role: "assistant", sessionID: "s1" });
     expect(out).toHaveLength(2);
     expect(out[1].info.id).toBe("msg9");
     expect(out[1].parts).toEqual([]);
+  });
+
+  it("inserts by creation time when an explicit timestamp is given", () => {
+    const msgs: OpenCodeMessage[] = [
+      { info: { id: "a", role: "assistant", sessionID: "s1", time: { created: 100 } }, parts: [] },
+      { info: { id: "b", role: "assistant", sessionID: "s1", time: { created: 300 } }, parts: [] },
+    ];
+    const out = applyMessageUpdated(msgs, {
+      id: "new",
+      role: "assistant",
+      sessionID: "s1",
+      time: { created: 200 },
+    });
+    expect(out.map((m) => m.info.id)).toEqual(["a", "new", "b"]);
   });
 });
 

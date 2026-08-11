@@ -2,25 +2,17 @@ import React, { useState } from "react";
 import {
   View,
   ScrollView,
-  Pressable,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
   type ViewStyle,
 } from "react-native";
-import { Bell, X } from "lucide-react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import {
-  ScreenHeader,
-  StatusDot,
-  EventItem,
-  BottomSheet,
-  Button,
-  Text,
-} from "@/components";
-import { SessionPanel } from "@/components/session/SessionPanel";
-import { colors, spacing, radius, iconStroke } from "@/theme";
-import { PULSE_EVENTS, PULSE_SECTIONS, type PulseEvent } from "@/screens/events";
+import { Bell } from "lucide-react-native";
+import { ScreenHeader, StatusDot, EventItem, BottomSheet, Text, Box } from "@/components";
+import { ProjectChat } from "@/components/chat/ProjectChat";
+import { useProjectEvents, type ProjectEvent } from "@/hooks/useProjectEvents";
+import { colors, spacing, radius } from "@/theme";
+import type { StatusType } from "@/components/feedback/StatusDot";
 
 function getGreeting(): string {
   const h = new Date().getHours();
@@ -29,16 +21,39 @@ function getGreeting(): string {
   return "Good evening.";
 }
 
+function statusTypeFor(status: ProjectEvent["status"]): StatusType {
+  switch (status) {
+    case "running":
+      return "running";
+    case "needs-you":
+      return "warning";
+    default:
+      return "idle";
+  }
+}
+
+interface GroupedEvent extends ProjectEvent {
+  section: "needs-you" | "today";
+}
+
 export default function PulseScreen() {
-  const insets = useSafeAreaInsets();
-  const [selectedEvent, setSelectedEvent] = useState<PulseEvent | null>(null);
+  const { events, loading, error } = useProjectEvents();
+  const [activeProject, setActiveProject] = useState<{
+    id: string;
+    projectPath: string;
+  } | null>(null);
 
-  const openSheet = (event: PulseEvent) => setSelectedEvent(event);
-  const closeSheet = () => {
-    setSelectedEvent(null);
-  };
+  const needsYou: GroupedEvent[] = events
+    .filter((e) => e.status === "needs-you")
+    .map((e) => ({ ...e, section: "needs-you" as const }));
+  const today: GroupedEvent[] = events
+    .filter((e) => e.status === "running")
+    .map((e) => ({ ...e, section: "today" as const }));
 
-  const eventMap = new Map(PULSE_EVENTS.map((e) => [e.id, e]));
+  const groups: { label: string; items: GroupedEvent[] }[] = [
+    { label: "Needs you", items: needsYou },
+    { label: "Today", items: today },
+  ].filter((g) => g.items.length > 0);
 
   const sectionLabelStyle: ViewStyle = {
     paddingHorizontal: spacing.xxs,
@@ -57,7 +72,6 @@ export default function PulseScreen() {
         rightAccessibilityLabel="Notifications"
       />
 
-      {/* Greeting + presence */}
       <View style={styles.greetingWrap}>
         <Text variant="headline" color="ink">
           {getGreeting()}
@@ -70,122 +84,81 @@ export default function PulseScreen() {
             accessibilityLabel="Pulse is here"
           />
           <Text variant="captionStrong" color="body">
-            I'm here.
+            I&apos;m here.
           </Text>
           <Text variant="caption" color="muted">
-            Watching 3 projects and your day.
+            Watching your projects.
           </Text>
         </View>
       </View>
 
-      {/* Event stream */}
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {PULSE_SECTIONS.map((section) => (
-          <View key={section.label} style={styles.section}>
+        {error ? (
+          <Box padding="sm" backgroundColor="surface.1" rounded="md">
+            <Text variant="caption" color="error">{error}</Text>
+          </Box>
+        ) : null}
+
+        {loading && groups.length === 0 ? (
+          <Box padding="lg">
+            <Text variant="body" color="muted">Loading projects…</Text>
+          </Box>
+        ) : null}
+
+        {!loading && groups.length === 0 && !error ? (
+          <Box padding="lg" style={styles.center}>
+            <Text variant="body" color="muted">No active projects right now.</Text>
+          </Box>
+        ) : null}
+
+        {groups.map((group) => (
+          <View key={group.label} style={styles.section}>
             <View style={sectionLabelStyle}>
               <Text variant="caption" color="muted">
-                {section.label.toUpperCase()}
+                {group.label.toUpperCase()}
               </Text>
             </View>
             <View style={styles.list}>
-              {section.eventIds.map((id, index, arr) => {
-                const event = eventMap.get(id)!;
-                return (
-                  <View
-                    key={event.id}
-                    style={
-                      index === arr.length - 1
-                        ? styles.lastItemWrap
-                        : undefined
+              {group.items.map((event, index, arr) => (
+                <View
+                  key={event.id}
+                  style={
+                    index === arr.length - 1 ? styles.lastItemWrap : undefined
+                  }
+                >
+                  <EventItem
+                    type={event.status === "needs-you" ? "ACTION" : "PROJECT"}
+                    title={event.name}
+                    summary={event.summary}
+                    status={statusTypeFor(event.status)}
+                    statusLabel={event.statusLabel}
+                    onPress={() =>
+                      setActiveProject({ id: event.id, projectPath: event.projectPath })
                     }
-                  >
-                    <EventItem
-                      type={event.type}
-                      title={event.title}
-                      summary={event.summary}
-                      status={event.status}
-                      statusLabel={event.statusLabel}
-                      onPress={() => openSheet(event)}
-                      testID={`event-${event.id}`}
-                    />
-                  </View>
-                );
-              })}
+                    testID={`project-${event.id}`}
+                  />
+                </View>
+              ))}
             </View>
           </View>
         ))}
       </ScrollView>
 
-      {/* Full-screen event sheet */}
       <BottomSheet
-        visible={selectedEvent !== null}
-        onClose={closeSheet}
+        visible={activeProject !== null}
+        onClose={() => setActiveProject(null)}
         fullScreen
-        testID="event-sheet"
+        testID="project-chat-sheet"
       >
-        {selectedEvent && (
-          <View style={styles.sheetBody}>
-            <View style={styles.sheetHeader}>
-              <Text variant="captionStrong" color="muted">
-                {selectedEvent.type}
-              </Text>
-              <View style={styles.sheetHeaderRight}>
-                <StatusDot
-                  status={selectedEvent.status}
-                  size={6}
-                  pulse={false}
-                  accessibilityLabel="Event status"
-                />
-                <Text
-                  variant="captionStrong"
-                  color={selectedEvent.status}
-                >
-                  {selectedEvent.statusLabel}
-                </Text>
-                <Pressable
-                  onPress={closeSheet}
-                  accessibilityLabel="Close"
-                  accessibilityRole="button"
-                  style={styles.closeButton}
-                >
-                  <X color={colors.muted} size={20} strokeWidth={iconStroke} />
-                </Pressable>
-              </View>
-            </View>
-
-            <View style={styles.sheetTitleWrap}>
-              <Text variant="headline" color="ink">
-                {selectedEvent.title}
-              </Text>
-            </View>
-            <Text variant="body" color="body">
-              {selectedEvent.detail}
-            </Text>
-
-            <View style={styles.sheetDivider} />
-
-            {selectedEvent.projectPath ? (
-              <SessionPanel projectPath={selectedEvent.projectPath} />
-            ) : (
-              <>
-                <View style={styles.sheetActions}>
-                  {selectedEvent.actions.map((action) => (
-                    <Button
-                      key={action.label}
-                      variant={action.variant}
-                      label={action.label}
-                      onPress={() => alert(action.alert)}
-                      fullWidth
-                    />
-                  ))}
-                </View>
-              </>
-            )}
-          </View>
+        {activeProject && (
+          <ProjectChat
+            projectPath={activeProject.projectPath}
+            onBack={() => setActiveProject(null)}
+          />
         )}
       </BottomSheet>
     </KeyboardAvoidingView>
@@ -230,40 +203,5 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: radius.md,
     borderBottomRightRadius: radius.md,
   },
-  sheetBody: {
-    flex: 1,
-  },
-  sheetHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: spacing.xs,
-  },
-  sheetHeaderRight: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    gap: spacing.xxs,
-  },
-  closeButton: {
-    width: 44,
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
-    marginLeft: spacing.xs,
-  },
-  sheetTitleWrap: {
-    marginBottom: spacing.sm,
-  },
-  sheetActions: {
-    gap: spacing.xs,
-    marginTop: spacing.lg,
-  },
-  sheetDivider: {
-    height: 1,
-    backgroundColor: colors.border.default,
-    opacity: 0.5,
-    marginTop: spacing.lg,
-    marginBottom: spacing.md,
-  },
+  center: { alignItems: "center" },
 });

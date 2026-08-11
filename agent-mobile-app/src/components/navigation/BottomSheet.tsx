@@ -97,9 +97,6 @@ export function BottomSheet({
         right: 0,
         bottom: 0,
         backgroundColor: colors.surface[3],
-        paddingTop: spacing.xl,
-        paddingBottom: spacing.xl,
-        paddingHorizontal: spacing.xl,
         pointerEvents: visible ? "auto" : "none",
       }
     : {
