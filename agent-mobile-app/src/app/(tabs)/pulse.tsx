@@ -2,14 +2,13 @@ import React, { useState } from "react";
 import {
   View,
   ScrollView,
-  TextInput,
   Pressable,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
   type ViewStyle,
 } from "react-native";
-import { Bell, Mic, Send, X } from "lucide-react-native";
+import { Bell, X } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   ScreenHeader,
@@ -19,6 +18,7 @@ import {
   Button,
   Text,
 } from "@/components";
+import { SessionPanel } from "@/components/session/SessionPanel";
 import { colors, spacing, radius, iconStroke } from "@/theme";
 import { PULSE_EVENTS, PULSE_SECTIONS, type PulseEvent } from "@/screens/events";
 
@@ -32,22 +32,13 @@ function getGreeting(): string {
 export default function PulseScreen() {
   const insets = useSafeAreaInsets();
   const [selectedEvent, setSelectedEvent] = useState<PulseEvent | null>(null);
-  const [prompt, setPrompt] = useState("");
 
   const openSheet = (event: PulseEvent) => setSelectedEvent(event);
   const closeSheet = () => {
     setSelectedEvent(null);
-    setPrompt("");
   };
 
   const eventMap = new Map(PULSE_EVENTS.map((e) => [e.id, e]));
-
-  const promptRowStyle: ViewStyle = {
-    flexDirection: "row",
-    gap: spacing.xs,
-    marginTop: "auto",
-    paddingTop: spacing.md,
-  };
 
   const sectionLabelStyle: ViewStyle = {
     paddingHorizontal: spacing.xxs,
@@ -175,48 +166,25 @@ export default function PulseScreen() {
               {selectedEvent.detail}
             </Text>
 
-            <View style={styles.sheetActions}>
-              {selectedEvent.actions.map((action) => (
-                <Button
-                  key={action.label}
-                  variant={action.variant}
-                  label={action.label}
-                  onPress={() => alert(action.alert)}
-                  fullWidth
-                />
-              ))}
-            </View>
-
             <View style={styles.sheetDivider} />
 
-            {/* Prompt entry */}
-            <View style={promptRowStyle}>
-              <View style={styles.inputWrap}>
-                <TextInput
-                  style={styles.input}
-                  value={prompt}
-                  onChangeText={setPrompt}
-                  placeholder="Ask about this…"
-                  placeholderTextColor={colors.disabled}
-                />
-              </View>
-              <Pressable
-                onPress={() => alert("Voice input")}
-                accessibilityLabel="Voice input"
-                accessibilityRole="button"
-                style={styles.voiceButton}
-              >
-                <Mic color={colors.body} size={20} strokeWidth={iconStroke} />
-              </Pressable>
-              <Pressable
-                onPress={() => alert("Sent to Talk")}
-                accessibilityLabel="Send"
-                accessibilityRole="button"
-                style={styles.sendButton}
-              >
-                <Send color={colors.onAccent} size={20} strokeWidth={iconStroke} />
-              </Pressable>
-            </View>
+            {selectedEvent.projectPath ? (
+              <SessionPanel projectPath={selectedEvent.projectPath} />
+            ) : (
+              <>
+                <View style={styles.sheetActions}>
+                  {selectedEvent.actions.map((action) => (
+                    <Button
+                      key={action.label}
+                      variant={action.variant}
+                      label={action.label}
+                      onPress={() => alert(action.alert)}
+                      fullWidth
+                    />
+                  ))}
+                </View>
+              </>
+            )}
           </View>
         )}
       </BottomSheet>
@@ -297,35 +265,5 @@ const styles = StyleSheet.create({
     opacity: 0.5,
     marginTop: spacing.lg,
     marginBottom: spacing.md,
-  },
-  inputWrap: {
-    flex: 1,
-    backgroundColor: colors.surface[1],
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    minHeight: 44,
-    justifyContent: "center",
-    paddingHorizontal: spacing.md,
-  },
-  input: {
-    padding: 0,
-    color: colors.ink,
-    fontSize: 16,
-  },
-  voiceButton: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.full,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  sendButton: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.full,
-    backgroundColor: colors.accent.default,
-    alignItems: "center",
-    justifyContent: "center",
   },
 });

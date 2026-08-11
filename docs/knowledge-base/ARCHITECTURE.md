@@ -1,6 +1,6 @@
 # ARCHITECTURE.md —— 架构与数据流
 
-> 最后更新：2026-08-10 · commit：`022b4a6`
+> 最后更新：2026-08-11 · commit：`1e83c92`（opencode 集成）
 
 ## 整体架构
 
@@ -24,19 +24,23 @@ app 层（路由 + 页面）      src/app/**
   ↓ 使用
 模块层（页面逻辑 + 数据）   src/screens/events.ts
   ↓ 使用
-组件层（可复用 UI）        src/components/**（primitives / feedback / navigation）
+组件层（可复用 UI）        src/components/**（primitives / feedback / navigation / session / chat）
+  ↓ 使用
+服务层（网络/状态）        src/services/**（opencode-client, opencode-events, message-reducer）
   ↓ 使用
 主题层（设计 token）       src/theme/**
 ```
 
-- 无全局状态管理（无 Redux/Zustand）；页面内 `useState` 即全部状态。
-- 无网络层、无持久化、无 API 客户端。
-- 路径别名：`@/*` → `src/*`（tsconfig.json `paths`）。
+- **状态管理**：页面内 `useState` + 服务层 SSE 事件流订阅（无全局状态库）。
+- **网络层**：`fetch` + Basic auth 对接 OpenCode Server（v1 `/global/event` SSE + REST）。
+- **API 客户端**：`src/services/opencode-client.ts` 封装 REST 端点；`src/services/opencode-events.ts` 处理 SSE 流式订阅（16ms 批量合并 + 指数退避重连）。
+- **增量更新**：`src/services/message-reducer.ts` 纯函数处理 `message.*` 事件，避免全量 reload。
+- **路径别名**：`@/*` → `src/*`（tsconfig.json `paths`）。
 
 ## 跨端/跨服务通信
 
-- **应用 ↔ 外部**：无（0 网络请求）。
-- **web 预览 ↔ 服务器**：静态文件服务，`agent-mobile-app/scripts/serve-static.mjs`（HTTP）。
+- **应用 ↔ OpenCode Server**：HTTP + Basic auth，SSE 事件流（`/global/event`），端口 4096。
+- **web 预览 ↔ 服务器**：静态文件服务，`agent-mobile-app/scripts/serve-static.mjs`（HTTP），端口 9928。
 - **构建 ↔ Expo 云**：EAS CLI 上传项目 → 云端 Gradle 构建 → 下载 APK。
 
 ## 数据模型定义
@@ -52,6 +56,7 @@ app 层（路由 + 页面）      src/app/**
 | status | StatusType | `"running" \| "idle" \| "success" \| "error" \| "warning"`（来自 `src/components/feedback/StatusDot.tsx`） |
 | statusLabel | string | 状态文案（"Needs you" / "Confirmed"…） |
 | detail | string | sheet 内详情正文 |
+| projectPath | string | （新增）对应真实项目路径（如 `/root/project/agent-mobile`），用于 opencode session 绑定 |
 | actions | { label; variant: `"primary"\|"secondary"\|"ghost"`; alert }[] | sheet 内操作按钮；alert 为点击后的演示文案 |
 
 ### PULSE_SECTIONS
@@ -68,22 +73,32 @@ app 层（路由 + 页面）      src/app/**
 | 事件数据 | `agent-mobile-app/src/screens/events.ts` | TypeScript 常量（PULSE_EVENTS: PulseEvent[]） |
 | 主题 token | `agent-mobile-app/src/theme/*.ts` | TS 常量对象 |
 | 应用配置 | `agent-mobile-app/app.json` / `eas.json` | JSON |
+| OpenCode 会话/消息 | OpenCode Server（内存/磁盘） | REST + SSE 流式增量 |
+| 环境变量 | `.env.local`（未提交） | `EXPO_PUBLIC_OPENCODE_URL/USERNAME/PASSWORD` |
 
-**无任何运行时持久化**（无 AsyncStorage/SQLite/文件）。重启即还原 mock 数据。
+**运行时持久化**：OpenCode Server 负责会话/消息的持久化（内存 + 磁盘）。应用重启后 opencode session 仍存在。
 
 ## 数据同步/流转机制
 
-无数据同步。唯一"流转"是 web 部署流程（非运行时）：
+**SSE 事件流**：OpenCode Server 推送 `message.*` / `session.*` 事件，客户端增量更新 UI（16ms 批量合并）。
+
+**web 部署流程**（非运行时）：
 
 ```
 npx expo export --platform web   →  dist/（静态产物，pulse.html 等）
 node scripts/serve-static.mjs    →  :9928 提供 HTTP 服务（gzip + /→/pulse 302）
 ```
 
-EAS 构建流转：
+**EAS 构建流转**：
 
 ```
 eas build -p android --profile preview
   → 云端 Gradle assembleRelease（仅 arm64-v8a）
   → expo.dev 提供 APK 下载
+```
+
+**OpenCode Server 托管**（systemd transient）：
+
+```
+OPENCODE_SERVER_PASSWORD=… opencode serve --port 4096 --hostname 127.0.0.1 --cors http://localhost:9928 --cors http://127.0.0.1:9928
 ```

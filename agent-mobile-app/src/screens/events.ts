@@ -8,6 +8,7 @@ export interface PulseEvent {
   status: StatusType;
   statusLabel: string;
   detail: string;
+  projectPath?: string;
   actions: { label: string; variant: "primary" | "secondary" | "ghost"; alert: string }[];
 }
 
@@ -21,6 +22,7 @@ export const PULSE_EVENTS: PulseEvent[] = [
     statusLabel: "Needs you",
     detail:
       "Session handling is done and tested. One database migration still needs your eyes before I push it — it touches the sessions table and blocks tomorrow's deploy. I can roll it back if you'd rather wait.",
+    projectPath: "/root/project/agent-mobile",
     actions: [
       { label: "Review the migration", variant: "primary", alert: "Open Talk with migration context" },
       { label: "Pause", variant: "ghost", alert: "Paused" },
