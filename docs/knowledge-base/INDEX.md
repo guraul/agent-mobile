@@ -73,6 +73,7 @@
 agent-mobile/                                  # git 根仓库
 ├── README.md / README_zh.md                   # 项目说明（英/中）
 ├── session.md                                 # 早期设计会话记录
+├── test/                                      # ★ 临时测试脚本 + 测试结果（截图/日志）统一存放
 ├── docs/
 │   ├── promptA.md                            # 知识库生成规范（模板）
 │   ├── knowledge-base/                       # ★ 全部文档：设计规范 + 知识库
@@ -153,6 +154,8 @@ opencode server (127.0.0.1:4096, Basic auth)
 | 新增组件 | `agent-mobile-app/src/components/<category>/xxx.tsx` + 在 index.ts 导出 |
 | 跑单测 | `pnpm test`（vitest） |
 | 跑 E2E | `pnpm e2e` / `pnpm e2e:nosend`（见 OPERATIONS.md） |
+| 写临时测试脚本/存截图 | `agent-mobile/test/`（勿放 /tmp） |
+| 排查 opencode 机制（auto compact 等） | 源码在 `/root/project/opencode-src`（仓库外，含 .git 历史） |
 | 预览 web 版 | `pnpm exec expo export --platform web` + 9928 服务（见 OPERATIONS.md） |
 | 打 APK | `eas build -p android --profile preview`（见 OPERATIONS.md） |
 | 改应用元信息（包名/名称/主题色） | `agent-mobile-app/app.json` |

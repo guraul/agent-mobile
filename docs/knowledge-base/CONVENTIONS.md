@@ -14,6 +14,8 @@
 ## 文件组织约定
 
 - 页面路由固定 `src/app/**`；可复用组件进 `components/` 并在 `index.ts` barrel 导出；服务层进 `services/`。
+- **临时测试脚本 / 测试结果（截图、日志）统一放仓库根 `test/` 目录**，勿散落 /tmp（用户明确要求）。
+- 排查 opencode 内部机制（auto compact、token 统计等）参考 `/root/project/opencode-src`（opencode 官方源码，仓库外）。
 - 组件间依赖用相对路径（如 `../../theme`）或别名 `@/`；页面统一 `@/components`、`@/theme`、`@/hooks`、`@/services`。
 - 应用配置 `app.json`；构建配置 `eas.json`。
 - 单元测试与源码同目录（`src/services/xxx.test.ts`），vitest include 只匹配 `src` 下。
