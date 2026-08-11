@@ -1,0 +1,10 @@
+import { chromium } from '/root/.claude/skills/playwright-skill/node_modules/playwright-core/index.mjs';
+const b = await chromium.launch({ executablePath: '/snap/bin/chromium', args: ['--no-sandbox'] });
+const p = await b.newPage();
+await p.goto('http://localhost:9928/', { waitUntil: 'domcontentloaded', timeout: 20000 });
+await p.waitForTimeout(1500);
+console.log('final URL:', p.url());
+console.log('title:', await p.title().catch(() => 'n/a'));
+const body = await p.evaluate(() => document.body.innerText.slice(0, 200)).catch(e => 'ERR:' + e.message.slice(0, 80));
+console.log('body:', body.replace(/\n/g, ' | '));
+await b.close();

@@ -1,0 +1,20 @@
+const { chromium } = require('/root/.claude/skills/playwright-skill/node_modules/playwright');
+(async () => {
+  const browser = await chromium.launch();
+  const page = await browser.newPage({ viewport: { width: 420, height: 900 } });
+  await page.goto('http://127.0.0.1:9928/pulse', { waitUntil: 'networkidle', timeout: 60000 });
+  await page.waitForTimeout(2500);
+  await page.getByText('Review the auth migration').first().click();
+  await page.waitForTimeout(7000);
+  const row = page.getByText('Pulse详情页关闭后无法再次打开').first();
+  console.log('row visible:', await row.isVisible());
+  console.log('row bounding:', JSON.stringify(await row.boundingBox()));
+  const hits = await page.getByText('Pulse详情页关闭后无法再次打开').count();
+  console.log('match count:', hits);
+  await row.click({ force: true });
+  await page.waitForTimeout(6000);
+  const input = page.locator('input[placeholder="Message opencode…"]');
+  console.log('input count after force click:', await input.count());
+  await page.screenshot({ path: '/tmp/dbg-forceclick.png' });
+  await browser.close();
+})();

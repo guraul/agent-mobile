@@ -1,0 +1,15 @@
+import { chromium, devices } from '/root/.claude/skills/playwright-skill/node_modules/playwright-core/index.mjs';
+const b = await chromium.launch({ executablePath: '/snap/bin/chromium', args: ['--no-sandbox'] });
+const ctx = await b.newContext({ ...devices['iPhone 13'], viewport: { width: 390, height: 844 } });
+const p = await ctx.newPage();
+let bytes = 0;
+p.on('response', r => { const cl = r.headers()['content-length']; if (cl) bytes += parseInt(cl); });
+await p.goto('http://localhost:9928/pulse', { waitUntil: 'domcontentloaded', timeout: 20000 });
+await p.waitForTimeout(3500);
+console.log('transferred ~', (bytes / 1024).toFixed(0), 'KB');
+const item = await p.evaluate(() => document.querySelector('[data-testid^="event-"]').getBoundingClientRect().toJSON());
+await p.touchscreen.tap(item.x + item.width / 2, item.y + item.height / 2);
+await p.waitForTimeout(1200);
+const open = await p.evaluate(() => !!document.querySelector('[data-testid="event-sheet"]'));
+console.log('sheet opens after tap:', open);
+await b.close();

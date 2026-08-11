@@ -1,0 +1,23 @@
+const { chromium } = require('/root/.claude/skills/playwright-skill/node_modules/playwright');
+(async () => {
+  const browser = await chromium.launch();
+  const page = await browser.newPage({ viewport: { width: 420, height: 900 } });
+  page.on('request', r => { if (r.url().includes('4096') && r.method() !== 'GET') console.log('REQ', r.method(), r.url().slice(0, 90)); });
+  await page.goto('http://127.0.0.1:9928/pulse', { waitUntil: 'networkidle', timeout: 60000 });
+  await page.waitForTimeout(3000);
+  await page.getByText('Review the auth migration').first().click();
+  await page.waitForTimeout(6000);
+  await page.getByText('Pulse详情页关闭后无法再次打开').first().click();
+  await page.waitForTimeout(6000);
+  const textarea = page.locator('textarea[placeholder*="Message"]');
+  await textarea.first().fill('请只回复三个字：测试通过');
+  await page.waitForTimeout(500);
+  const sendBtn = page.locator('[aria-label="Send"]');
+  console.log('send btn count:', await sendBtn.count());
+  console.log('send btn visible:', await sendBtn.first().isVisible().catch(() => false));
+  console.log('send btn disabled:', await sendBtn.first().isDisabled().catch(() => 'n/a'));
+  await sendBtn.first().click();
+  await page.waitForTimeout(8000);
+  console.log('after click, textarea value:', JSON.stringify(await textarea.first().inputValue()));
+  await browser.close();
+})();

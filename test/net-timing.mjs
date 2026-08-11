@@ -1,0 +1,13 @@
+import pw from '/root/.claude/skills/playwright-skill/node_modules/playwright-core/index.js';
+const { chromium } = pw;
+const page = await chromium.launch({headless:true,args:['--no-sandbox']}).then(b=>b.newPage());
+const t0 = Date.now();
+const apiTimes = [];
+page.on('request', r => { const u=r.url(); if (u.includes('/session')||u.includes('/project')) apiTimes.push({u:u.slice(0,60), t:Date.now()-t0, phase:'req'}); });
+page.on('response', r => { const u=r.url(); if (u.includes('/session')||u.includes('/project')) apiTimes.push({u:u.slice(0,60), t:Date.now()-t0, phase:'resp'}); });
+await page.goto('http://127.0.0.1:9928/pulse', { waitUntil: 'load', timeout: 120000 });
+console.log('load:', Date.now()-t0, 'ms');
+await page.waitForTimeout(4000);
+console.log('API req/resp (first 12):');
+apiTimes.slice(0,24).forEach(a=>console.log(a.t+'ms', a.phase, a.u));
+await browser.close();

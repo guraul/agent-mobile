@@ -1,0 +1,25 @@
+const { chromium } = require('/root/.claude/skills/playwright-skill/node_modules/playwright');
+(async () => {
+  const browser = await chromium.launch();
+  const page = await browser.newPage({ viewport: { width: 420, height: 900 } });
+  const before = Date.now();
+  await page.goto('http://127.0.0.1:9928/pulse', { waitUntil: 'networkidle', timeout: 60000 });
+  await page.waitForTimeout(2500);
+  await page.getByText('Review the auth migration').first().click();
+  await page.waitForTimeout(7000);
+  await page.getByText('Pulse详情页关闭后无法再次打开').first().click({ force: true });
+  await page.waitForTimeout(7000);
+  const textarea = page.locator('textarea[placeholder*="Message"]');
+  await textarea.first().fill('请只回复两个字：收到');
+  await page.waitForTimeout(800);
+  await page.getByLabel('Send').first().click();
+  console.log('sent at', (Date.now()-before)/1000, 's');
+  await page.waitForTimeout(4000);
+  const t1 = await page.locator('body').innerText();
+  console.log('after 4s has 收到?', t1.includes('收到'));
+  await page.waitForTimeout(15000);
+  const t2 = await page.locator('body').innerText();
+  console.log('after 19s has 收到?', t2.includes('收到'));
+  await page.screenshot({ path: '/tmp/verify-sent.png' });
+  await browser.close();
+})();

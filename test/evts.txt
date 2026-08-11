@@ -1,0 +1,6 @@
+      1 "type":"message.updated"
+      1 "type":"message.updated.1"
+      1 "type":"server.connected"
+      1 "type":"session.updated"
+      1 "type":"session.updated.1"
+      2 "type":"sync"
