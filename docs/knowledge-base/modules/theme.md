@@ -48,4 +48,4 @@
 - **单一数据源**：改颜色只改 colors.ts；组件/页面一律经 import 使用，禁止写死色值。
 - app.json 中另有应用级外观配置（`backgroundColor: #0c0a09`、splash 背景、`userInterfaceStyle: "dark"`），改整体色调需两边同步。
 - `iconStroke` 从 theme/icons.ts 导出（页面直接 `import { iconStroke } from "@/theme"`）。
-- status 色与语义（running=进行中/琥珀）被 StatusDot/Pill/Callout 与 events.ts 的 status 字段共用，改色表即全局生效。
+- status 色与语义（running=进行中/琥珀）被 StatusDot/Pill/Callout 与 EventItem 的状态映射共用，改色表即全局生效。

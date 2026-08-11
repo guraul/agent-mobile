@@ -50,6 +50,7 @@
 
 - **新组件必须补 barrel 导出**（components/index.ts），否则页面无法 `@/components` 引用。
 - 组件只依赖 theme token，禁止硬编码颜色/间距（见 CONVENTIONS）。
-- `StatusType` 定义在 StatusDot.tsx，多组件引用，改状态集合会波及 events.ts、EventItem、BottomSheet。
+- `StatusType` 定义在 StatusDot.tsx，多组件引用，改状态集合会波及 StatusDot/Pill/Callout、EventItem。
 - BottomSheet 动画用 RN Animated（useNativeDriver），web 下退化为 JS 动画（有 warning，无害）。
 - BottomSheet 关闭动画期间仍渲染（isVisible ref 控制卸载时机），依赖此行为勿改。
+- 分类目录含 `chat/`（ProjectChat/ChatPanel/MessageBubble，见 modules/chat.md）；fullScreen 模式无 padding（内容组件自撑 padding）。

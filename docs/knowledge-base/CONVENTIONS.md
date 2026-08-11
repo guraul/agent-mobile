@@ -1,26 +1,32 @@
 # CONVENTIONS.md —— 约定与陷阱
 
-> 最后更新：2026-08-10 · commit：`c8f76d8`（reactCompiler 禁用 + BottomSheet/accessible 修复）
+> 最后更新：2026-08-11 · commit：`072537f`（opencode 集成 + 消息顺序修复）
 
 ## 代码风格与命名约定
 
 - TypeScript strict 模式；组件使用函数组件 + 显式 props 接口（`XxxProps`）。
-- 组件文件：`src/components/<分类>/<组件名>.tsx`，分类目录：`primitives/`（基础）、`feedback/`（状态）、`navigation/`（导航容器）。
+- 组件文件：`src/components/<分类>/<组件名>.tsx`，分类目录：`primitives/`（基础）、`feedback/`（状态）、`navigation/`（导航容器）、`chat/`（对话）、`session/`（会话管理）。
 - 主题文件：`src/theme/<token组>.ts`，导出对象名 = 文件名（colors.ts → `colors`）。
-- 数据文件用 `.ts`（events.ts），页面/组件用 `.tsx`。
-- 测试 ID 惯例：`event-<id>`（EventItem）、`<testID>-scrim`（BottomSheet 遮罩）。
+- 纯逻辑放 `src/services/*.ts`（无 UI 依赖），聚合状态放 `src/hooks/*.ts`，页面/组件用 `.tsx`。
+- 测试 ID 惯例：`project-<id>`（EventItem）、`<testID>-scrim`（BottomSheet 遮罩）、`project-chat-sheet`（全屏 sheet）。
 - 图标统一 lucide-react-native，`strokeWidth={iconStroke}`。
 
 ## 文件组织约定
 
-- 页面路由固定 `src/app/**`；页面级数据放 `src/screens/`；可复用组件进 `components/` 并在 `index.ts` barrel 导出。
-- 组件间依赖用相对路径（如 `../../theme`）或别名 `@/`；页面统一 `@/components`、`@/theme`。
+- 页面路由固定 `src/app/**`；可复用组件进 `components/` 并在 `index.ts` barrel 导出；服务层进 `services/`。
+- 组件间依赖用相对路径（如 `../../theme`）或别名 `@/`；页面统一 `@/components`、`@/theme`、`@/hooks`、`@/services`。
 - 应用配置 `app.json`；构建配置 `eas.json`。
+- 单元测试与源码同目录（`src/services/xxx.test.ts`），vitest include 只匹配 `src` 下。
 
 ## 已知问题 / 易踩的坑
 
 | 坑 | 说明 | 规避 |
 |---|---|---|
+| **消息顺序反转（历史重大 bug）** | 曾误认为 `listMessages` 返回 newest-first 并 reverse + unshift，实际 API 返回 **chronological（旧在前）**，导致新消息显示在顶部、旧消息沉底 | 排序/插入一律以 `time.created` 为准；`applyMessageUpdated` 按时间戳定位插入；勿用固定端 push/unshift（有单测：order-sim.test.ts） |
+| **两轮回复被合并成一条** | `mergeMessages` 会把连续 assistant step 合并；初始加载的最新回复与新 SSE 回复若被判定为同一轮，会折叠成一条 | 合并依赖 `mergeGapMs=2min` 时间阈值（`message-merging.ts`），勿移除 |
+| **`/session` 不带 directory 只返回默认工作区** | `/session` 端点不带 `?directory=` 时只返回 `/root` 的会话 | 按项目 `directory` 分别查询（useProjectEvents / ProjectChat） |
+| **`/session/status` 只含活跃会话** | busy/retry 之外的存在会话不会出现在返回 map 中 | 调用方需对已知 session 显式补 `"idle"` |
+| **project.time.updated 被 watcher 污染** | 项目 `time.updated` 会被文件 watcher 更新，不能用于活跃度判断 | 活跃度以 `session.time.updated` 为准（project-status.ts） |
 | web 静态导出无 index.html | `expo export` 不产出根 `index.html`，`/` 会 404/目录列表 | serve-static.mjs 已处理（302→/pulse） |
 | 页面交互延迟 | web 版交互依赖 JS bundle 加载完（3MB），低带宽下"看着加载完但点不动" | gzip 已开；仍有体感问题则考虑拆包/CDN |
 | `useNativeDriver` warning（web） | Animated 在 web 无原生驱动 | 无害，忽略 |
@@ -30,14 +36,16 @@
 | 端口被旧进程占用 | 9928 曾部署过旧 showcase / dev server | `ss -tlnp` 查进程，pkill 后重启 |
 | 旧页面缓存 | 浏览器缓存旧 HTML | 响应已带 `Cache-Control: no-store` |
 | chromium 测试 | Playwright 需复用系统浏览器（snap chromium 已删） | `executablePath: '/root/.cache/ms-playwright/chromium_headless_shell-1228/chrome-headless-shell-linux64/chrome-headless-shell'` + `--no-sandbox`，勿 `playwright install`；headless 中 `locator.click`/`mouse` 对 RN Web Pressable 时序不稳定，可用 `dispatchEvent(new MouseEvent('click',{...}))` 复现真实点击 |
+| **E2E 断言误匹配** | 脚本按气泡文本 `includes()` 断言时，AI 回复中若引用了测试消息文本会被误命中 | 断言尽量结合角色（USER/AI）与位置，或匹配不含引用的唯一标识 |
 
 ## 修改红线
 
 - **勿在组件/页面硬编码颜色、字号、间距** —— 必须走 `src/theme/`，否则破坏主题一致性。
-- **勿改 `StatusType` 取值集合**（running/idle/success/error/warning）—— 牵连 events.ts、StatusDot/Pill/Callout、EventItem。
-- **勿删 `BottomSheet` 的 `isVisible` ref 卸载机制** —— 关闭动画依赖它（2026-08-10 起已由 `pointerEvents` 方案替代，见 pulse-stream.md）。
+- **勿改 `StatusType` 取值集合**（running/idle/success/error/warning）—— 牵连 StatusDot/Pill/Callout、EventItem。
+- **勿删 `BottomSheet` 的 fullScreen 无 padding 布局约定** —— 内容组件（ProjectChat header、ChatPanel 输入区）依赖自身 padding；加回 padding 会导致输入框/header 不贴边。
+- **勿改消息数组的 chronological 语义** —— reducer 插入、ChatPanel 排序、merge 顺序全部基于 `time.created`；任何"反向"假设都会重现消息错乱。
 - **勿把仓库根 `src/`（设计期源码）与 `agent-mobile-app/src/` 混为一谈** —— 两个独立代码库，改错位置 = 改到不运行的东西。
-- **`EXPO_TOKEN` 为敏感凭据** —— 不写入代码/文档/提交。
+- **`EXPO_TOKEN` / `EXPO_PUBLIC_OPENCODE_PASSWORD` 为敏感凭据** —— 不写入代码/文档/提交。
 - **expo 依赖版本必须匹配 SDK 57** —— 用 `npx expo install`，勿手工改版本号。
 - 写代码前遵守 `agent-mobile-app/AGENTS.md`：先读 https://docs.expo.dev/versions/v57.0.0/ 版本化文档。
 
