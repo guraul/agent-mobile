@@ -98,6 +98,18 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
           const info = props.info;
           setMessages((prev) => {
             const next = applyMessageUpdated(prev, info);
+            // If the message doesn't exist yet (new user message before parts arrive),
+            // initialize it so that subsequent message.part.updated events can append text parts.
+            if (!next) {
+              const newMsg: MessageEntry = {
+                id: info.id,
+                role: info.role,
+                parts: [],
+                displayItems: [{ type: info.role === 'user' ? 'user' : 'ai', content: '' }],
+              };
+              recomputeDisplay([ ...prev, newMsg ]);
+              return [ ...prev, newMsg ];
+            }
             recomputeDisplay(next);
             return next;
           });

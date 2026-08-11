@@ -1,6 +1,6 @@
 # modules/chat.md —— 聊天（项目对话）
 
-> 最后更新：2026-08-11 · commit：`072537f`（opencode 集成 + 消息顺序修复）
+> 最后更新：2026-08-11 · 修复 SSE 实时更新验证（code_inline 样式 + 新消息空壳插入）
 
 ## 模块职责
 
@@ -62,6 +62,7 @@ SSE: message.updated / message.part.updated / message.removed
 
 - **勿改 reducer 插入语义为固定端插入**：必须按时间戳定位，否则乱序（有单测覆盖：`order-sim.test.ts`）。
 - **勿移除 mergeGapMs 阈值**：会重新引入"两轮回复被合并成一条"的问题（`message-merging.test.ts` 覆盖）。
+- **自定义 `code_inline` 样式必须显式覆盖 `padding`**：react-native-markdown-display 默认 `code_inline` 带 `padding: 10`，只覆盖 color/backgroundColor 会留下 39px 高的大框覆盖相邻行；需加 `padding: 0, lineHeight: 22`（2026-08-11 已修）。
 - **BottomSheet fullScreen 无 padding**：输入区靠组件自身 padding 撑起（ChatPanel 自带 paddingBottom）。
 - 单测：`message-merging.test.ts`、`message-reducer.test.ts`、`order-sim.test.ts`（模拟完整 SSE 链路）。
 - E2E：`scripts/e2e/pulse-e2e.mjs` 覆盖打开项目 → 发消息 → 顺序校验。

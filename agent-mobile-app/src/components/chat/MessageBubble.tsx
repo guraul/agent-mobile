@@ -75,6 +75,9 @@ export function MessageBubble({ message }: { message: DisplayMessage }) {
                 code_inline: {
                   color: isUser ? colors.onAccent : colors.accent.bright,
                   backgroundColor: isUser ? "rgba(255,255,255,0.2)" : colors.surface[1],
+                  padding: 0,
+                  borderRadius: 3,
+                  lineHeight: 22,
                 },
                 fence: {
                   color: colors.ink,
