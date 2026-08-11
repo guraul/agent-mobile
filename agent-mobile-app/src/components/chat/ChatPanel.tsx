@@ -29,6 +29,10 @@ import { mergeMessages, type DisplayMessage } from "../../services/message-mergi
 import { MessageBubble } from "./MessageBubble";
 
 const PAGE_SIZE = 50;
+// keep a bounded window in memory: SSE events keep appending to the list loaded
+// by loadMessages; trimming the head keeps the list from growing unbounded
+// while preserving the most recent messages (matches the PAGE_SIZE reload window).
+const MAX_MESSAGES = PAGE_SIZE * 2;
 
 interface ChatPanelProps {
   sessionID: string;
@@ -98,20 +102,8 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
           const info = props.info;
           setMessages((prev) => {
             const next = applyMessageUpdated(prev, info);
-            // If the message doesn't exist yet (new user message before parts arrive),
-            // initialize it so that subsequent message.part.updated events can append text parts.
-            if (!next) {
-              const newMsg: MessageEntry = {
-                id: info.id,
-                role: info.role,
-                parts: [],
-                displayItems: [{ type: info.role === 'user' ? 'user' : 'ai', content: '' }],
-              };
-              recomputeDisplay([ ...prev, newMsg ]);
-              return [ ...prev, newMsg ];
-            }
             recomputeDisplay(next);
-            return next;
+            return next.length > MAX_MESSAGES ? next.slice(next.length - MAX_MESSAGES) : next;
           });
         }
       } else if (event.type === "message.part.updated") {
@@ -121,7 +113,7 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
           setMessages((prev) => {
             const next = applyPartUpdated(prev, part);
             recomputeDisplay(next);
-            return next;
+            return next.length > MAX_MESSAGES ? next.slice(next.length - MAX_MESSAGES) : next;
           });
         }
       } else if (event.type === "message.removed") {
