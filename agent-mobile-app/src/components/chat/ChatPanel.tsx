@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { Mic, Send, Square } from "lucide-react-native";
 import { Text, Box } from "../index";
+import { BottomSheet } from "../navigation/BottomSheet";
 import { colors, spacing, radius, iconStroke } from "../../theme";
 import {
   opencodeClient,
@@ -312,32 +313,34 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
           <Text variant="caption" color="muted">⇄</Text>
         </Pressable>
         <Pressable
-          onPress={() => setModelMenuOpen((v) => !v)}
+          onPress={() => setModelMenuOpen(true)}
           accessibilityLabel="Select model"
           accessibilityRole="button"
           style={styles.agentPill}
         >
           <Text variant="caption" color="muted" numberOfLines={1}>{model.modelID}</Text>
         </Pressable>
-        {modelMenuOpen ? (
-          <View style={styles.modelMenu}>
-            {AGENT_MODELS.map((m, i) => (
-              <Pressable
-                key={i}
-                onPress={() => {
-                  setModel(m);
-                  setModelMenuOpen(false);
-                }}
-                style={[styles.modelItem, m.modelID === model.modelID && styles.modelItemActive]}
-              >
-                <Text variant="caption" color={m.modelID === model.modelID ? "accent" : "ink"}>
-                  {m.modelID}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        ) : null}
       </View>
+
+      <BottomSheet visible={modelMenuOpen} onClose={() => setModelMenuOpen(false)}>
+        <View style={styles.modelSheetHeader}>
+          <Text variant="body" color="ink">选择模型</Text>
+        </View>
+        {AGENT_MODELS.map((m, i) => (
+          <Pressable
+            key={i}
+            onPress={() => {
+              setModel(m);
+              setModelMenuOpen(false);
+            }}
+            style={[styles.modelItem, m.modelID === model.modelID && styles.modelItemActive]}
+          >
+            <Text variant="body" color={m.modelID === model.modelID ? "accent" : "ink"}>
+              {m.modelID}
+            </Text>
+          </Pressable>
+        ))}
+      </BottomSheet>
 
       <View style={styles.inputRow}>
         <Pressable
@@ -400,25 +403,15 @@ const styles = StyleSheet.create({
     borderColor: colors.border.default,
     maxWidth: 180,
   },
-  modelMenu: {
-    position: "absolute",
-    top: 34,
-    left: spacing.md,
-    zIndex: 10,
-    backgroundColor: colors.surface[2],
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border.strong,
-    padding: spacing.xxs,
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
+  modelSheetHeader: {
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.default,
+    marginBottom: spacing.xs,
   },
   modelItem: {
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    paddingVertical: spacing.sm,
     borderRadius: radius.xs,
   },
   modelItemActive: {
