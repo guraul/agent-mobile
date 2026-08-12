@@ -32,7 +32,7 @@ describe("ChatPanel SSE 完整链路", () => {
     // recomputeDisplay
     const display = mergeMessages([...messages].sort((a, b) => (a.info.time?.created ?? 0) - (b.info.time?.created ?? 0)));
     const last = display[display.length - 1];
-    expect(last.role).toBe("assistant");
+    expect(last.kind).toBe("text");
     expect(last.text).toBe("最终回复");
   });
 
@@ -46,7 +46,7 @@ describe("ChatPanel SSE 完整链路", () => {
 
     const display = mergeMessages([...messages].sort((a, b) => (a.info.time?.created ?? 0) - (b.info.time?.created ?? 0)));
     const last = display[display.length - 1];
-    expect(last.role).toBe("user");
+    expect(last.kind).toBe("user");
     expect(last.text).toBe("e2e-order-test");
   });
 });
