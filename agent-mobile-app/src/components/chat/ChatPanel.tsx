@@ -49,6 +49,10 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
   const listRef = useRef<FlatList<DisplayStep>>(null);
   // stick to bottom when user is near the bottom; pause when they scroll up
   const stickToBottom = useRef(true);
+  // during the initial auto-scroll window, ignore onScroll stickToBottom overrides:
+  // programmatic scrollToEnd lands mid-list while content is still rendering, which
+  // would otherwise flip stickToBottom off and freeze the list short of the latest message.
+  const ignoreScrollUntil = useRef(0);
 
   // Recompute display messages whenever raw messages change.
   // listMessages returns chronological (oldest first); sort by creation time so
@@ -69,6 +73,14 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
       setMessages(list);
       recomputeDisplay(list);
       setError(null);
+      // after initial load, jump to the latest message once the list has laid out.
+      // The BottomSheet expand animation grows the list height from 0, so a single
+      // scrollToEnd can fire while the list is still 0-height; retry a few times.
+      stickToBottom.current = true;
+      ignoreScrollUntil.current = Date.now() + 2000;
+      for (const delay of [150, 400, 800, 1500]) {
+        setTimeout(() => listRef.current?.scrollToEnd({ animated: false }), delay);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -159,6 +171,7 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
   };
 
   const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (Date.now() < ignoreScrollUntil.current) return;
     const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
     const distanceFromBottom =
       contentSize.height - (contentOffset.y + layoutMeasurement.height);
@@ -256,7 +269,7 @@ const styles = StyleSheet.create({
   listContent: { padding: spacing.md, paddingBottom: spacing.lg },
   inputRow: {
     flexDirection: "row",
-    alignItems: "flex-end",
+    alignItems: "center",
     gap: spacing.xs,
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
@@ -269,12 +282,14 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 44,
     maxHeight: 120,
+    boxSizing: "border-box",
     backgroundColor: colors.surface[1],
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     color: colors.ink,
     fontSize: 15,
+    textAlignVertical: "center",
   },
   voiceBtn: {
     width: 44,

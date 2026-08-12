@@ -26,10 +26,10 @@ describe("mergeMessages", () => {
       ]),
     ]);
     expect(out.map((s) => s.kind)).toEqual([
-      "step-start", "reasoning", "tool", "text", "step-finish",
+      "reasoning", "tool", "text",
     ]);
-    expect(out[2]).toMatchObject({ kind: "tool", tool: "bash" });
-    expect(out[3]).toMatchObject({ kind: "text", text: "Done." });
+    expect(out[1]).toMatchObject({ kind: "tool", tool: "bash" });
+    expect(out[2]).toMatchObject({ kind: "text", text: "Done." });
   });
 
   it("keeps part order across multiple assistant messages in a turn", () => {

@@ -26,7 +26,7 @@ const aiMarkdown = {
 };
 
 export function MessageBubble({ step }: { step: DisplayStep }) {
-  if (step.kind === "step-start" || step.kind === "reasoning" || step.kind === "tool" || step.kind === "step-finish") {
+  if (step.kind === "reasoning" || step.kind === "tool") {
     return <StepChip step={step} />;
   }
 

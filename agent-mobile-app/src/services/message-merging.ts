@@ -1,12 +1,10 @@
 import type { OpenCodeMessage, OpenCodePart } from "./opencode-client";
 
 export type DisplayStep =
-  | { kind: "user";        id: string; text: string; createdAt: number }
-  | { kind: "step-start";  id: string; createdAt: number }
-  | { kind: "reasoning";   id: string; createdAt: number }
-  | { kind: "tool";        id: string; tool: string; status?: string; createdAt: number }
-  | { kind: "text";        id: string; text: string; createdAt: number }
-  | { kind: "step-finish"; id: string; createdAt: number };
+  | { kind: "user";      id: string; text: string; createdAt: number }
+  | { kind: "reasoning"; id: string; createdAt: number }
+  | { kind: "tool";      id: string; tool: string; status?: string; createdAt: number }
+  | { kind: "text";      id: string; text: string; createdAt: number };
 
 function isTextPart(part: OpenCodePart): part is OpenCodePart & { type: "text"; text?: string } {
   return part.type === "text";
@@ -14,8 +12,8 @@ function isTextPart(part: OpenCodePart): part is OpenCodePart & { type: "text"; 
 function isToolPart(part: OpenCodePart): part is OpenCodePart & { type: "tool"; tool?: string; state?: { status?: string } } {
   return part.type === "tool";
 }
-function isProcessPart(part: OpenCodePart): part is OpenCodePart & { type: "step-start" | "reasoning" | "step-finish" } {
-  return part.type === "step-start" || part.type === "reasoning" || part.type === "step-finish";
+function isReasoningPart(part: OpenCodePart): part is OpenCodePart & { type: "reasoning" } {
+  return part.type === "reasoning";
 }
 
 export function mergeMessages(
@@ -48,8 +46,8 @@ export function mergeMessages(
           status: part.state?.status,
           createdAt,
         });
-      } else if (isProcessPart(part)) {
-        out.push({ kind: part.type, id: partId, createdAt });
+      } else if (isReasoningPart(part)) {
+        out.push({ kind: "reasoning", id: partId, createdAt });
       }
     }
   }

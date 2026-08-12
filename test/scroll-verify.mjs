@@ -6,51 +6,21 @@ const browser = await chromium.launch({ executablePath: exe, headless: true, arg
 const page = await browser.newPage({ viewport: { width: 430, height: 900 } });
 await page.goto('http://127.0.0.1:9928/pulse', { waitUntil:'load', timeout:120000 });
 await page.waitForTimeout(8000);
-await page.locator('[data-testid^="project-"]').first().dispatchEvent('click',{bubbles:true});
-await page.waitForTimeout(6000);
-// 找到消息列表滚动容器
-const sel = await page.evaluate(() => {
-  let best = null;
-  document.querySelectorAll('div').forEach(el => {
-    if (el.scrollHeight > el.clientHeight + 1000 && !best || (best && el.scrollHeight > best.scrollHeight)) {
-      best = el;
-    }
+await page.locator('[data-testid="project-645633255eb0c98cf024f8d5d0f16ffd62627967"]').dispatchEvent('click', {bubbles:true});
+await page.waitForTimeout(7000);
+const res = await page.evaluate(() => {
+  const bubbles = Array.from(document.querySelectorAll('div')).filter(d => {
+    const r = d.getBoundingClientRect();
+    const bg = window.getComputedStyle(d).backgroundColor;
+    return r.width > 150 && r.height > 15 && bg === 'rgb(28, 25, 23)';
   });
-  return best ? { sh: best.scrollHeight, ch: best.clientHeight } : null;
+  bubbles.sort((a,b) => b.getBoundingClientRect().y - a.getBoundingClientRect().y);
+  const last = bubbles.slice(0, 3).map(e => ({ y: Math.round(e.getBoundingClientRect().y), h: Math.round(e.getBoundingClientRect().height), t: (e.textContent||'').trim().replace(/\s+/g,' ').slice(0, 35) }));
+  const viewportH = window.innerHeight;
+  return { last, viewportH };
 });
-console.log('消息列表容器:', JSON.stringify(sel));
-// 初始在底部
-await page.evaluate(() => {
-  let best = null;
-  document.querySelectorAll('div').forEach(el => {
-    if (el.scrollHeight > el.clientHeight + 1000 && !best) best = el;
-  });
-  best.scrollTop = best.scrollHeight;
-});
-await page.waitForTimeout(800);
-// 上滑到中间位置
-await page.evaluate(() => {
-  let best = null;
-  document.querySelectorAll('div').forEach(el => {
-    if (el.scrollHeight > el.clientHeight + 1000 && !best) best = el;
-  });
-  best.scrollTop = 1500;
-});
-const pos1 = await page.evaluate(() => {
-  let best = null;
-  document.querySelectorAll('div').forEach(el => {
-    if (el.scrollHeight > el.clientHeight + 1000 && !best) best = el;
-  });
-  return best.scrollTop;
-});
-await page.waitForTimeout(2500);
-const pos2 = await page.evaluate(() => {
-  let best = null;
-  document.querySelectorAll('div').forEach(el => {
-    if (el.scrollHeight > el.clientHeight + 1000 && !best) best = el;
-  });
-  return best.scrollTop;
-});
-console.log(`上滑后位置: ${pos1} → 2.5s后: ${pos2}`);
-console.log(pos1 === pos2 ? 'PASS 滚动位置保持，未被拉回底部' : 'FAIL 滚动位置被改变');
+console.log('视口高度:', res.viewportH);
+console.log('最底部 3 个气泡:');
+res.last.forEach(b => console.log(`  y=${b.y} h=${b.h} ${b.t}`));
+await page.screenshot({ path: '/root/project/agent-mobile/test/scroll-verify.png' });
 await browser.close();
