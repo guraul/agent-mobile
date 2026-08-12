@@ -35,6 +35,16 @@ const PAGE_SIZE = 50;
 // while preserving the most recent messages (matches the PAGE_SIZE reload window).
 const MAX_MESSAGES = PAGE_SIZE * 2;
 
+// primary agents (mode: "primary" in opencode.json) cycled by the agent pill;
+// model follows the agent's configured default. opencode's prompt API takes
+// per-message agent/model — it cannot mutate an existing session's agent.
+const PRIMARY_AGENTS = [
+  { id: "build", model: { providerID: "agnes", modelID: "agnes-2.5-flash" } },
+  { id: "plan", model: { providerID: "volcengine-plan", modelID: "minimax-m3" } },
+  { id: "design", model: { providerID: "volcengine-plan", modelID: "minimax-m3" } },
+] as const;
+const AGENT_MODELS = PRIMARY_AGENTS.map((a) => a.model);
+
 interface ChatPanelProps {
   sessionID: string;
 }
@@ -47,6 +57,12 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
   const [refreshing, setRefreshing] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // agent pill cycles PRIMARY_AGENTS; model pill picks from AGENT_MODELS.
+  // both are applied per-message via prompt_async (agent/model cannot be
+  // mutated on an existing session via the opencode API).
+  const [agentIdx, setAgentIdx] = useState(0);
+  const [model, setModel] = useState<{ providerID: string; modelID: string }>(PRIMARY_AGENTS[0].model);
+  const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const listRef = useRef<FlatList<DisplayStep>>(null);
   // stick to bottom when user is near the bottom; pause when they scroll up
   const stickToBottom = useRef(true);
@@ -175,6 +191,27 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
     };
   }, [sessionID, recomputeDisplay]);
 
+  // initialize agent/model pills from the session's configured values
+  useEffect(() => {
+    let cancelled = false;
+    opencodeClient
+      .getSession(sessionID)
+      .then((s) => {
+        if (cancelled) return;
+        if (s.agent) {
+          const idx = PRIMARY_AGENTS.findIndex((a) => a.id === s.agent);
+          if (idx !== -1) setAgentIdx(idx);
+        }
+        if (s.model?.providerID && s.model?.id) {
+          setModel({ providerID: s.model.providerID, modelID: s.model.id });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionID]);
+
   const send = async () => {
     const text = input.trim();
     if (!text || sending) return;
@@ -184,6 +221,8 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
     try {
       await opencodeClient.sendMessageAsync(sessionID, {
         parts: [{ type: "text", text }],
+        agent: PRIMARY_AGENTS[agentIdx].id,
+        model,
       });
       await loadMessages();
       stickToBottom.current = true;
@@ -259,6 +298,47 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
         }
       />
 
+      <View style={styles.agentRow}>
+        <Pressable
+          onPress={() => {
+            setAgentIdx((idx) => (idx + 1) % PRIMARY_AGENTS.length);
+            setModel(PRIMARY_AGENTS[(agentIdx + 1) % PRIMARY_AGENTS.length].model);
+          }}
+          accessibilityLabel="Switch agent"
+          accessibilityRole="button"
+          style={styles.agentPill}
+        >
+          <Text variant="caption" color="accent">{PRIMARY_AGENTS[agentIdx].id}</Text>
+          <Text variant="caption" color="muted">⇄</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => setModelMenuOpen((v) => !v)}
+          accessibilityLabel="Select model"
+          accessibilityRole="button"
+          style={styles.agentPill}
+        >
+          <Text variant="caption" color="muted" numberOfLines={1}>{model.modelID}</Text>
+        </Pressable>
+        {modelMenuOpen ? (
+          <View style={styles.modelMenu}>
+            {AGENT_MODELS.map((m, i) => (
+              <Pressable
+                key={i}
+                onPress={() => {
+                  setModel(m);
+                  setModelMenuOpen(false);
+                }}
+                style={[styles.modelItem, m.modelID === model.modelID && styles.modelItemActive]}
+              >
+                <Text variant="caption" color={m.modelID === model.modelID ? "accent" : "ink"}>
+                  {m.modelID}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+      </View>
+
       <View style={styles.inputRow}>
         <Pressable
           onPress={() => alert("Voice input")}
@@ -266,7 +346,7 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
           accessibilityRole="button"
           style={styles.voiceBtn}
         >
-          <Mic color={colors.body} size={20} strokeWidth={iconStroke} />
+          <Mic color={colors.body} size={18} strokeWidth={iconStroke} />
         </Pressable>
         <TextInput
           style={styles.input}
@@ -278,7 +358,7 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
         />
         {sending ? (
           <Pressable onPress={abort} style={styles.sendBtn} accessibilityLabel="Stop">
-            <Square color={colors.onAccent} size={20} strokeWidth={iconStroke} />
+            <Square color={colors.onAccent} size={18} strokeWidth={iconStroke} />
           </Pressable>
         ) : (
           <Pressable
@@ -287,7 +367,7 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
             style={[styles.sendBtn, !input.trim() && { opacity: 0.4 }]}
             accessibilityLabel="Send"
           >
-            <Send color={colors.onAccent} size={20} strokeWidth={iconStroke} />
+            <Send color={colors.onAccent} size={18} strokeWidth={iconStroke} />
           </Pressable>
         )}
       </View>
@@ -299,40 +379,86 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   list: { flex: 1 },
   listContent: { padding: spacing.md, paddingBottom: spacing.lg },
+  agentRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.xxs,
+    backgroundColor: colors.canvas,
+  },
+  agentPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: radius.full,
+    backgroundColor: colors.surface[1],
+    borderWidth: 1,
+    borderColor: colors.border.default,
+    maxWidth: 180,
+  },
+  modelMenu: {
+    position: "absolute",
+    top: 34,
+    left: spacing.md,
+    zIndex: 10,
+    backgroundColor: colors.surface[2],
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border.strong,
+    padding: spacing.xxs,
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  modelItem: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.xs,
+  },
+  modelItemActive: {
+    backgroundColor: colors.accent.subtle,
+  },
   inputRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.xs,
     paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-    paddingBottom: 8,
+    paddingTop: spacing.xs,
+    paddingBottom: 6,
     borderTopWidth: 1,
     borderTopColor: colors.border.default,
     backgroundColor: colors.canvas,
   },
   input: {
     flex: 1,
-    minHeight: 44,
-    maxHeight: 120,
+    minHeight: 40,
+    maxHeight: 100,
     boxSizing: "border-box",
     backgroundColor: colors.surface[1],
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.xs,
     color: colors.ink,
     fontSize: 15,
+    textAlign: "center",
     textAlignVertical: "center",
   },
   voiceBtn: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
     borderRadius: radius.full,
     alignItems: "center",
     justifyContent: "center",
   },
   sendBtn: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
     borderRadius: radius.full,
     backgroundColor: colors.accent.default,
     alignItems: "center",

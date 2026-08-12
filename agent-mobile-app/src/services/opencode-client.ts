@@ -126,8 +126,7 @@ export const opencodeClient = {
     body: {
       parts?: { type: "text"; text: string }[];
       agent?: string;
-      model?: string;
-      modelID?: string;
+      model?: { providerID: string; modelID: string };
     },
   ): Promise<OpenCodeMessage> {
     return request<OpenCodeMessage>(`/session/${id}/message`, {
@@ -141,8 +140,7 @@ export const opencodeClient = {
     body: {
       parts?: { type: "text"; text: string }[];
       agent?: string;
-      model?: string;
-      modelID?: string;
+      model?: { providerID: string; modelID: string };
     },
   ): Promise<void> {
     return request<void>(`/session/${id}/prompt_async`, {
