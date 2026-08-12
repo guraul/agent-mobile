@@ -1,6 +1,6 @@
 # Agent Mobile 项目知识库 · 索引总览
 
-> 最后更新：2026-08-11 · commit：`072537f`（opencode 集成 + 消息顺序修复）
+> 最后更新：2026-08-12 · commit：`e18cb24`（阶段1：DisplayStep 展开 + 轮询兜底）
 > 维护：见 [CONVENTIONS.md](CONVENTIONS.md)「知识库维护约定」
 
 ## 使用说明
@@ -10,7 +10,7 @@
 | 第一次接触 / 全局定位 | 本文件 INDEX.md |
 | 理解架构与数据流 | ARCHITECTURE.md |
 | 改 Pulse 首页（项目导航/分组） | modules/pulse-stream.md |
-| 改聊天界面（气泡/输入框/消息合并） | modules/chat.md |
+| 改聊天界面（气泡/输入框/step 展开） | modules/chat.md |
 | 改 opencode 对接（REST/SSE/reducer/状态机） | modules/services.md |
 | 改组件库 | modules/components.md |
 | 改颜色/字号/间距等 token | modules/theme.md |
@@ -33,12 +33,13 @@
 | 项目状态聚合（running/needs-you/idle + SSE 实时） | pulse-stream | `agent-mobile-app/src/hooks/useProjectEvents.ts` |
 | 项目状态判定纯函数 | services | `agent-mobile-app/src/services/project-status.ts` |
 | 项目聊天（最近 session / 新建 session） | chat | `agent-mobile-app/src/components/chat/ProjectChat.tsx` |
-| 对话面板（下拉刷新/分页/滚动保持/输入三件套） | chat | `agent-mobile-app/src/components/chat/ChatPanel.tsx` |
-| 消息气泡（user/AI 区分 + 工具折叠） | chat | `agent-mobile-app/src/components/chat/MessageBubble.tsx` |
+| 对话面板（下拉刷新/分页/滚动保持/输入三件套/轮询兜底） | chat | `agent-mobile-app/src/components/chat/ChatPanel.tsx` |
+| 消息气泡（user/text markdown + StepChip 旁白） | chat | `agent-mobile-app/src/components/chat/MessageBubble.tsx` |
+| 过程旁白（思考中/工具调用中） | chat | `agent-mobile-app/src/components/chat/StepChip.tsx` |
 | OpenCode REST 客户端 | services | `agent-mobile-app/src/services/opencode-client.ts` |
 | SSE 事件流订阅（rAF 批量 + 指数退避） | services | `agent-mobile-app/src/services/opencode-events.ts` |
 | 消息增量更新 reducer | services | `agent-mobile-app/src/services/message-reducer.ts` |
-| 消息合并（assistant step → 气泡） | services | `agent-mobile-app/src/services/message-merging.ts` |
+| 消息 step 展开（OpenCodeMessage → DisplayStep） | services | `agent-mobile-app/src/services/message-merging.ts` |
 | 底部 4-tab 导航 | router | `agent-mobile-app/src/app/(tabs)/_layout.tsx` |
 | Talk/Memory/Me 占位页 | router | `agent-mobile-app/src/app/(tabs)/talk.tsx` 等 |
 | 组件库（primitives/feedback/navigation） | components | `agent-mobile-app/src/components/index.ts` |
@@ -100,7 +101,7 @@ agent-mobile/                                  # git 根仓库
         ├── app/(tabs)/talk|memory|me.tsx      # 占位页
         ├── config/opencode.ts                 # opencode 连接配置（env）
         ├── hooks/useProjectEvents.ts          # 项目事件聚合 hook
-        ├── services/                          # ★ opencode REST/SSE/reducer/合并/状态机
+        ├── services/                          # ★ opencode REST/SSE/reducer/step展开/状态机
         ├── components/                        # primitives/feedback/navigation/chat/session + index.ts
         └── theme/                             # colors/typography/spacing/radius/motion/icons/shadows
 ```
@@ -114,7 +115,7 @@ components（依赖 theme）
   ↑
 services（opencode-client/events/reducer/merging/project-status；无 UI 依赖）
   ↑
-chat（ChatPanel/MessageBubble/ProjectChat；依赖 components + services + theme）
+chat（ChatPanel/MessageBubble/StepChip/ProjectChat；依赖 components + services + theme）
   ↑
 pulse-stream（pulse.tsx + useProjectEvents；依赖 components + chat + services + theme）
   ↑
@@ -144,7 +145,7 @@ opencode server (127.0.0.1:4096, Basic auth)
 | 改聊天面板（输入/刷新/分页） | `agent-mobile-app/src/components/chat/ChatPanel.tsx` |
 | 改消息气泡（样式/工具折叠） | `agent-mobile-app/src/components/chat/MessageBubble.tsx` |
 | 改项目→会话解析 | `agent-mobile-app/src/components/chat/ProjectChat.tsx` |
-| 改消息合并规则（时间阈值等） | `agent-mobile-app/src/services/message-merging.ts` |
+| 改 step 展开规则（过滤/顺序） | `agent-mobile-app/src/services/message-merging.ts` |
 | 改 SSE 增量更新 | `agent-mobile-app/src/services/message-reducer.ts` |
 | 新增 opencode 端点封装 | `agent-mobile-app/src/services/opencode-client.ts` |
 | 改 SSE 订阅/重连 | `agent-mobile-app/src/services/opencode-events.ts` |

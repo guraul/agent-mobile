@@ -1,10 +1,10 @@
 # modules/chat.md —— 聊天（项目对话）
 
-> 最后更新：2026-08-11 · 修复 SSE 实时更新验证（code_inline 样式 + 新消息空壳插入）
+> 最后更新：2026-08-12 · commit：`e18cb24`（阶段1：DisplayStep 重构 + 轮询兜底）
 
 ## 模块职责
 
-项目对话：选择/新建 session → 流式聊天（SSE 增量更新、消息合并折叠、下拉刷新、滚动保持）。
+项目对话：选择/新建 session → 实时聊天（SSE 增量 + 轮询兜底、step 独立展示、下拉刷新、滚动保持）。
 
 ## 入口文件
 
@@ -15,11 +15,12 @@
 | 文件路径 | 职责 |
 |---|---|
 | `agent-mobile-app/src/components/chat/ProjectChat.tsx` | 解析最近 session（按 `time.updated` 降序），无则展示"New session"入口 |
-| `agent-mobile-app/src/components/chat/ChatPanel.tsx` | 对话面板：分页加载、SSE 订阅、输入框、下拉刷新 |
-| `agent-mobile-app/src/components/chat/MessageBubble.tsx` | 气泡：user/AI 视觉区分 + markdown + 工具调用折叠 |
-| `agent-mobile-app/src/services/message-merging.ts` | 合并 assistant step → DisplayMessage（含工具折叠） |
-| `agent-mobile-app/src/services/message-reducer.ts` | SSE 事件增量 patch 消息列表 |
-| `agent-mobile-app/src/services/opencode-events.ts` | SSE 订阅（message.* 事件） |
+| `agent-mobile-app/src/components/chat/ChatPanel.tsx` | 对话面板：分页加载、SSE 订阅、5s 轮询兜底、输入框、下拉刷新、自动滚底 |
+| `agent-mobile-app/src/components/chat/MessageBubble.tsx` | 渲染单个 DisplayStep：user/text 气泡（markdown）、process step 委托 StepChip |
+| `agent-mobile-app/src/components/chat/StepChip.tsx` | 过程旁白：思考中… / 工具(x)调用中…（小字号 caption + 图标） |
+| `agent-mobile-app/src/services/message-merging.ts` | `mergeMessages`：OpenCodeMessage[] → DisplayStep[]（step 展开 + 过滤） |
+| `agent-mobile-app/src/services/message-reducer.ts` | SSE 增量 patch + `mergeRecentMessages`（轮询合并纯函数） |
+| `agent-mobile-app/src/services/opencode-events.ts` | SSE 订阅（message.* 事件），rAF 批量分发 + 指数退避重连 |
 | `agent-mobile-app/src/services/opencode-client.ts` | listMessages / sendMessageAsync / abort / createSession |
 
 ## 数据流
@@ -27,14 +28,23 @@
 ```
 ProjectChat: listSessions(projectPath) → 最近 session（无 → 空态 + New session）
   ↓ ChatPanel(sessionID)
-loadMessages: listMessages(limit=50) → chronological（旧在前）→ mergeMessages → display
+loadMessages: listMessages(limit=50) → chronological（旧在前）→ mergeMessages → DisplayStep[]
 SSE: message.updated / message.part.updated / message.removed
   → message-reducer 增量 patch → 按 time.created 插入 → mergeMessages → display
+轮询兜底: 每 5s listMessages(limit=10) → mergeRecentMessages（新消息插入 + parts 追平）
 发送: sendMessageAsync → 之后 loadMessages 全量刷新
 下拉刷新: 重新 listMessages(limit=50)（上滑浏览不触发加载）
 ```
 
 ## 关键设计决策（重要）
+
+### DisplayStep 结构（不合并 step）
+
+- `mergeMessages` 输出 `DisplayStep[]`，**不再合并**同轮 assistant step 为单个气泡；每条有意义的 part 独立成 step。
+- step 类型：`user`（用户气泡）/ `text`（assistant 主气泡，markdown）/ `reasoning`（思考中…）/ `tool`（工具(x)调用中…）。
+- **step-start / step-finish 被过滤**（opencode 每次工具调用循环都产生一对，噪音大；2026-08-12 起不再展示）。
+- 空 text part、snapshot/agent/file/compaction 等 part 也被过滤。
+- 单测：`message-merging.test.ts` 覆盖 step 展开/过滤/顺序。
 
 ### 消息顺序：chronological
 
@@ -42,27 +52,32 @@ SSE: message.updated / message.part.updated / message.removed
 - `applyMessageUpdated` 新消息按 `time.created` 插入正确位置（**不是 unshift/push 到固定端**）。
 - ⚠️ 历史 bug：曾误认为 newest-first 并 reverse + unshift，导致新消息显示在顶部。见 CONVENTIONS.md。
 
-### 消息合并（message-merging.ts）
+### SSE 增量 + 轮询兜底（跨实例同步）
 
-- 连续 assistant step（同一轮）合并为一个气泡：文本 `\n\n` 连接，工具调用收集。
-- **跨轮次阈值 `mergeGapMs = 2min`**：连续 assistant 消息时间差 > 2min 视为不同轮次，不合并（防止初始加载的最新回复与 SSE 新回复被错误折叠）。
-- 空文本且无工具的气泡被过滤。
+- **根因**：本地 TUI（`opencode -s` 独立实例）与 4096 server 是**两个进程**，共享 SQLite DB 但 **SSE 事件流不互通**——TUI 写的消息不会出现在 4096 的 `/global/event` 推送里。
+- 修复：ChatPanel 每 5s `listMessages(limit=10)` → `mergeRecentMessages(local, recent)` 合并：未见过的新消息按时间戳插入；已有消息 parts 变化则整条替换追平（catch up 流式中的回复）。
+- 纯函数 `mergeRecentMessages` 在 `message-reducer.ts`（可单测），ChatPanel 只调用。
+- 单测：`message-reducer.test.ts` 覆盖插入/追平/无变化四路径。
+- **若 TUI 用 `opencode attach http://127.0.0.1:4096` 启动**，事件流统一，SSE 即可双向实时，轮询成为冗余兜底（无害保留）。
 
 ### 滚动行为
 
-- `stickToBottom` ref：距底部 < 80px 时自动吸底（`onContentSizeChange` → `scrollToEnd`）；上滑浏览暂停。
+- 初次加载后自动滚动到底部：`loadMessages` 完成后 150/400/800/1500ms 多次 `scrollToEnd`（BottomSheet 展开动画使列表从 0 高度增长，单次滚动会失效）。
+- **`ignoreScrollUntil`（加载后 2s）**：初次定位期间忽略 `onScroll` 的 stickToBottom 覆盖——否则程序化滚动落点未到最终底部时，onScroll 会把 stickToBottom 关掉，列表冻结在中间（2026-08-12 修复）。
+- 之后 `stickToBottom`：距底部 < 80px 自动吸底；上滑浏览暂停。
 - **上滑不加载历史**（需求：无新输入不加载，下拉刷新拉新消息）。
 
 ### 输入区
 
 - Mic（语音，`alert("Voice input")` 占位）+ TextInput + Send/Stop 三件套。
-- 发送中显示 Stop（abort），空闲显示 Send。
+- **三元素垂直中心对齐**：`alignItems: "center"`（不是 flex-end）+ 输入框 `boxSizing: "border-box"`（web 上 RN TextInput 默认 content-box 会使实际高度超过 minHeight 44，破坏对齐）+ `textAlignVertical: "center"`。
 
 ## 修改本模块的注意事项
 
 - **勿改 reducer 插入语义为固定端插入**：必须按时间戳定位，否则乱序（有单测覆盖：`order-sim.test.ts`）。
-- **勿移除 mergeGapMs 阈值**：会重新引入"两轮回复被合并成一条"的问题（`message-merging.test.ts` 覆盖）。
+- **勿移除 step-start/step-finish 过滤**：会重新引入大量"开始执行/完成"噪音（2026-08-12 用户反馈）。
+- **勿移除轮询兜底**：TUI 独立实例的消息只有轮询能同步（除非 TUI attach 4096）。
 - **自定义 `code_inline` 样式必须显式覆盖 `padding`**：react-native-markdown-display 默认 `code_inline` 带 `padding: 10`，只覆盖 color/backgroundColor 会留下 39px 高的大框覆盖相邻行；需加 `padding: 0, lineHeight: 22`（2026-08-11 已修）。
 - **BottomSheet fullScreen 无 padding**：输入区靠组件自身 padding 撑起（ChatPanel 自带 paddingBottom）。
 - 单测：`message-merging.test.ts`、`message-reducer.test.ts`、`order-sim.test.ts`（模拟完整 SSE 链路）。
-- E2E：`scripts/e2e/pulse-e2e.mjs` 覆盖打开项目 → 发消息 → 顺序校验。
+- E2E：`scripts/e2e/pulse-e2e.mjs` 覆盖打开项目 → 发消息 → 顺序校验；`test/steps-verify*.mjs` 验证旁白渲染。

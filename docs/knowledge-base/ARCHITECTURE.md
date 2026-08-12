@@ -1,6 +1,6 @@
 # ARCHITECTURE.md —— 架构与数据流
 
-> 最后更新：2026-08-11 · commit：`072537f`（opencode 集成 + 消息顺序修复）
+> 最后更新：2026-08-12 · commit：`e18cb24`（阶段1：DisplayStep 展开 + 轮询兜底）
 
 ## 整体架构
 
@@ -38,8 +38,8 @@ hooks 层（聚合状态）        src/hooks/useProjectEvents.ts
 - **状态管理**：页面内 `useState` + 服务层 SSE 事件流订阅（无全局状态库）。
 - **网络层**：`fetch` + Basic auth 对接 OpenCode Server（v1 `/global/event` SSE + REST）。
 - **API 客户端**：`src/services/opencode-client.ts` 封装 REST 端点；`src/services/opencode-events.ts` 处理 SSE 流式订阅（16ms 批量合并 + 指数退避重连）。
-- **增量更新**：`src/services/message-reducer.ts` 纯函数处理 `message.*` 事件，避免全量 reload。
-- **显示层合并**：`src/services/message-merging.ts` 把 opencode 的 step 级消息合并为对话气泡（含工具折叠、跨轮次时间阈值）。
+- **增量更新**：`src/services/message-reducer.ts` 纯函数处理 `message.*` 事件（含 `mergeRecentMessages` 轮询合并），避免全量 reload。
+- **显示层展开**：`src/services/message-merging.ts` 把 opencode 的 step 级消息**展开为独立 DisplayStep**（不做跨 step 合并；step-start/finish 过滤）。
 - **路径别名**：`@/*` → `src/*`（tsconfig.json `paths`）。
 
 ## 跨端/跨服务通信
@@ -85,15 +85,18 @@ hooks 层（聚合状态）        src/hooks/useProjectEvents.ts
 | updated | number | 最近活动时间（session.time.updated 取最大） |
 | sessionIDs | string[] | 该项目全部会话 |
 
-### DisplayMessage（services/message-merging.ts）
+### DisplayStep（services/message-merging.ts）
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| id | string | 最后一个被合并 step 的 id |
-| role | `"user" \| "assistant"` | 气泡角色 |
-| text | string | 合并后文本（多 step 文本 `\n\n` 连接） |
-| tools | ToolCallSummary[] | 折叠后的工具调用列表（tool/status/input） |
-| createdAt | number | 最新 step 时间（用于跨轮次判定） |
+| kind | `"user" \| "text" \| "reasoning" \| "tool"` | step 类型（user/text 为气泡，reasoning/tool 为旁白） |
+| id | string | 来源 part 的 id（无则 `${messageId}-${序号}`） |
+| text | string? | user/text 的文本内容 |
+| tool | string? | tool step 的工具名（如 `bash`） |
+| status | string? | tool step 的状态（如 `completed`） |
+| createdAt | number | 所属消息创建时间 |
+
+**说明**：step-start/step-finish 在 `mergeMessages` 中被过滤（噪音）；reasoning/tool 渲染为 StepChip 小字号旁白；text 为主气泡（markdown）。
 
 ## 数据存储位置与格式
 

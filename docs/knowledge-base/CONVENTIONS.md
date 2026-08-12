@@ -1,6 +1,6 @@
 # CONVENTIONS.md —— 约定与陷阱
 
-> 最后更新：2026-08-11 · commit：`072537f`（opencode 集成 + 消息顺序修复）
+> 最后更新：2026-08-12 · commit：`e18cb24`（阶段1：DisplayStep 展开 + 轮询兜底）
 
 ## 代码风格与命名约定
 
@@ -25,7 +25,10 @@
 | 坑 | 说明 | 规避 |
 |---|---|---|
 | **消息顺序反转（历史重大 bug）** | 曾误认为 `listMessages` 返回 newest-first 并 reverse + unshift，实际 API 返回 **chronological（旧在前）**，导致新消息显示在顶部、旧消息沉底 | 排序/插入一律以 `time.created` 为准；`applyMessageUpdated` 按时间戳定位插入；勿用固定端 push/unshift（有单测：order-sim.test.ts） |
-| **两轮回复被合并成一条** | `mergeMessages` 会把连续 assistant step 合并；初始加载的最新回复与新 SSE 回复若被判定为同一轮，会折叠成一条 | 合并依赖 `mergeGapMs=2min` 时间阈值（`message-merging.ts`），勿移除 |
+| **两轮回复被合并成一条（已废弃）** | ~~`mergeMessages` 曾合并连续 assistant step~~ 2026-08-12 起改为**不合并**，输出独立 DisplayStep，`mergeGapMs` 阈值已删除 | 新逻辑见 modules/chat.md；勿用旧文档的"合并/阈值"描述 |
+| **TUI 与 4096 事件流不互通** | 本地 TUI（`opencode -s` 独立实例）与 `opencode serve`(4096) 共享 DB 但 **SSE 事件流独立**：TUI 写的消息不进 4096 的 `/global/event` | ChatPanel 每 5s 轮询 `mergeRecentMessages` 兜底；或 TUI 用 `opencode attach http://127.0.0.1:4096` 统一事件流 |
+| **BottomSheet 展开动画导致自动滚底失效** | 打开 sheet 时列表从 0 高度增长，单次 `scrollToEnd` 在内容未布局时执行会落空；且落点未到最终底部时 onScroll 会误关 `stickToBottom` | `loadMessages` 后 150/400/800/1500ms 多次滚动 + `ignoreScrollUntil`（2s 内忽略 onScroll 覆盖） |
+| **step-start/step-finish 噪音** | opencode 每次工具调用循环产生一对 start/finish，全部显示会很吵（用户反馈"开始执行/完成出现太多次"） | `mergeMessages` 过滤这两类 part，只留 reasoning/tool 旁白 |
 | **`/session` 不带 directory 只返回默认工作区** | `/session` 端点不带 `?directory=` 时只返回 `/root` 的会话 | 按项目 `directory` 分别查询（useProjectEvents / ProjectChat） |
 | **`/session/status` 只含活跃会话** | busy/retry 之外的存在会话不会出现在返回 map 中 | 调用方需对已知 session 显式补 `"idle"` |
 | **project.time.updated 被 watcher 污染** | 项目 `time.updated` 会被文件 watcher 更新，不能用于活跃度判断 | 活跃度以 `session.time.updated` 为准（project-status.ts） |
@@ -45,7 +48,7 @@
 - **勿在组件/页面硬编码颜色、字号、间距** —— 必须走 `src/theme/`，否则破坏主题一致性。
 - **勿改 `StatusType` 取值集合**（running/idle/success/error/warning）—— 牵连 StatusDot/Pill/Callout、EventItem。
 - **勿删 `BottomSheet` 的 fullScreen 无 padding 布局约定** —— 内容组件（ProjectChat header、ChatPanel 输入区）依赖自身 padding；加回 padding 会导致输入框/header 不贴边。
-- **勿改消息数组的 chronological 语义** —— reducer 插入、ChatPanel 排序、merge 顺序全部基于 `time.created`；任何"反向"假设都会重现消息错乱。
+- **勿改消息数组的 chronological 语义** —— reducer 插入、ChatPanel 排序、step 展开顺序全部基于 `time.created`；任何"反向"假设都会重现消息错乱。
 - **勿把仓库根 `src/`（设计期源码）与 `agent-mobile-app/src/` 混为一谈** —— 两个独立代码库，改错位置 = 改到不运行的东西。
 - **`EXPO_TOKEN` / `EXPO_PUBLIC_OPENCODE_PASSWORD` 为敏感凭据** —— 不写入代码/文档/提交。
 - **expo 依赖版本必须匹配 SDK 57** —— 用 `npx expo install`，勿手工改版本号。

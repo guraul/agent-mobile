@@ -10,7 +10,7 @@
 | OpenCodeSession | id/title/directory/agent/model/time/summary/cost | OpenCode Server（REST /session） | 同上 |
 | OpenCodeMessage | info(id/role/sessionID/time)/parts[] | OpenCode Server（REST /session/{id}/message + SSE） | 同上 |
 | ProjectEvent（聚合） | id/projectPath/name/status/statusLabel/summary/updated/sessionIDs | 运行时计算（useProjectEvents refs） | `agent-mobile-app/src/services/project-status.ts` |
-| DisplayMessage（合并后） | id/role/text/tools/createdAt | 运行时计算（mergeMessages） | `agent-mobile-app/src/services/message-merging.ts` |
+| DisplayStep（展开后） | kind/id/text/tool/status/createdAt | 运行时计算（mergeMessages） | `agent-mobile-app/src/services/message-merging.ts` |
 | 主题令牌 | colors/typography/spacing/radius/motion/icons/shadows | TS 常量 | `agent-mobile-app/src/theme/*.ts` |
 | 应用配置 | name/slug/package/主题色 | JSON | `agent-mobile-app/app.json` |
 | 构建配置 | build profiles | JSON | `agent-mobile-app/eas.json` |
@@ -40,7 +40,7 @@
 谁写入                    存在哪                         谁读取
 ────────────────────────────────────────────────────────────────
 用户发消息 (prompt_async)  OpenCode Server (内存+磁盘)    ChatPanel (SSE + 全量刷新)
-agent 回复 (SSE 流式)      OpenCode Server                message-reducer → mergeMessages → MessageBubble
+agent 回复 (SSE 流式)      OpenCode Server                message-reducer → mergeMessages → MessageBubble/StepChip
 opencode serve 运行态      /session/status (活跃表)       useProjectEvents (30s 轮询 + SSE)
 session CRUD               OpenCode Server                useProjectEvents / ProjectChat
 开发者编辑                 theme/*.ts / app.json         组件与页面（import）
