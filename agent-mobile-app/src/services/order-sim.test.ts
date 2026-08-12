@@ -33,7 +33,7 @@ describe("ChatPanel SSE 完整链路", () => {
     const display = mergeMessages([...messages].sort((a, b) => (a.info.time?.created ?? 0) - (b.info.time?.created ?? 0)));
     const last = display[display.length - 1];
     expect(last.kind).toBe("text");
-    expect(last.text).toBe("最终回复");
+    expect((last as { text?: string }).text).toBe("最终回复");
   });
 
   it("新 user 消息到达后显示在底部", () => {
@@ -47,6 +47,6 @@ describe("ChatPanel SSE 完整链路", () => {
     const display = mergeMessages([...messages].sort((a, b) => (a.info.time?.created ?? 0) - (b.info.time?.created ?? 0)));
     const last = display[display.length - 1];
     expect(last.kind).toBe("user");
-    expect(last.text).toBe("e2e-order-test");
+    expect((last as { text?: string }).text).toBe("e2e-order-test");
   });
 });
