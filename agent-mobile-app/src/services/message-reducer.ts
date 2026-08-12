@@ -90,3 +90,37 @@ export function applyMessageRemoved(
 ): OpenCodeMessage[] {
   return messages.filter((m) => m.info.id !== messageID);
 }
+
+/**
+ * Merge freshly fetched messages (e.g. from polling) into the local list.
+ * Local and remote may diverge when another opencode instance (the TUI) writes
+ * to the shared DB without emitting events on our SSE stream. Semantics:
+ * - messages not in the local list are inserted by creation time
+ * - messages already present whose parts changed are replaced (catch up)
+ * - otherwise the list is returned unchanged (no re-render churn)
+ */
+export function mergeRecentMessages(
+  local: OpenCodeMessage[],
+  recent: OpenCodeMessage[],
+): { messages: OpenCodeMessage[]; changed: boolean } {
+  let next = local;
+  let changed = false;
+
+  for (const m of recent) {
+    const localIdx = next.findIndex((x) => x.info.id === m.info.id);
+    if (localIdx === -1) {
+      const created = m.info.time?.created ?? Date.now();
+      const insertAt = next.findIndex((x) => (x.info.time?.created ?? 0) > created);
+      if (insertAt === -1) next = [...next, m];
+      else next = [...next.slice(0, insertAt), m, ...next.slice(insertAt)];
+      changed = true;
+    } else if (JSON.stringify(next[localIdx].parts) !== JSON.stringify(m.parts)) {
+      const copy = [...next];
+      copy[localIdx] = m;
+      next = copy;
+      changed = true;
+    }
+  }
+
+  return { messages: next, changed };
+}

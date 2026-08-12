@@ -24,6 +24,7 @@ import {
   applyMessageUpdated,
   applyPartUpdated,
   applyMessageRemoved,
+  mergeRecentMessages,
 } from "../../services/message-reducer";
 import { mergeMessages, type DisplayStep } from "../../services/message-merging";
 import { MessageBubble } from "./MessageBubble";
@@ -142,6 +143,37 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
     });
     return unsub;
   }, [sessionID, loadMessages, recomputeDisplay]);
+
+  // Poll-based fallback: the local TUI and this opencode server (4096) are
+  // separate instances sharing the DB but not their SSE event streams, so
+  // messages created in the TUI never reach our /global/event subscription.
+  // Periodically diff the newest messages against the local list and merge:
+  // insert unseen messages and catch up parts on messages we already show.
+  useEffect(() => {
+    let cancelled = false;
+    const sync = async () => {
+      try {
+        const recent = await opencodeClient.listMessages(sessionID, { limit: 10 });
+        if (cancelled) return;
+        setMessages((prev) => {
+          const { messages: merged, changed } = mergeRecentMessages(prev, recent);
+          if (changed) {
+            recomputeDisplay(merged);
+            return merged.length > MAX_MESSAGES ? merged.slice(merged.length - MAX_MESSAGES) : merged;
+          }
+          return prev;
+        });
+      } catch {
+        // transient network/server hiccup — next tick retries
+      }
+    };
+    sync();
+    const timer = setInterval(sync, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [sessionID, recomputeDisplay]);
 
   const send = async () => {
     const text = input.trim();
