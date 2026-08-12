@@ -197,7 +197,7 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
         keyExtractor={(s) => s.id}
         renderItem={({ item, index }) => {
           const prev = display[index - 1];
-          const isTurnStart = !prev || prev.kind === "user";
+          const isTurnStart = !prev || prev.kind === "user" || item.kind === "user";
           return (
             <View style={{ marginTop: isTurnStart ? spacing.md : spacing.xxs }}>
               <MessageBubble step={item} />

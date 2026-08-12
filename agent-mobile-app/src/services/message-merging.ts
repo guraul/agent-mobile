@@ -20,7 +20,6 @@ function isProcessPart(part: OpenCodePart): part is OpenCodePart & { type: "step
 
 export function mergeMessages(
   raw: OpenCodeMessage[],
-  _mergeGapMs = 2 * 60 * 1000,
 ): DisplayStep[] {
   const out: DisplayStep[] = [];
 
