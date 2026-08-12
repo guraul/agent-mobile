@@ -25,7 +25,7 @@ import {
   applyPartUpdated,
   applyMessageRemoved,
 } from "../../services/message-reducer";
-import { mergeMessages, type DisplayMessage } from "../../services/message-merging";
+import { mergeMessages, type DisplayStep } from "../../services/message-merging";
 import { MessageBubble } from "./MessageBubble";
 
 const PAGE_SIZE = 50;
@@ -40,13 +40,13 @@ interface ChatPanelProps {
 
 export function ChatPanel({ sessionID }: ChatPanelProps) {
   const [messages, setMessages] = useState<OpenCodeMessage[]>([]);
-  const [display, setDisplay] = useState<DisplayMessage[]>([]);
+  const [display, setDisplay] = useState<DisplayStep[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const listRef = useRef<FlatList<DisplayMessage>>(null);
+  const listRef = useRef<FlatList<DisplayStep>>(null);
   // stick to bottom when user is near the bottom; pause when they scroll up
   const stickToBottom = useRef(true);
 
@@ -194,8 +194,16 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
       <FlatList
         ref={listRef}
         data={display}
-        keyExtractor={(m) => m.id}
-        renderItem={({ item }) => <MessageBubble message={item} />}
+        keyExtractor={(s) => s.id}
+        renderItem={({ item, index }) => {
+          const prev = display[index - 1];
+          const isTurnStart = !prev || prev.kind === "user";
+          return (
+            <View style={{ marginTop: isTurnStart ? spacing.md : spacing.xxs }}>
+              <MessageBubble step={item} />
+            </View>
+          );
+        }}
         contentContainerStyle={styles.listContent}
         onScroll={handleScroll}
         onContentSizeChange={handleContentSizeChange}
