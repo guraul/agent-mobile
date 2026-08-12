@@ -24,7 +24,7 @@
 - ✅ JWT 认证（复用家庭理财账号体系，Bearer header 供 RN App 使用）
 - ✅ REST 转发代理（session/message/project/status/abort/provider）
 - ✅ SSE 增量事件流（`/api/opencode/stream`）：缓冲合并 `message.part.delta` → 推送 `delta` 事件
-- ✅ 模型列表聚合（`GET /api/opencode/rest/provider` → opencode `/provider`）
+- ✅ 模型列表聚合（`GET /api/opencode/rest/config/providers` → opencode `/config/providers`）
 - ✅ 手机端改造：baseUrl 改 BFF、带 JWT、消费 `delta` 事件实现打字机、动态模型列表
 - ❌ 本阶段**不做** family-finance Mobile 客户端（BFF 接口保留复用，客户端后续）
 - ❌ 本阶段**不做** 多账号/权限分层（仅"登录即可用 opencode"，admin 分层留待后续）
@@ -39,7 +39,7 @@ Pulse 手机端 (agent-mobile-app, RN/Expo)
 family-finance Web (:19234, Next.js App Router)
    ├── /api/opencode/auth/login    → 复用家庭理财账号登录发 JWT
    ├── /api/opencode/rest/*        → 转发 opencode REST
-   ├── /api/opencode/rest/provider → 聚合 /provider 模型列表
+   ├── /api/opencode/rest/config/providers → 聚合 /config/providers 模型列表
    └── /api/opencode/stream        → 订阅 /global/event，缓冲合并 delta，推增量事件
          │  凭证藏在服务端环境变量（OPENCODE_*），手机端永不接触
          ▼
@@ -79,7 +79,7 @@ opencode serve (:4096, Basic auth)
 | `GET  /api/opencode/rest/session/status` | `/session/status` | 项目状态 |
 | `POST /api/opencode/rest/session/:id/prompt_async` | `/prompt_async` | 发消息（带 agent/model） |
 | `POST /api/opencode/rest/session/:id/abort` | `/abort` | 中止 |
-| `GET  /api/opencode/rest/provider` | `/provider` | 模型列表聚合源 |
+| `GET  /api/opencode/rest/config/providers` | `/config/providers` | 模型列表聚合源（返回 `{providers, default}`，需 Basic auth） |
 
 **实现要点：**
 - Next.js App Router 动态路由 `packages/web/app/api/opencode/rest/[...path]/route.ts` 单文件承接，按 `path[0]` 分派到 opencode REST（fetch + Basic auth，凭证读 `process.env.OPENCODE_*`）
@@ -95,7 +95,7 @@ opencode serve (:4096, Basic auth)
 
 ## 模型列表聚合
 
-- `GET /api/opencode/rest/provider` 转发 opencode `/provider`，返回模型列表
+- `GET /api/opencode/rest/config/providers` 转发 opencode `/config/providers`，返回 `{ providers, default }`（providers 各含 models 列表，default 为默认模型 ID 映射）
 - 手机端 `ChatPanel.tsx` 的 `AGENT_MODELS` 常量替换为动态拉取 + 缓存（退出 BottomSheet 时刷新）
 - 保留 `PRIMARY_AGENTS`（agent 循环切换不依赖 provider 列表，model 跟随 agent 默认）
 
