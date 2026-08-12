@@ -1,6 +1,6 @@
 # Agent Mobile 项目知识库 · 索引总览
 
-> 最后更新：2026-08-12 · commit：`e18cb24`（阶段1：DisplayStep 展开 + 轮询兜底）
+> 最后更新：2026-08-12 · commit：`56503ba`（阶段1：DisplayStep 展开 + 轮询兜底 + agent/model 切换）
 > 维护：见 [CONVENTIONS.md](CONVENTIONS.md)「知识库维护约定」
 
 ## 使用说明
@@ -33,7 +33,7 @@
 | 项目状态聚合（running/needs-you/idle + SSE 实时） | pulse-stream | `agent-mobile-app/src/hooks/useProjectEvents.ts` |
 | 项目状态判定纯函数 | services | `agent-mobile-app/src/services/project-status.ts` |
 | 项目聊天（最近 session / 新建 session） | chat | `agent-mobile-app/src/components/chat/ProjectChat.tsx` |
-| 对话面板（下拉刷新/分页/滚动保持/输入三件套/轮询兜底） | chat | `agent-mobile-app/src/components/chat/ChatPanel.tsx` |
+| 对话面板（下拉刷新/分页/滚动保持/输入三件套/轮询兜底/agent+model切换） | chat | `agent-mobile-app/src/components/chat/ChatPanel.tsx` |
 | 消息气泡（user/text markdown + StepChip 旁白） | chat | `agent-mobile-app/src/components/chat/MessageBubble.tsx` |
 | 过程旁白（思考中/工具调用中） | chat | `agent-mobile-app/src/components/chat/StepChip.tsx` |
 | OpenCode REST 客户端 | services | `agent-mobile-app/src/services/opencode-client.ts` |

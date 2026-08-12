@@ -1,6 +1,6 @@
 # ARCHITECTURE.md —— 架构与数据流
 
-> 最后更新：2026-08-12 · commit：`e18cb24`（阶段1：DisplayStep 展开 + 轮询兜底）
+> 最后更新：2026-08-12 · commit：`56503ba`（阶段1：DisplayStep 展开 + 轮询兜底 + agent/model 切换）
 
 ## 整体架构
 

@@ -1,6 +1,6 @@
 # modules/chat.md —— 聊天（项目对话）
 
-> 最后更新：2026-08-12 · commit：`e18cb24`（阶段1：DisplayStep 重构 + 轮询兜底）
+> 最后更新：2026-08-12 · commit：`56503ba`（阶段1 + agent/model 切换）
 
 ## 模块职责
 
@@ -71,13 +71,24 @@ SSE: message.updated / message.part.updated / message.removed
 
 - Mic（语音，`alert("Voice input")` 占位）+ TextInput + Send/Stop 三件套。
 - **三元素垂直中心对齐**：`alignItems: "center"`（不是 flex-end）+ 输入框 `boxSizing: "border-box"`（web 上 RN TextInput 默认 content-box 会使实际高度超过 minHeight 44，破坏对齐）+ `textAlignVertical: "center"`。
+- 输入框缩小为 40px（`minHeight: 40`），占位文字水平垂直居中（`textAlign: "center"` + `textAlignVertical: "center"`，2026-08-12）。
+
+### agent / model 切换（2026-08-12）
+
+- **机制**：opencode **不支持修改已存在 session 的 agent/model**（`PATCH /session/{id}/update` 只有 title/metadata/permission）；agent/model 只能**按消息指定**（`POST /session/{id}/prompt_async` body 的 `agent` / `model:{providerID,modelID}`）。`ModelRef = { providerID, modelID }`（结构化对象，不是字符串）。
+- **agent pill**（输入区上方左）：显示当前 agent，点击**循环切换** primary agents（build → plan → design，`PRIMARY_AGENTS` 常量，model 跟随该 agent 默认模型）。
+- **model pill**（旁边）：点击打开 **BottomSheet 弹出框**选择模型（`AGENT_MODELS` 去重列表；曾用内联下拉，被输入框遮挡且效果差，2026-08-12 改为 BottomSheet）。
+- 初始化：mount 时 `getSession(sessionID)` 读取 session 的 `agent` / `model`（注意 `OpenCodeSession.model` 用 `id` 字段，非 `modelID`）。
+- 发送：`sendMessageAsync` body 带 `agent: PRIMARY_AGENTS[agentIdx].id` + `model`。
+- 列表来源（第一版简化）：从 `opencode.json` 的 primary agents 默认模型取（build→agnes/agnes-2.5-flash、plan/design→volcengine-plan/minimax-m3）；**未接** `/provider` 全量模型列表（阶段 2 中间层规划）。
 
 ## 修改本模块的注意事项
 
 - **勿改 reducer 插入语义为固定端插入**：必须按时间戳定位，否则乱序（有单测覆盖：`order-sim.test.ts`）。
 - **勿移除 step-start/step-finish 过滤**：会重新引入大量"开始执行/完成"噪音（2026-08-12 用户反馈）。
 - **勿移除轮询兜底**：TUI 独立实例的消息只有轮询能同步（除非 TUI attach 4096）。
+- **勿改 agent 切换为"修改 session"**：opencode API 不支持，必须按消息传 agent/model。
 - **自定义 `code_inline` 样式必须显式覆盖 `padding`**：react-native-markdown-display 默认 `code_inline` 带 `padding: 10`，只覆盖 color/backgroundColor 会留下 39px 高的大框覆盖相邻行；需加 `padding: 0, lineHeight: 22`（2026-08-11 已修）。
 - **BottomSheet fullScreen 无 padding**：输入区靠组件自身 padding 撑起（ChatPanel 自带 paddingBottom）。
 - 单测：`message-merging.test.ts`、`message-reducer.test.ts`、`order-sim.test.ts`（模拟完整 SSE 链路）。
-- E2E：`scripts/e2e/pulse-e2e.mjs` 覆盖打开项目 → 发消息 → 顺序校验；`test/steps-verify*.mjs` 验证旁白渲染。
+- E2E：`scripts/e2e/pulse-e2e.mjs` 覆盖打开项目 → 发消息 → 顺序校验；`test/steps-verify*.mjs` 验证旁白渲染；`test/agent-pill-verify.mjs` 验证 agent 循环 + prompt 参数；`test/model-sheet-verify.mjs` 验证模型弹出框。
