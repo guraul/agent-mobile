@@ -1,4 +1,5 @@
 import { opencodeConfig } from "../config/opencode";
+import { tokenHeader, handleUnauthorized, login as loginToBff } from "./auth";
 
 export interface OpenCodeProject {
   id: string;
@@ -30,33 +31,30 @@ export interface OpenCodeMessage {
 }
 
 export type OpenCodePart =
-  | { type: "text"; text?: string }
-  | { type: "step-start"; title?: string }
-  | { type: "step-finish"; stepType?: string }
-  | { type: "tool"; tool?: string; state?: { status?: string }; input?: unknown; output?: unknown }
-  | { type: "reasoning"; text?: string }
-  | { type: "file"; file?: { path?: string; content?: string } }
-  | { type: "snapshot"; isSnapshot?: boolean }
-  | { type: "agent"; name?: string };
-
-function authHeader(): string {
-  const { username, password } = opencodeConfig;
-  if (!password) return "";
-  return "Basic " + btoa(`${username}:${password}`);
-}
+  | { type: "text"; text?: string; id?: string }
+  | { type: "step-start"; title?: string; id?: string }
+  | { type: "step-finish"; stepType?: string; id?: string }
+  | { type: "tool"; tool?: string; state?: { status?: string }; input?: unknown; output?: unknown; id?: string }
+  | { type: "reasoning"; text?: string; id?: string }
+  | { type: "file"; file?: { path?: string; content?: string }; id?: string }
+  | { type: "snapshot"; isSnapshot?: boolean; id?: string }
+  | { type: "agent"; name?: string; id?: string };
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
+    ...tokenHeader(),
     ...(options.headers as Record<string, string> | undefined),
   };
-  const auth = authHeader();
-  if (auth) headers["Authorization"] = auth;
 
-  const res = await fetch(`${opencodeConfig.baseUrl}${path}`, {
+  const res = await fetch(`${opencodeConfig.baseUrl}/api/opencode/rest${path}`, {
     ...options,
     headers,
   });
+  if (res.status === 401) {
+    await handleUnauthorized();
+    throw new Error(`opencode ${path} unauthorized`);
+  }
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     throw new Error(`opencode ${path} failed: ${res.status} ${res.statusText} ${body}`);
@@ -66,6 +64,14 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 export const opencodeClient = {
+  login(username: string, password: string): Promise<string> {
+    return loginToBff(username, password);
+  },
+
+  listProviders(): Promise<{ providers: { id: string; name?: string; models: Record<string, unknown> }[]; default: Record<string, string> }> {
+    return request(`/config/providers`);
+  },
+
   getProject(): Promise<OpenCodeProject[]> {
     return request<OpenCodeProject[]>("/project");
   },
