@@ -1,16 +1,19 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
+  Pressable,
+  TextInput,
   type ViewStyle,
 } from "react-native";
 import { Bell } from "lucide-react-native";
-import { ScreenHeader, StatusDot, EventItem, BottomSheet, Text, Box } from "@/components";
+import { ScreenHeader, StatusDot, EventItem, BottomSheet, Text, Box, Button } from "@/components";
 import { ProjectChat } from "@/components/chat/ProjectChat";
 import { useProjectEvents, type ProjectEvent } from "@/hooks/useProjectEvents";
+import { loadToken, login, onUnauthorized } from "@/services/auth";
 import { colors, spacing, radius } from "@/theme";
 import type { StatusType } from "@/components/feedback/StatusDot";
 
@@ -42,6 +45,27 @@ export default function PulseScreen() {
     id: string;
     projectPath: string;
   } | null>(null);
+  const [needLogin, setNeedLogin] = useState(false);
+  const [loginOpen, setLoginOpen] = useState(false);
+  const [loginUser, setLoginUser] = useState("");
+  const [loginPass, setLoginPass] = useState("");
+  const [loginError, setLoginError] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadToken().then((tok) => setNeedLogin(!tok));
+    return onUnauthorized(() => setNeedLogin(true));
+  }, []);
+
+  const doLogin = async () => {
+    try {
+      setLoginError(null);
+      await login(loginUser, loginPass);
+      setNeedLogin(false);
+      setLoginOpen(false);
+    } catch (e) {
+      setLoginError(e instanceof Error ? e.message : String(e));
+    }
+  };
 
   const needsYou: GroupedEvent[] = events
     .filter((e) => e.status === "needs-you")
@@ -71,6 +95,14 @@ export default function PulseScreen() {
         onRightPress={() => alert("Notifications")}
         rightAccessibilityLabel="Notifications"
       />
+
+      {needLogin ? (
+        <Pressable onPress={() => setLoginOpen(true)} accessibilityRole="button">
+          <Box padding="sm" backgroundColor="surface.1" rounded="md" margin="sm">
+            <Text variant="caption" color="accent">未登录 — 点击登录</Text>
+          </Box>
+        </Pressable>
+      ) : null}
 
       <View style={styles.greetingWrap}>
         <Text variant="headline" color="ink">
@@ -149,6 +181,34 @@ export default function PulseScreen() {
       </ScrollView>
 
       <BottomSheet
+        visible={loginOpen}
+        onClose={() => setLoginOpen(false)}
+        testID="login-sheet"
+      >
+        <Box padding="md" gap="sm">
+          <Text variant="body" color="ink">登录 Pulse</Text>
+          <TextInput
+            placeholder="账号"
+            value={loginUser}
+            onChangeText={setLoginUser}
+            autoCapitalize="none"
+            style={styles.loginInput}
+            placeholderTextColor={colors.disabled}
+          />
+          <TextInput
+            placeholder="密码"
+            value={loginPass}
+            onChangeText={setLoginPass}
+            secureTextEntry
+            style={styles.loginInput}
+            placeholderTextColor={colors.disabled}
+          />
+          {loginError ? <Text variant="caption" color="error">{loginError}</Text> : null}
+          <Button variant="primary" label="登录" onPress={doLogin} />
+        </Box>
+      </BottomSheet>
+
+      <BottomSheet
         visible={activeProject !== null}
         onClose={() => setActiveProject(null)}
         fullScreen
@@ -204,4 +264,12 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: radius.md,
   },
   center: { alignItems: "center" },
+  loginInput: {
+    backgroundColor: colors.surface[2],
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    color: colors.ink,
+    fontSize: 15,
+  },
 });

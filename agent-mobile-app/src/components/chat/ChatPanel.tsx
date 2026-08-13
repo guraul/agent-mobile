@@ -26,6 +26,7 @@ import {
   applyPartUpdated,
   applyMessageRemoved,
   mergeRecentMessages,
+  applyPartDelta,
 } from "../../services/message-reducer";
 import { mergeMessages, type DisplayStep } from "../../services/message-merging";
 import { MessageBubble } from "./MessageBubble";
@@ -44,7 +45,6 @@ const PRIMARY_AGENTS = [
   { id: "plan", model: { providerID: "volcengine-plan", modelID: "minimax-m3" } },
   { id: "design", model: { providerID: "volcengine-plan", modelID: "minimax-m3" } },
 ] as const;
-const AGENT_MODELS = PRIMARY_AGENTS.map((a) => a.model);
 
 interface ChatPanelProps {
   sessionID: string;
@@ -64,6 +64,7 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
   const [agentIdx, setAgentIdx] = useState(0);
   const [model, setModel] = useState<{ providerID: string; modelID: string }>(PRIMARY_AGENTS[0].model);
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
+  const [modelList, setModelList] = useState<{ providerID: string; modelID: string }[]>([]);
   const listRef = useRef<FlatList<DisplayStep>>(null);
   // stick to bottom when user is near the bottom; pause when they scroll up
   const stickToBottom = useRef(true);
@@ -146,6 +147,15 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
             return next.length > MAX_MESSAGES ? next.slice(next.length - MAX_MESSAGES) : next;
           });
         }
+      } else if (event.type === "delta") {
+        const d = event.properties as { sessionID: string; messageID: string; partID: string; field: string; text: string };
+        if (d.sessionID === sessionID) {
+          setMessages((prev) => {
+            const next = applyPartDelta(prev, { messageID: d.messageID, partID: d.partID, field: d.field, text: d.text });
+            recomputeDisplay(next);
+            return next.length > MAX_MESSAGES ? next.slice(next.length - MAX_MESSAGES) : next;
+          });
+        }
       } else if (event.type === "message.removed") {
         const props = event.properties as { sessionID?: string; messageID?: string };
         if (props.sessionID === sessionID && props.messageID) {
@@ -157,7 +167,7 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
           });
         }
       }
-    });
+    }, undefined, sessionID);
     return unsub;
   }, [sessionID, loadMessages, recomputeDisplay]);
 
@@ -212,6 +222,28 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
       cancelled = true;
     };
   }, [sessionID]);
+
+  // dynamic model list from config/providers; fall back to primary agents' models
+  const loadModels = useCallback(() => {
+    opencodeClient
+      .listProviders()
+      .then((data) => {
+        const flat: { providerID: string; modelID: string }[] = [];
+        for (const p of data.providers) {
+          for (const modelID of Object.keys(p.models ?? {})) {
+            flat.push({ providerID: p.id, modelID });
+          }
+        }
+        if (flat.length > 0) setModelList(flat);
+      })
+      .catch(() => {
+        setModelList(PRIMARY_AGENTS.map((a) => ({ ...a.model })));
+      });
+  }, []);
+
+  useEffect(() => {
+    loadModels();
+  }, [loadModels]);
 
   const send = async () => {
     const text = input.trim();
@@ -313,7 +345,10 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
           <Text variant="caption" color="muted">⇄</Text>
         </Pressable>
         <Pressable
-          onPress={() => setModelMenuOpen(true)}
+          onPress={() => {
+            loadModels();
+            setModelMenuOpen(true);
+          }}
           accessibilityLabel="Select model"
           accessibilityRole="button"
           style={styles.agentPill}
@@ -326,9 +361,9 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
         <View style={styles.modelSheetHeader}>
           <Text variant="body" color="ink">选择模型</Text>
         </View>
-        {AGENT_MODELS.map((m, i) => (
+        {modelList.map((m, i) => (
           <Pressable
-            key={i}
+            key={`${m.providerID}:${m.modelID}`}
             onPress={() => {
               setModel(m);
               setModelMenuOpen(false);
