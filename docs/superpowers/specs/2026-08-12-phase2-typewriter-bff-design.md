@@ -37,7 +37,7 @@ Pulse 手机端 (agent-mobile-app, RN/Expo)
    │  JWT Bearer 认证 + 自定义增量事件协议
    ▼
 family-finance Web (:19234, Next.js App Router)
-   ├── /api/opencode/auth/login    → 复用家庭理财账号登录发 JWT
+   ├── /api/auth/login（复用）      → 家庭理财账号登录，JSON 响应带 token
    ├── /api/opencode/rest/*        → 转发 opencode REST
    ├── /api/opencode/rest/config/providers → 聚合 /config/providers 模型列表
    └── /api/opencode/stream        → 订阅 /global/event，缓冲合并 delta，推增量事件
@@ -69,7 +69,6 @@ opencode serve (:4096, Basic auth)
 
 | BFF 路由 | opencode 端点 | 说明 |
 |---|---|---|
-| `POST /api/opencode/auth/login` | 家庭理财登录 | 复用现有账号体系，发 JWT |
 | `GET  /api/opencode/rest/session` | `/session` | 列表（带 directory） |
 | `GET  /api/opencode/rest/session/:id` | `/session/:id` | 详情（agent/model） |
 | `POST /api/opencode/rest/session` | `/session` | 创建 |
@@ -82,16 +81,20 @@ opencode serve (:4096, Basic auth)
 | `GET  /api/opencode/rest/config/providers` | `/config/providers` | 模型列表聚合源（返回 `{providers, default}`，需 Basic auth） |
 
 **实现要点：**
-- Next.js App Router 动态路由 `packages/web/app/api/opencode/rest/[...path]/route.ts` 单文件承接，按 `path[0]` 分派到 opencode REST（fetch + Basic auth，凭证读 `process.env.OPENCODE_*`）
+- Next.js App Router 动态路由 `packages/web/app/api/opencode/rest/[...path]/route.ts` 单文件承接，按 `path` 拼接转发到 opencode REST（fetch + Basic auth，凭证读 `process.env.OPENCODE_*`）
+- **catch-all 路由无 `session/status` vs `session/[id]` 冲突**（所有段在一个 handler 内拼接到上游，无静态段优先级问题）
 - 手机端 `opencode-client.ts` 改拼 `BASE_URL/api/opencode/rest/...` + `Authorization: Bearer <jwt>`，方法签名保持不变 → `pulse.tsx`/`ChatPanel`/`ProjectChat` 零改动
-- `GET /api/opencode/rest/session/status` 与 `GET /api/opencode/rest/session/:id/message` 路由冲突需处理：动态段 `:id` 与固定 `status` 段——Next.js 中 `session/status` 优先于 `session/[id]`，需确认并测试（若冲突，用路径中不含 `message` 子段的判断区分）。
+- **CORS**：所有 `/api/opencode/*` 路由响应带 `Access-Control-Allow-Origin: <BFF 允许的 9928 origins>` + `Access-Control-Allow-Headers: authorization, content-type` + `Access-Control-Allow-Methods: GET, POST, PATCH, DELETE, OPTIONS`；OPTIONS 请求返回 204。web 预览（9928）跨域 fetch 依赖此头；RN 原生无 CORS 约束
 
-## 认证
+## 认证与登录 UX
 
 - `requireAuth(request)` 现只读 cookie；新增 `requireAuthHeader(request)` 支持 `Authorization: Bearer`（RN App 用），两套共用 `verifyToken`
 - `/api/opencode/*` 全部强制鉴权（包括 stream），未登录 401
-- login 复用现有 `POST /api/auth/login` 账号体系（首管理员种子账号）
+- **登录复用现有 `POST /api/auth/login`**（账号体系 + 限速 + 种子管理员账号），JSON 响应新增返回 `token`（JWT 有效期 1 天，与现有 cookie maxAge 一致）
+- **手机端登录 UX（轻量横幅）**：pulse 首页顶部显示"未登录"横幅（无 token 或 token 失效时），点击弹窗输入家庭理财账号/密码 → 登录成功存 token（AsyncStorage）→ 横幅消失；**不强制拦截浏览**（未登录仅显示横幅，页面其他内容照常加载失败显示错误）
+- **401 处理**：任何请求返回 401 → 清 token → 显示"未登录"横幅（用户手动重新登录；不做自动重登，因不存密码）
 - opencode Basic auth 凭证只在 family-finance 服务端环境变量：`OPENCODE_BASE_URL` / `OPENCODE_USERNAME` / `OPENCODE_PASSWORD`（默认 `http://127.0.0.1:4096` / opencode / 空）
+- **安全收窄**：手机端不再直连后，opencode serve 改 `--hostname 127.0.0.1`（仅本机 BFF 可访问，关闭公网暴露）；手机端 `.env.local` 删除 `EXPO_PUBLIC_OPENCODE_PASSWORD`（凭证不再进 APK）
 
 ## 模型列表聚合
 
@@ -103,17 +106,18 @@ opencode serve (:4096, Basic auth)
 
 | 文件 | 改动 |
 |---|---|
-| `src/config/opencode.ts` | baseUrl 改 BFF（env `EXPO_PUBLIC_OPENCODE_URL` 指向 `:19234`）；新增 `token` 字段 |
-| `src/services/opencode-client.ts` | 请求带 `Authorization: Bearer <token>`；新增 `login()` / `listProviders()` / `getToken` / `setToken`（AsyncStorage 持久化） |
-| `src/services/opencode-events.ts` | 改连 `/api/opencode/stream`；`OpenCodeEvent` 类型加 `delta`；解析新事件 |
+| `src/config/opencode.ts` | baseUrl 改 BFF（env `EXPO_PUBLIC_OPENCODE_URL` 指向 `:19234`）；新增 `token` 字段；删除 username/password（凭证不再进客户端） |
+| `src/services/auth.ts`（新） | `getToken` / `setToken`（AsyncStorage 持久化）/ `login(username,password)` 调 `/api/auth/login` / `tokenHeader()` |
+| `src/services/opencode-client.ts` | 请求带 `Authorization: Bearer <token>`；新增 `listProviders()`；401 时回调清 token |
+| `src/services/opencode-events.ts` | 改连 `/api/opencode/stream`；`subscribeToOpenCodeEvents` 加可选 `sessionID` 参数（拼 `?sessionID=`）；`OpenCodeEvent` 类型加 `delta` |
 | `src/services/message-reducer.ts` | 新增 `applyPartDelta`（追加文本）+ 单测 |
-| `src/components/chat/ChatPanel.tsx` | SSE 分支加 `case "delta"` → `applyPartDelta` → `recomputeDisplay`；mount 时无 token 先登录；`AGENT_MODELS` 动态拉取 |
-| `src/app/_layout.tsx` 或 pulse 入口 | 登录态判断（无 token → 引导登录 / 显示错误） |
+| `src/components/chat/ChatPanel.tsx` | SSE 分支加 `case "delta"` → `applyPartDelta` → `recomputeDisplay`；订阅时传 `sessionID`；`AGENT_MODELS` 动态拉取 |
+| `src/app/(tabs)/pulse.tsx` | 顶部"未登录"横幅 + 登录弹窗（复用 theme 组件），401 时联动显示 |
 
 ## 错误处理
 
 - BFF 转发失败 → 返回 opencode 原始状态码 + 语义化 message；手机端沿用现有 `setError`
-- JWT 过期（401）→ 手机端自动重登一次，仍失败则显示"请重新登录"
+- JWT 过期/无效（401）→ 手机端清 token → 显示"未登录"横幅，用户手动重新登录
 - BFF 到 opencode 连接失败 → 返回 502，手机端显示服务不可用
 - stream 断线重连沿用现有指数退避（`backoffDelay`）
 
@@ -130,13 +134,15 @@ opencode serve (:4096, Basic auth)
 2. 发消息后 text 气泡内容逐 chunk 增长（打字机），step 顺序与阶段 1 一致
 3. `step-start`/`step-finish` 不再出现在手机端（BFF 端已过滤）
 4. 模型选择 BottomSheet 显示动态模型列表（来自 provider）
-5. JWT 过期自动重登一次，重登失败显示错误
-6. `tsc --noEmit` 通过；单测全绿；Playwright E2E 通过
+5. 未登录时 pulse 顶部显示横幅，点击弹窗登录成功横幅消失；401 清 token 后横幅重现
+6. `tsc --noEmit` 通过；单测全绿；Playwright E2E 通过（web 预览跨域 fetch BFF 成功）
 7. family-finance 既有功能（登录/交易/估值）不回归
+8. opencode serve 收窄为 127.0.0.1 监听；手机端 `.env.local` 无 `EXPO_PUBLIC_OPENCODE_PASSWORD`
 
 ## 风险与边界
 
-1. **`session/status` vs `session/[id]` 路由冲突**：需验证 Next.js 静态段优先级，必要时用 catch-all 内判断
-2. **SSE 在 Next.js 中长连接**：需 `dynamic = 'force-dynamic'` + streaming response；dev/生产均需验证心跳与断连
-3. **打字机与轮询兜底竞态**：`applyPartDelta` 追加后若轮询返回的完整 part 覆盖时序冲突，以"增量追加 + 完整覆盖"语义兜底（server 累积一致）
-4. **CORS**：手机端为 RN 原生，无 CORS 约束；web 预览（9928）需确认 BFF 允许来源
+1. **SSE 在 Next.js 中长连接**：需 `dynamic = 'force-dynamic'` + streaming response；dev/生产均需验证心跳与断连
+2. **打字机渲染性能**：BFF 每 32ms 推 delta → `recomputeDisplay` 全量 `mergeMessages` → 可见气泡 markdown 全量重渲染。移动端 markdown 高频重渲染可能卡顿；缓解：前端把 delta 并入现有 16ms dispatcher 批量处理，或对未变气泡 memo
+3. **reasoning delta 一并推送**：opencode 对 reasoning part 同样发 `field:"text"` 的 delta，BFF 统一转为 `delta` 事件；前端 `applyPartDelta` 会追加到 reasoning part 但 UI 不显示内容（旁白），无害但占带宽（已知行为，不做 BFF 端 part 类型跟踪）
+4. **打字机与轮询兜底竞态**：`applyPartDelta` 追加后若轮询返回的完整 part 覆盖时序冲突，以"增量追加 + 完整覆盖"语义兜底（server 累积一致）
+5. **CORS**：BFF 路由响应带 `Access-Control-Allow-Origin`（9928 origins）；RN 原生无 CORS 约束

@@ -15,8 +15,10 @@
 - **opencode 端点**：REST 直连 `http://127.0.0.1:4096`；模型列表端点是 `GET /config/providers`（**不是** `/provider`），返回 `{ providers, default }`，需 Basic auth。
 - **opencode SSE 事件**：`message.part.delta` 的 `properties` 含 `sessionID/messageID/partID/field/delta`；`message.part.updated` 的 `properties` 含 `sessionID/part/time`；`message.updated` 含 `sessionID/info`；`message.removed` 含 `sessionID/messageID`。
 - **BFF stream 对手机端的事件格式**：沿用 `{ type, properties }`（手机端 `decodeSSEPayload` 无需改）。`delta` 事件 properties 用 `text` 字段（非 opencode 的 `delta` 字段）。
-- **认证**：`/api/opencode/*` 全部强制 JWT（cookie 或 Bearer）。新增 `requireAuthHeader`。login 复用现有账号体系。
-- **凭证**：opencode Basic auth 只存 family-finance `packages/web/.env.local` 的 `OPENCODE_*`，不入 git。
+- **认证**：`/api/opencode/*` 全部强制 JWT（cookie 或 Bearer）。新增 `requireAuthHeader`。**登录复用现有 `POST /api/auth/login`**（JSON 响应新增返回 `token`，JWT 有效期 1 天）。
+- **CORS**：所有 `/api/opencode/*` 响应带 CORS 头（允许 9928 预览 origins + `authorization`/`content-type` 头），OPTIONS 204。共享 `packages/web/lib/cors.ts`。
+- **凭证**：opencode Basic auth 只存 family-finance `packages/web/.env.local` 的 `OPENCODE_*`，不入 git。手机端 `.env.local` 的 `EXPO_PUBLIC_OPENCODE_*` 密码删除。
+- **安全收窄**：opencode serve 改 `--hostname 127.0.0.1`（Task 12）。
 - **无新增注释**（除非必要），遵循各仓库现有代码风格。
 - 本阶段不做 family-finance Mobile 客户端、不做权限分层、不做 BFF 缓存（provider 除外）。
 
@@ -175,6 +177,26 @@
       }
     });
 
+    it("overwrites any incoming Authorization with opencode Basic auth", async () => {
+      const called: { headers?: Headers } = {};
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = (async (_url: any, init: any) => {
+        called.headers = new Headers(init?.headers);
+        return new Response("ok", { status: 200 });
+      }) as typeof fetch;
+      try {
+        process.env.OPENCODE_USERNAME = "opencode";
+        process.env.OPENCODE_PASSWORD = "secret";
+        await proxyRequest("/session", {
+          method: "GET",
+          headers: { Authorization: "Bearer client-jwt" },
+        });
+        expect(called.headers?.get("Authorization")).toBe("Basic " + btoa("opencode:secret"));
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
     it("propagates upstream error status", async () => {
       const originalFetch = globalThis.fetch;
       globalThis.fetch = (async () => new Response("nope", { status: 502 })) as typeof fetch;
@@ -211,7 +233,10 @@
   /** 转发请求到 opencode server，注入 Basic auth。上游错误状态原样返回。 */
   export async function proxyRequest(path: string, init: RequestInit = {}): Promise<Response> {
     const headers = new Headers(init.headers);
-    if (!headers.has("Authorization")) headers.set("Authorization", authHeader());
+    // 强制覆盖为 opencode 的 Basic auth：客户端传入的 Bearer JWT 是给 BFF 的，
+    // 不能透传给 opencode（否则上游 401）。
+    headers.delete("Authorization");
+    headers.set("Authorization", authHeader());
     const url = `${opencodeBaseUrl()}${path}`;
     try {
       const res = await fetch(url, { ...init, headers });
@@ -253,28 +278,82 @@
 
 **Files:**
 - Create: `packages/web/app/api/opencode/rest/[...path]/route.ts`
+- Create: `packages/web/lib/cors.ts`
 
 **Interfaces:**
 - Consumes: `requireAuthHeader`（Task 1）、`proxyRequest`（Task 2）
-- Produces: 完整 REST 代理，方法签名与 opencode server 一致（`opencode-client.ts` 不改签名直接换 baseUrl 即可）
-- Routes 映射（`path.join('/')` 拼接）：
+- Produces: 完整 REST 代理，方法签名与 opencode server 一致（`opencode-client.ts` 不改签名直接换 baseUrl 即可）；全部响应带 CORS 头
+- Produces（cors.ts）：
+  ```ts
+  export const CORS_ORIGINS = ["http://106.13.181.13:9928", "http://127.0.0.1:9928", "http://localhost:9928"];
+  export function corsHeaders(request: NextRequest): Record<string, string>;
+  export function corsOptionsResponse(request: NextRequest): Response | null;
+  // 非允许 origin 不返回 CORS 头；OPTIONS 请求返回 204 + 头（preflight）
+  ```
+- Routes 映射（`path.join('/')` 拼接，catch-all 内无静态段冲突）：
   - `session` → `/session`（GET，带 directory query）
   - `session/{id}` → `/session/{id}`（GET/PATCH/DELETE）
-  - `session/status` → `/session/status`（GET，**在 `{id}` 之前判断**）
+  - `session/status` → `/session/status`（GET）
   - `session/{id}/message` → `/session/{id}/message`（GET）
   - `session/{id}/prompt_async` → `/session/{id}/prompt_async`（POST）
   - `session/{id}/abort` → `/session/{id}/abort`（POST）
   - `config/providers` → `/config/providers`（GET）
 
-- [ ] **Step 1: 实现路由**
+- [ ] **Step 1: 实现 CORS helper**
+
+  创建 `packages/web/lib/cors.ts`：
+  ```ts
+  import { NextRequest } from "next/server";
+
+  // web 预览（9928）跨域 fetch BFF 的允许来源；RN 原生无 CORS 约束
+  export const CORS_ORIGINS = [
+    "http://106.13.181.13:9928",
+    "http://127.0.0.1:9928",
+    "http://localhost:9928",
+  ];
+
+  export function corsHeaders(request: NextRequest): Record<string, string> {
+    const origin = request.headers.get("origin");
+    if (!origin || !CORS_ORIGINS.includes(origin)) return {};
+    return {
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
+      "Access-Control-Allow-Headers": "authorization, content-type",
+      "Access-Control-Max-Age": "86400",
+      Vary: "Origin",
+    };
+  }
+
+  /** 处理 CORS preflight；非 OPTIONS 返回 null（继续正常流程）。 */
+  export function corsOptionsResponse(request: NextRequest): Response | null {
+    if (request.method !== "OPTIONS") return null;
+    return new Response(null, { status: 204, headers: corsHeaders(request) });
+  }
+  ```
+
+- [ ] **Step 2: 实现路由**
 
   创建 `packages/web/app/api/opencode/rest/[...path]/route.ts`：
   ```ts
   import { NextRequest } from "next/server";
   import { requireAuthHeader } from "@/lib/auth-shared";
   import { proxyRequest } from "@/lib/opencode";
+  import { corsHeaders, corsOptionsResponse } from "@/lib/cors";
 
   export const dynamic = "force-dynamic";
+
+  function json401(): Response {
+    return new Response(JSON.stringify({ error: "未登录或登录已过期" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  function withCors(res: Response, request: NextRequest): Response {
+    const headers = new Headers(res.headers);
+    for (const [k, v] of Object.entries(corsHeaders(request))) headers.set(k, v);
+    return new Response(res.body, { status: res.status, headers });
+  }
 
   // 把请求转成对 opencode 的 path。path 数组 join 成原始路径，仅保留 query。
   function upstreamPath(path: string[], search: string): string {
@@ -282,50 +361,50 @@
     return `${base}${search}`;
   }
 
+  export async function OPTIONS(request: NextRequest) {
+    return corsOptionsResponse(request) ?? new Response(null, { status: 204 });
+  }
+
   export async function GET(request: NextRequest, ctx: { params: { path?: string[] } }) {
-    if (!(await requireAuthHeader(request))) {
-      return new Response(JSON.stringify({ error: "未登录或登录已过期" }), { status: 401, headers: { "Content-Type": "application/json" } });
-    }
+    if (!(await requireAuthHeader(request))) return json401();
     const path = ctx.params.path ?? [];
     const q = request.nextUrl.search;
-    return proxyRequest(upstreamPath(path, q), { method: "GET", headers: request.headers });
+    return withCors(await proxyRequest(upstreamPath(path, q), { method: "GET", headers: request.headers }), request);
   }
 
   export async function POST(request: NextRequest, ctx: { params: { path?: string[] } }) {
-    if (!(await requireAuthHeader(request))) {
-      return new Response(JSON.stringify({ error: "未登录或登录已过期" }), { status: 401, headers: { "Content-Type": "application/json" } });
-    }
+    if (!(await requireAuthHeader(request))) return json401();
     const path = ctx.params.path ?? [];
     const q = request.nextUrl.search;
     const body = await request.text();
-    return proxyRequest(upstreamPath(path, q), {
+    return withCors(await proxyRequest(upstreamPath(path, q), {
       method: "POST",
       headers: request.headers,
       body,
-    });
+    }), request);
   }
 
   export async function PATCH(request: NextRequest, ctx: { params: { path?: string[] } }) {
-    if (!(await requireAuthHeader(request))) return new Response(JSON.stringify({ error: "未登录" }), { status: 401, headers: { "Content-Type": "application/json" } });
+    if (!(await requireAuthHeader(request))) return json401();
     const path = ctx.params.path ?? [];
     const body = await request.text();
-    return proxyRequest(path.join("/") + request.nextUrl.search, { method: "PATCH", headers: request.headers, body });
+    return withCors(await proxyRequest(path.join("/") + request.nextUrl.search, { method: "PATCH", headers: request.headers, body }), request);
   }
 
   export async function DELETE(request: NextRequest, ctx: { params: { path?: string[] } }) {
-    if (!(await requireAuthHeader(request))) return new Response(JSON.stringify({ error: "未登录" }), { status: 401, headers: { "Content-Type": "application/json" } });
+    if (!(await requireAuthHeader(request))) return json401();
     const path = ctx.params.path ?? [];
-    return proxyRequest(path.join("/") + request.nextUrl.search, { method: "DELETE", headers: request.headers });
+    return withCors(await proxyRequest(path.join("/") + request.nextUrl.search, { method: "DELETE", headers: request.headers }), request);
   }
   ```
   > 注：`ctx.params` 在 Next.js 14 为同步对象；若 15+ 异步，用 `await ctx.params`。以仓库实际版本（^14.0.4）为准。
 
-- [ ] **Step 2: 类型检查**
+- [ ] **Step 3: 类型检查**
 
   运行：`pnpm --filter web exec tsc --noEmit`（或 `cd packages/web && npx tsc --noEmit`）
   预期：通过（若报 auth-shared 导出缺失，回到 Task 1 检查）。
 
-- [ ] **Step 3: 手动验证（本机 opencode 在 4096）**
+- [ ] **Step 4: 手动验证（本机 opencode 在 4096）**
 
   配置 `packages/web/.env.local` 追加：
   ```
@@ -337,14 +416,15 @@
   ```bash
   TOKEN=$(curl -s -X POST http://127.0.0.1:19234/api/auth/login -H "Content-Type: application/json" -d '{"username":"<admin>","password":"<pw>"}' | python3 -c "import sys,json;print(json.load(sys.stdin)['token'])")
   curl -s http://127.0.0.1:19234/api/opencode/rest/project -H "Authorization: Bearer $TOKEN"
+  curl -s -i -X OPTIONS http://127.0.0.1:19234/api/opencode/rest/project -H "Origin: http://106.13.181.13:9928" -H "Access-Control-Request-Method: GET" | head -10
   ```
-  预期：返回 opencode 项目列表 JSON。无 token 时返回 401。
+  预期：第一个返回 opencode 项目列表 JSON；无 token 时返回 401；OPTIONS 返回 204 + `Access-Control-Allow-Origin` 头。
 
-- [ ] **Step 4: 提交**
+- [ ] **Step 5: 提交**
 
   ```bash
-  git add packages/web/app/api/opencode
-  git commit -m "feat: add BFF REST proxy /api/opencode/rest/*"
+  git add packages/web/app/api/opencode packages/web/lib/cors.ts
+  git commit -m "feat: add BFF REST proxy /api/opencode/rest/* with CORS"
   ```
 
 ---
@@ -509,6 +589,7 @@
   import { requireAuthHeader } from "@/lib/auth-shared";
   import { parseOpencodeEvent, createDeltaBuffer } from "@/lib/opencode-stream";
   import { opencodeBaseUrl } from "@/lib/opencode";
+  import { corsHeaders, corsOptionsResponse } from "@/lib/cors";
 
   export const dynamic = "force-dynamic";
   export const runtime = "nodejs";
@@ -523,7 +604,13 @@
     return "Basic " + Buffer.from(`${username}:${password}`).toString("base64");
   }
 
+  export async function OPTIONS(request: NextRequest) {
+    return corsOptionsResponse(request) ?? new Response(null, { status: 204 });
+  }
+
   export async function GET(request: NextRequest) {
+    const preflight = corsOptionsResponse(request);
+    if (preflight) return preflight;
     if (!(await requireAuthHeader(request))) {
       return new Response(JSON.stringify({ error: "未登录或登录已过期" }), { status: 401, headers: { "Content-Type": "application/json" } });
     }
@@ -583,17 +670,19 @@
       },
     });
 
+    const cors = corsHeaders(request);
     return new Response(stream, {
       headers: {
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache, no-transform",
         "X-Accel-Buffering": "no",
         Connection: "keep-alive",
+        ...cors,
       },
     });
   }
   ```
-  > 说明：`createDeltaBuffer` 无内部定时器，flush 由 `flushTimer`（32ms）驱动，事件经 `send` 入队。`message.part.delta` 只进 buffer（field=text），其余事件直接转发。
+  > 说明：`createDeltaBuffer` 无内部定时器，flush 由 `flushTimer`（32ms）驱动，事件经 `send` 入队。`message.part.delta` 只进 buffer（field=text），其余事件直接转发。SSE 响应同样带 CORS 头（web 预览 EventSource/fetch 跨域需要）。
 
 - [ ] **Step 2: 类型检查**
 
@@ -698,9 +787,13 @@
   ```ts
   export async function getToken(): Promise<string | null>;
   export async function setToken(token: string | null): Promise<void>;
+  export async function loadToken(): Promise<string | null>;
+  // 启动时把 storage 中的 token 载入 opencodeConfig.token（tokenHeader 依赖内存值）
   export async function login(username: string, password: string): Promise<string>;
-  // login 调用 POST /api/opencode/auth/login → { success, token }
+  // login 调用 POST /api/auth/login（复用家庭理财登录，JSON 响应带 token）
   export function tokenHeader(): Record<string, string>;
+  export function onUnauthorized(cb: () => void): () => void;
+  // 401 时触发订阅回调（登录横幅联动）；返回退订函数
   ```
 
 - [ ] **Step 1: 安装 AsyncStorage**
@@ -717,13 +810,11 @@
     baseUrl:
       process.env.EXPO_PUBLIC_OPENCODE_URL ??
       "http://110.40.136.33:19234",
-    username: process.env.EXPO_PUBLIC_OPENCODE_USERNAME ?? "opencode",
-    password: process.env.EXPO_PUBLIC_OPENCODE_PASSWORD ?? "",
-    // 登录后写入的 JWT；opencode Basic auth 凭证不再在客户端
+    // 登录后写入的 JWT；opencode Basic auth 凭证不再进客户端
     token: "",
   };
   ```
-  > 说明：baseUrl 默认指向 BFF（:19234）。BFF 地址按实际部署填写（本地预览可临时用 127.0.0.1:19234）。
+  > 说明：baseUrl 默认指向 BFF（:19234）。BFF 地址按实际部署填写（本地预览可临时用 127.0.0.1:19234）。**删除 username/password 字段**（凭证不再进 APK）。
 
 - [ ] **Step 3: 实现 `services/auth.ts`**
 
@@ -732,6 +823,8 @@
   import { opencodeConfig } from "../config/opencode";
 
   const TOKEN_KEY = "pulse_opencode_token";
+
+  let unauthorizedCb: (() => void) | null = null;
 
   export async function getToken(): Promise<string | null> {
     try { return await AsyncStorage.getItem(TOKEN_KEY); } catch { return null; }
@@ -744,8 +837,15 @@
     } catch { /* storage failure — keep in-memory */ }
   }
 
+  /** 启动时调用：把持久化 token 载入内存（tokenHeader 依赖 opencodeConfig.token）。 */
+  export async function loadToken(): Promise<string | null> {
+    const tok = await getToken();
+    opencodeConfig.token = tok ?? "";
+    return tok;
+  }
+
   export async function login(username: string, password: string): Promise<string> {
-    const res = await fetch(`${opencodeConfig.baseUrl}/api/opencode/auth/login`, {
+    const res = await fetch(`${opencodeConfig.baseUrl}/api/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password }),
@@ -762,6 +862,18 @@
 
   export function tokenHeader(): Record<string, string> {
     return opencodeConfig.token ? { Authorization: `Bearer ${opencodeConfig.token}` } : {};
+  }
+
+  /** 订阅 401 事件（登录横幅联动）。 */
+  export function onUnauthorized(cb: () => void): () => void {
+    unauthorizedCb = cb;
+    return () => { unauthorizedCb = null; };
+  }
+
+  /** 由请求层在收到 401 时调用：清 token + 通知横幅。 */
+  export async function handleUnauthorized(): Promise<void> {
+    await setToken(null);
+    unauthorizedCb?.();
   }
   ```
 
@@ -785,8 +897,8 @@
 - Modify: `agent-mobile-app/src/services/opencode-client.ts`
 
 **Interfaces:**
-- Consumes: `tokenHeader`（Task 7）
-- Produces: 方法签名不变；内部拼 `/api/opencode/rest/`；新增 `login()` / `listProviders()`
+- Consumes: `tokenHeader` / `handleUnauthorized` / `login`（Task 7）
+- Produces: 方法签名不变；内部拼 `/api/opencode/rest/`；新增 `login()` / `listProviders()`；401 时自动清 token 并通知横幅
   ```ts
   login(username: string, password: string): Promise<string>
   listProviders(): Promise<{ providers: unknown[]; default: unknown }>
@@ -795,7 +907,8 @@
 - [ ] **Step 1: 修改 client**
 
   - `request` 的 URL 改为 `${opencodeConfig.baseUrl}/api/opencode/rest${path}`（若 path 已是 `/api/...` 则直接拼 baseUrl）
-  - `request` 头合并 `tokenHeader()` 与 Basic auth（Basic 保留仅作回退，实际不再需要——BFF 用 JWT）
+  - `request` 头合并 `tokenHeader()`（删除 Basic auth——BFF 用 JWT，凭证不进客户端）
+  - `request` 收到 401 时调用 `handleUnauthorized()` 再抛错
   - 新增：
   ```ts
   login(username: string, password: string): Promise<string> {
@@ -805,7 +918,7 @@
     return request<...>(`/config/providers`);
   },
   ```
-  将 `auth.ts` 的 `login`/`tokenHeader` 导入并在此调用。
+  将 `auth.ts` 的 `login`/`tokenHeader`/`handleUnauthorized` 导入并在此调用。
 
 - [ ] **Step 2: 类型检查**
 
@@ -922,7 +1035,7 @@
 
 ---
 
-### Task 10: `opencode-events.ts` 接 BFF stream + delta 事件类型
+### Task 10: `opencode-events.ts` 接 BFF stream + delta 事件类型 + sessionID 过滤
 
 **Files:**
 - Modify: `agent-mobile-app/src/services/opencode-events.ts`
@@ -930,7 +1043,14 @@
 
 **Interfaces:**
 - Consumes: `opencodeConfig`, `tokenHeader`（Task 7）
-- Produces: `OpenCodeEvent` 增加 delta 变体；`subscribeToOpenCodeEvents` 改连 `/api/opencode/stream`
+- Produces: `OpenCodeEvent` 增加 delta 变体；`subscribeToOpenCodeEvents(onEvent, onError?, sessionID?)` 改连 `/api/opencode/stream`（带 `?sessionID=` 时 BFF 端过滤）
+  ```ts
+  export function subscribeToOpenCodeEvents(
+    onEvent: (event: OpenCodeEvent) => void,
+    onError?: (err: unknown) => void,
+    sessionID?: string,
+  ): () => void;
+  ```
 
 - [ ] **Step 1: 写失败测试（类型）**
 
@@ -949,8 +1069,9 @@
   - `OpenCodeEvent` 联合类型新增：
   ```ts
   | { type: "delta"; properties: { sessionID: string; messageID: string; partID: string; field: string; text: string } }
+  | { type: "stream.error"; properties: { error?: string } }
   ```
-  - `subscribeToOpenCodeEvents` 的 URL 改为 `${opencodeConfig.baseUrl}/api/opencode/stream`，头合并 `tokenHeader()`。
+  - `subscribeToOpenCodeEvents` 加第三参数 `sessionID?: string`；URL 改为 `${opencodeConfig.baseUrl}/api/opencode/stream` + （`sessionID` 时 `?sessionID=${encodeURIComponent(sessionID)}`），头合并 `tokenHeader()`。
 
 - [ ] **Step 3: 单测通过 + 全量**
 
@@ -966,19 +1087,21 @@
 
 ---
 
-### Task 11: ChatPanel 消费 delta + 动态模型列表 + 登录态
+### Task 11: ChatPanel 消费 delta + 动态模型列表 + pulse 登录横幅
 
 **Files:**
 - Modify: `agent-mobile-app/src/components/chat/ChatPanel.tsx`
-- Modify: `agent-mobile-app/src/app/_layout.tsx`（登录态占位，最小实现）
+- Modify: `agent-mobile-app/src/app/(tabs)/pulse.tsx`
 
 **Interfaces:**
-- Consumes: `applyPartDelta`（Task 9）、`login`/`getToken`（Task 7）、`listProviders`（Task 8）、`delta` 事件（Task 10）
-- Produces: 打字机渲染 + 动态模型 BottomSheet
+- Consumes: `applyPartDelta`（Task 9）、`loadToken`/`login`/`onUnauthorized`（Task 7）、`listProviders`（Task 8）、`delta` 事件 + `subscribeToOpenCodeEvents(onEvent, onError, sessionID)`（Task 10）
+- Produces: 打字机渲染 + 动态模型 BottomSheet + pulse 顶部"未登录"横幅（点击弹窗登录）
 
-- [ ] **Step 1: SSE 分支加 delta**
+- [ ] **Step 1: SSE 分支加 delta + 传 sessionID**
 
-  在 `ChatPanel.tsx` 的 `subscribeToOpenCodeEvents` 回调加：
+  在 `ChatPanel.tsx`：
+  - 订阅改为 `subscribeToOpenCodeEvents((event) => {...}, undefined, sessionID)`（BFF 端过滤，省带宽）
+  - 回调加：
   ```tsx
   } else if (event.type === "delta") {
     const d = event.properties;
@@ -992,22 +1115,53 @@
   }
   ```
 
-- [ ] **Step 2: mount 时登录**
+- [ ] **Step 2: 动态模型列表**
 
-  在 ChatPanel 顶部 effect（或 pulse 入口）：
+  替换 `AGENT_MODELS` 常量逻辑：mount 时 `listProviders()`，把 `providers` 平铺成 `{ providerID, modelID }[]` 存入 state（失败时回退 `PRIMARY_AGENTS` 的 model）；BottomSheet 渲染该列表；退出 sheet 刷新。保留 `PRIMARY_AGENTS` 用于 agent 切换与默认 model。
+
+- [ ] **Step 3: pulse.tsx 登录横幅**
+
+  在 `pulse.tsx` 顶部（列表上方）加横幅：
   ```tsx
+  const [needLogin, setNeedLogin] = useState(false);
+  const [loginOpen, setLoginOpen] = useState(false);
+  const [loginUser, setLoginUser] = useState("");
+  const [loginPass, setLoginPass] = useState("");
+  const [loginError, setLoginError] = useState<string | null>(null);
+
   useEffect(() => {
-    getToken().then(async (tok) => {
-      if (tok) return;
-      try { await login("", ""); } catch (e) { setError("请先在服务器配置 BFF 账号"); }
-    });
+    loadToken().then((tok) => setNeedLogin(!tok));
+    return onUnauthorized(() => setNeedLogin(true));
   }, []);
+
+  const doLogin = async () => {
+    try {
+      setLoginError(null);
+      await login(loginUser, loginPass);
+      setNeedLogin(false);
+      setLoginOpen(false);
+    } catch (e) {
+      setLoginError(e instanceof Error ? e.message : String(e));
+    }
+  };
   ```
-  > 注：pulse 暂无登录 UI（本阶段最小实现）。若不想自动登录，改成 `getToken()` 存在才走 BFF，否则显示错误横幅。实际账号交互按产品决策补充——见 Global Constraints（本阶段登录 UI 从简）。
-
-- [ ] **Step 3: 动态模型列表**
-
-  替换 `AGENT_MODELS` 常量逻辑：mount 时 `listProviders()`，把 `providers` 平铺成 `{ providerID, modelID }[]` 存入 state；BottomSheet 渲染该列表；退出 sheet 刷新。保留 `PRIMARY_AGENTS` 用于 agent 切换与默认 model。
+  渲染（用现有 theme 组件，勿硬编码颜色）：
+  ```tsx
+  {needLogin ? (
+    <Pressable onPress={() => setLoginOpen(true)} accessibilityRole="button">
+      <Box padding="sm" backgroundColor="surface.1" rounded="md" margin="sm">
+        <Text variant="caption" color="accent">未登录 — 点击登录</Text>
+      </Box>
+    </Pressable>
+  ) : null}
+  <BottomSheet visible={loginOpen} onClose={() => setLoginOpen(false)}>
+    <TextInput placeholder="账号" value={loginUser} onChangeText={setLoginUser} autoCapitalize="none" />
+    <TextInput placeholder="密码" value={loginPass} onChangeText={setLoginPass} secureTextEntry />
+    {loginError ? <Text variant="caption" color="error">{loginError}</Text> : null}
+    <Button variant="primary" label="登录" onPress={doLogin} />
+  </BottomSheet>
+  ```
+  > 注：登录弹窗与横幅不拦截浏览（页面照常渲染，请求失败显示现有错误）。`BottomSheet` 从 `@/components/navigation/BottomSheet` 导入（ChatPanel 已使用同款）。
 
 - [ ] **Step 4: 类型检查 + 全量单测**
 
@@ -1017,13 +1171,13 @@
 - [ ] **Step 5: 提交**
 
   ```bash
-  git add agent-mobile-app/src/components/chat/ChatPanel.tsx agent-mobile-app/src/app/_layout.tsx
-  git commit -m "feat: consume delta for typewriter + dynamic model list"
+  git add agent-mobile-app/src/components/chat/ChatPanel.tsx agent-mobile-app/src/app/\(tabs\)/pulse.tsx
+  git commit -m "feat: consume delta for typewriter + dynamic model list + login banner"
   ```
 
 ---
 
-### Task 12: E2E 验证 + 知识库更新
+### Task 12: E2E 验证 + 安全收窄 + 知识库更新
 
 **Files:**
 - Create: `agent-mobile/test/bff-e2e.mjs`（Playwright）
@@ -1036,20 +1190,27 @@
 
 - [ ] **Step 1: 写 Playwright 脚本**
 
-  参考现有 `test/agent-pill-verify.mjs` 模式，流程：登录 → 打开项目 → 发消息 → 捕获增量事件（断言出现 `delta` type）→ 断言最终文本完整 + step 顺序正确。
+  参考现有 `test/agent-pill-verify.mjs` 模式，流程：登录（page.evaluate fetch POST /api/auth/login → token 写 localStorage 键 `pulse_opencode_token`）→ reload → 打开项目 → 发消息 → 捕获增量事件（断言出现 `delta` type）→ 断言最终文本完整 + step 顺序正确。
 
 - [ ] **Step 2: 运行验证**
 
   前置：`pnpm exec expo export --platform web` 构建 + 9928 静态服务 + BFF dev（19234）+ opencode（4096）。
-  预期：打字机增量出现、step 顺序正确、动态模型列表可见。
+  预期：打字机增量出现、step 顺序正确、动态模型列表可见、登录横幅消失。
 
-- [ ] **Step 3: 更新知识库**
+- [ ] **Step 3: 安全收窄 opencode serve**
 
-  - `modules/chat.md`：数据流加 BFF；`message.part.delta`/打字机说明；动态模型列表。
-  - `API.md`：新增 `/api/opencode/*` 接口表（含 stream 协议、config/providers）。
-  - `OPERATIONS.md`：新增 `OPENCODE_*` 环境变量、BFF 部署说明、集成测试命令。
+  - 重启 opencode serve 为 `--hostname 127.0.0.1`（移除 `--hostname 0.0.0.0`），仅 BFF 本机可访问
+  - 删除 `agent-mobile-app/.env.local` 中 `EXPO_PUBLIC_OPENCODE_USERNAME` / `EXPO_PUBLIC_OPENCODE_PASSWORD`（凭证不再进 APK）
+  - 验证：`curl http://<公网IP>:4096/global/health` 超时（不可达），`curl http://127.0.0.1:4096/global/health` 正常
 
-- [ ] **Step 4: 提交**
+- [ ] **Step 4: 更新知识库**
+
+  - `modules/chat.md`：数据流加 BFF；`message.part.delta`/打字机说明；动态模型列表；登录横幅。
+  - `API.md`：新增 `/api/opencode/*` 接口表（含 stream 协议、config/providers、CORS）。
+  - `OPERATIONS.md`：新增 `OPENCODE_*` 环境变量（family-finance 侧）、BFF 部署说明、集成测试命令；opencode serve 收窄为 127.0.0.1；手机端 env 清理。
+  - 顺带修正知识库遗留旧描述：`services.md` 的 `mergeMessages` 旧签名（已删 `mergeGapMs`）、`ARCHITECTURE.md` 聊天数据流图中"合并 assistant step + 2min 阈值"旧文案。
+
+- [ ] **Step 5: 提交**
 
   ```bash
   git add agent-mobile/test/bff-e2e.mjs
@@ -1062,30 +1223,35 @@
 ## Self-Review 记录
 
 **1. Spec 覆盖：**
-- BFF 认证（requireAuthHeader + login token）→ Task 1 ✓
-- opencode 服务端代理 + Basic auth → Task 2 ✓
-- REST 转发路由 → Task 3 ✓
+- BFF 认证（requireAuthHeader + login 复用 /api/auth/login 返回 token）→ Task 1 ✓
+- opencode 服务端代理 + Basic auth（强制覆盖，不透传客户端 JWT）→ Task 2 ✓
+- REST 转发路由（catch-all + CORS + OPTIONS preflight）→ Task 3 ✓
 - SSE delta 缓冲 + 过滤 + sessionID 过滤 → Task 4/5 ✓
 - 模型列表聚合（config/providers）→ Task 3/8 ✓
-- 手机端 baseUrl/Bearer/login → Task 7/8 ✓
+- 手机端 baseUrl/Bearer/login（AsyncStorage）+ 401 联动 → Task 7/8 ✓
 - applyPartDelta 打字机 → Task 9 ✓
-- SSE 消费 delta → Task 10/11 ✓
+- SSE 消费 delta + stream sessionID 过滤 → Task 10/11 ✓
 - 动态模型列表 → Task 11 ✓
-- 错误处理（401 重登/502）→ Task 11 + BFF 502 在 Task 2 ✓
-- 测试（单测/E2E/知识库）→ Task 6/12 ✓
+- 登录横幅 + 登录弹窗（pulse 顶部）→ Task 11 ✓
+- 错误处理（401 清 token 显横幅 / 502）→ Task 8/11 + BFF 502 在 Task 2 ✓
+- 安全收窄（opencode 127.0.0.1 + 手机端凭证清理）→ Task 12 ✓
+- 测试（单测/集成/E2E/知识库）→ Task 6/12 ✓
 
-**2. 占位符扫描：** 无 TBD/TODO。`<admin>`/`<pw>`/`<实际密码>` 为运行命令所需的真实值，标注了来源。Task 5 的 flush 接线有"以 tsc 实际结果为准"说明（因路由实现依赖 opencode stream 实际行为，已给两个方案）。
+**2. 占位符扫描：** 无 TBD/TODO。`<admin>`/`<pw>`/`<实际密码>` 为运行命令所需的真实值，标注了来源。
 
 **3. 类型一致性：**
 - `requireAuthHeader(request): Promise<{username}|null>` 在 Task 1 定义，Task 3/5 使用一致。
-- `proxyRequest(path, init): Promise<Response>` Task 2 定义，Task 3 使用一致。
-- `parseOpencodeEvent(raw): BFFEvent | null`、`createDeltaBuffer(intervalMs): DeltaBuffer` Task 4 定义，Task 5 使用一致。
+- `proxyRequest(path, init): Promise<Response>` Task 2 定义，Task 3 使用一致；**强制覆盖 Authorization 为 Basic**（已修 bug）。
+- `parseOpencodeEvent(raw): BFFEvent | null`、`createDeltaBuffer(): DeltaBuffer` Task 4 定义，Task 5 使用一致。
+- `corsHeaders(request)` / `corsOptionsResponse(request)` Task 3 定义，Task 5 复用一致。
 - `applyPartDelta(messages, {messageID, partID, field, text}): OpenCodeMessage[]` Task 9 定义，Task 11 使用一致。
 - BFF delta 事件 properties 字段统一 `text`（非 `delta`），Task 4/5/9/10/11 一致。
+- `subscribeToOpenCodeEvents(onEvent, onError?, sessionID?)` Task 10 定义，Task 11 使用一致。
+- `login(username, password)` 统一调 `/api/auth/login`（非 `/api/opencode/auth/login`），Task 1/6/7/12 一致。
 - `listProviders(): {providers, default}` Task 8 定义，Task 11 使用一致。
-- opencode 端点为 `/config/providers`，Task 3/8/6 一致。
+- opencode 端点为 `/config/providers`，Task 3/6/8 一致。
 
 **4. 已知实现风险（已在任务内说明）：**
-- Task 5 flush 由路由外部 `flushTimer`（32ms）驱动，`createDeltaBuffer` 无内部定时器，测试不悬挂。
-- Task 11 登录 UI 从简（无账号 UI），标记为产品决策待补。
-- Task 7 baseUrl 默认 :19234 按实际部署填写。
+- 打字机渲染性能：delta 32ms 一条，全量 markdown 重渲染可能卡顿；缓解见 spec 风险节（16ms dispatcher 批量 + memo），本计划不改（Task 12 E2E 观察）。
+- reasoning delta 会一并推送（field=text），前端追加无害，已知行为。
+- Task 12 安全收窄依赖 opencode serve 重启（systemd），执行时需确认服务可用。
