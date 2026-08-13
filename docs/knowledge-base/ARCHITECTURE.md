@@ -1,10 +1,10 @@
 # ARCHITECTURE.md —— 架构与数据流
 
-> 最后更新：2026-08-12 · commit：`56503ba`（阶段1：DisplayStep 展开 + 轮询兜底 + agent/model 切换）
+> 最后更新：2026-08-13 · commit：`b4d9361`（阶段 2：BFF 中间层 + 打字机 + 动态模型 + 登录）
 
 ## 整体架构
 
-单仓库多工件，后端为**外部 OpenCode Server**（非本仓库服务）：
+单仓库多工件，后端为**外部 OpenCode Server**（经 family-finance BFF 中间层访问）：
 
 | 工件 | 形态 | 状态 | 说明 |
 |---|---|---|---|
@@ -12,7 +12,8 @@
 | `src/`（仓库根） | React/TSX 源码 | ⚠️ 设计期，非运行态 | 早期屏幕设计（Agents/Activity/Settings），无 package.json |
 | `showcase/` | 静态 HTML | ⚠️ 原型 | 浏览器打开 `showcase/index.html`（iPhone 16 Pro 393×852 mockup） |
 | `docs/knowledge-base/` | Markdown 文档 | ✅ 参考 | 设计规范与评审 + 知识库，是 UI 实现的依据 |
-| OpenCode Server | 外部进程（`opencode serve`） | ✅ 运行时依赖 | 项目/会话/消息/权限的数据源（127.0.0.1:4096） |
+| family-finance BFF | Next.js（外部仓库） | ✅ 运行时依赖 | JWT 认证 + REST 转发 + SSE 缓冲合并（打字机）+ CORS |
+| OpenCode Server | 外部进程（`opencode serve`） | ✅ 运行时依赖 | 项目/会话/消息/权限的数据源（127.0.0.1:4096，仅 BFF 可达） |
 
 > 注意：仓库根 `src/` 与 `agent-mobile-app/src/` 是两个不同代码库，勿混淆。
 
@@ -105,7 +106,7 @@ hooks 层（聚合状态）        src/hooks/useProjectEvents.ts
 | 项目/会话/消息/权限 | OpenCode Server（进程内存 + 磁盘） | REST + SSE 流式增量 |
 | 主题 token | `agent-mobile-app/src/theme/*.ts` | TS 常量对象 |
 | 应用配置 | `agent-mobile-app/app.json` / `eas.json` | JSON |
-| 连接参数 | `.env.local`（未提交） | `EXPO_PUBLIC_OPENCODE_URL/USERNAME/PASSWORD` |
+| 连接参数 | `agent-mobile-app/.env.local`（未提交） | `EXPO_PUBLIC_OPENCODE_URL`（BFF 地址） |
 | 测试数据 | `src/services/*.test.ts` 内联构造 | vitest fixtures |
 
 **运行时持久化**：OpenCode Server 负责会话/消息的持久化。应用重启后 opencode session 仍存在。
@@ -122,13 +123,14 @@ REST /project + /session?directory= + /session/status   （30s 轮询 + server.c
 SSE session.status / permission.* / session.updated / session.created / session.deleted → 增量 recompute
 ```
 
-### 聊天（流式对话）
+### 聊天（流式对话，阶段 2 经 BFF）
 
 ```
-用户输入 → sendMessageAsync (POST /prompt_async)
-  ↓ SSE message.updated / message.part.updated / message.removed
-  ↓ message-reducer 增量 patch（chronological 插入）
-  ↓ mergeMessages（合并 assistant step + 工具折叠 + 2min 跨轮次阈值）
+用户输入 → sendMessageAsync (POST /prompt_async，经 BFF 转发)
+  ↓ BFF /api/opencode/stream（Bearer JWT + ?sessionID= 过滤）
+  ↓ message.updated / message.part.updated（BFF 32ms 缓冲合并为 delta）/ message.removed
+  ↓ message-reducer 增量 patch（chronological 插入）+ applyPartDelta（打字机追加文本）
+  ↓ mergeMessages（step 展开 + 工具折叠 + 跨轮次阈值）
   ↓ MessageBubble 渲染；下拉刷新 → 重新 listMessages(limit 50)
 ```
 

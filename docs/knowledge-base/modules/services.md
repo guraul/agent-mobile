@@ -1,25 +1,42 @@
 # modules/services.md —— opencode 对接服务层
 
-> 最后更新：2026-08-11 · commit：`072537f`（opencode 集成 + 消息顺序修复）
+> 最后更新：2026-08-13 · commit：`b4d9361`（阶段 2：BFF 中间层 + 打字机 + 动态模型 + 登录）
 
 ## 模块职责
 
-OpenCode Server 对接：REST 客户端、SSE 订阅、消息增量 reducer、显示合并、项目状态机。**无 UI 依赖**，全部可单测。
+OpenCode Server 对接：**经 family-finance BFF（JWT 认证）访问 REST/SSE**、消息增量 reducer、显示合并、项目状态机。**无 UI 依赖**，全部可单测。
+
+## 架构（阶段 2 起）
+
+```
+手机端 (agent-mobile-app)                family-finance BFF                 OpenCode Server
+config/opencode.ts ──baseUrl──► /api/auth/login ──JWT──► ──Basic──► http://127.0.0.1:4096
+opencode-client.ts ──────────► /api/opencode/rest/** ──────► REST 转发
+opencode-events.ts ──────────► /api/opencode/stream ───────► /global/event（SSE）
+auth.ts ──Bearer JWT──► 认证（family-finance 用户）       opencode 凭证在 BFF 侧（不再进 APK）
+```
+
+- 手机端只持有 **JWT**（AsyncStorage，key `pulse_opencode_token`），BFF 强制覆盖 Authorization 为 opencode Basic（不透传客户端 JWT）。
+- BFF 将 opencode 的 `message.part.updated` 合并为 `message.part.delta` 增量事件，驱动打字机。
+- opencode serve 已收窄为 `--hostname 127.0.0.1`（仅 BFF 本机可达）。
 
 ## 关键文件清单
 
 | 文件路径 | 职责 |
 |---|---|
-| `agent-mobile-app/src/config/opencode.ts` | 连接配置（env：URL/账号/密码） |
-| `agent-mobile-app/src/services/opencode-client.ts` | REST 封装（全部端点 + Basic auth + 类型） |
-| `agent-mobile-app/src/services/opencode-events.ts` | SSE 解析/订阅（rAF 批量合并 + 指数退避） |
-| `agent-mobile-app/src/services/message-reducer.ts` | `applyMessageUpdated/applyPartUpdated/applyMessageRemoved` 增量 patch |
+| `agent-mobile-app/src/config/opencode.ts` | BFF baseUrl + token（`{ baseUrl, token }`，无凭证） |
+| `agent-mobile-app/src/services/auth.ts` | JWT 登录/存取/401 联动（AsyncStorage） |
+| `agent-mobile-app/src/services/opencode-client.ts` | REST 封装（BFF 前缀 + Bearer + 401 → handleUnauthorized） |
+| `agent-mobile-app/src/services/opencode-events.ts` | BFF stream 订阅（delta 事件 + sessionID 过滤 + 退避重连） |
+| `agent-mobile-app/src/services/message-reducer.ts` | `applyMessageUpdated/applyPartUpdated/applyMessageRemoved/applyPartDelta` 增量 patch |
 | `agent-mobile-app/src/services/message-merging.ts` | `mergeMessages`：step 级消息 → 对话气泡 |
 | `agent-mobile-app/src/services/project-status.ts` | `determineProjectStatus`：项目状态判定 |
 
 ## 对外暴露接口
 
 ### opencodeClient（opencode-client.ts）
+
+所有端点走 `{baseUrl}/api/opencode/rest{path}`，请求带 `Authorization: Bearer <JWT>`（`tokenHeader()`）。
 
 | 方法 | 端点 | 说明 |
 |---|---|---|
@@ -35,22 +52,40 @@ OpenCode Server 对接：REST 客户端、SSE 订阅、消息增量 reducer、�
 | `sendMessage(id,body)` | `POST /session/{id}/message` | 同步发送 |
 | `sendMessageAsync(id,body)` | `POST /session/{id}/prompt_async` | 异步发送（流式） |
 | `abort(id)` | `POST /session/{id}/abort` | 中止 |
+| `login(username,password)` | `POST /api/auth/login`（BFF） | 登录拿 JWT（委托 auth.ts） |
+| `listProviders()` | `GET /config/providers` | 动态模型列表 `{providers, default}` |
+
+**401 处理**：任何 REST 调用返回 401 → `handleUnauthorized()`（清 token + 触发 `onUnauthorized` 回调，pulse 顶部显示登录横幅）。
+
+### auth.ts
+
+| 导出 | 说明 |
+|---|---|
+| `getToken()` | 读 AsyncStorage 的 JWT |
+| `setToken(token\|null)` | 写/清 token（同步更新 `opencodeConfig.token`） |
+| `loadToken()` | 启动时恢复 token 到内存 |
+| `login(username,password)` | POST BFF `/api/auth/login`，成功存 token 返回 |
+| `tokenHeader()` | `{ Authorization: Bearer <token> }`（无 token 时 `{}`） |
+| `onUnauthorized(cb)` | 注册 401 回调，返回解绑函数 |
+| `handleUnauthorized()` | 清 token + 触发回调 |
 
 ### opencode-events.ts
 
 | 导出 | 说明 |
 |---|---|
-| `OpenCodeEvent` | 事件联合类型（message.*/session.*/permission.*/server.connected） |
-| `parseSSE(data)` | SSE 帧解析（event:/data:） |
-| `decodeSSEPayload(raw)` | JSON 解码（跳过 `sync` 内部帧） |
-| `backoffDelay(attempt)` | 指数退避 250ms×2^(n-1)，上限 30s |
-| `BatchedDispatcher` / `subscribeToOpenCodeEvents` | rAF 16ms 批量分发 + 自动重连 |
+| `OpenCodeEvent` | 事件联合类型（含 `delta`、`stream.error`） |
+| `subscribeToOpenCodeEvents(onEvent, onError?, sessionID?)` | 订阅 BFF `/api/opencode/stream`（SSE），`?sessionID=` 过滤，指数退避重连 |
+| `BatchedDispatcher` | 16ms 批量分发（打字机增量合并） |
+
+- **`delta` 事件**：`properties = { sessionID, messageID, partID, field, text }`，BFF 将 opencode 原始 `message.part.updated` 按 32ms 缓冲合并后推送（打字机）。
+- **`stream.error` 事件**：BFF 与 opencode 上游断开时推送。
 
 ### message-reducer.ts（纯函数）
 
 - `applyMessageUpdated(messages, info)`：消息存在则更新 info；不存在则**按 time.created 插入**（chronological 语义）。
 - `applyPartUpdated(messages, part)`：按 part id upsert 到目标消息。
 - `applyMessageRemoved(messages, id)`：删除消息。
+- **`applyPartDelta(messages, {messageID, partID, field, text})`**：增量追加文本——消息缺失返回原数组；part 缺失创建 text part；已有 part 的 `text` 字段 += delta.text（打字机核心）。
 
 ### message-merging.ts（纯函数）
 
@@ -62,13 +97,15 @@ OpenCode Server 对接：REST 客户端、SSE 订阅、消息增量 reducer、�
 
 ## 依赖关系
 
-- 依赖：`config/opencode.ts`（client/events）；类型定义内聚于 `opencode-client.ts`。
-- 被依赖：`hooks/useProjectEvents.ts`、`components/chat/*`（经 index 或直接路径）。
+- 依赖：`config/opencode.ts`、`auth.ts`（client/events）；类型定义内聚于 `opencode-client.ts`。
+- 被依赖：`hooks/useProjectEvents.ts`、`app/(tabs)/pulse.tsx`（登录横幅）、`components/chat/*`。
 
 ## 修改本模块的注意事项
 
 - **消息数组必须保持 chronological**（`listMessages` 真实顺序），任何排序/插入逻辑以 `time.created` 为准。
-- **SSE 事件属性是 `Record<string, unknown>`**：事件处理处需自行 cast（如 `props.info`、`props.part`），有拼写风险。
+- **SSE 事件属性是 `Record<string, unknown>`**：事件处理处需自行 cast（如 `props.info`、`props.part`、delta 的 `properties`），有拼写风险。
+- **BFF 强制覆盖 Authorization 为 opencode Basic**：手机端 JWT 不传 upstream（BFF `lib/opencode.ts` `proxyRequest`）。
 - **`/session/status` 只含活跃会话**：补 idle 是调用方职责（useProjectEvents 中处理）。
 - **所有纯函数改动必须同步单测**：`*.test.ts` 与源码同目录（vitest `include` 匹配 `src`）。
+- **手机端不再持有 opencode 凭证**：只有 BFF 侧 `.env.local` 有 `OPENCODE_USERNAME/PASSWORD`。
 - 端点新增/修改后更新 `docs/knowledge-base/API.md`。

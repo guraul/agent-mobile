@@ -124,3 +124,25 @@ export function mergeRecentMessages(
 
   return { messages: next, changed };
 }
+
+export function applyPartDelta(
+  messages: OpenCodeMessage[],
+  delta: { messageID: string; partID: string; field: string; text: string },
+): OpenCodeMessage[] {
+  const idx = findIndex(messages, delta.messageID);
+  if (idx === -1) return messages;
+  const parts = messages[idx].parts;
+  const pIdx = parts.findIndex((p) => (p as PartWithIds).id === delta.partID);
+  const next = [...messages];
+  if (pIdx === -1) {
+    next[idx] = { ...next[idx], parts: [...parts, { type: "text", text: delta.text, id: delta.partID } as unknown as OpenCodePart] };
+    return next;
+  }
+  const part = parts[pIdx];
+  if (delta.field === "text") {
+    const text = (part as { text?: string }).text ?? "";
+    next[idx] = { ...next[idx], parts: parts.map((p, i) => i === pIdx ? { ...p, text: text + delta.text } : p) };
+    return next;
+  }
+  return messages;
+}
