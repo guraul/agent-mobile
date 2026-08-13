@@ -1,4 +1,5 @@
 import { opencodeConfig } from "../config/opencode";
+import { tokenHeader } from "./auth";
 
 export type OpenCodeEvent =
   | { type: "message.updated"; properties: { info: { id: string; sessionID: string }; sessionID: string } }
@@ -9,6 +10,8 @@ export type OpenCodeEvent =
   | { type: "session.error"; properties: { sessionID: string; error: string } }
   | { type: "permission.updated"; properties: Record<string, unknown> }
   | { type: "server.connected"; properties: Record<string, unknown> }
+  | { type: "delta"; properties: { sessionID: string; messageID: string; partID: string; field: string; text: string } }
+  | { type: "stream.error"; properties: { error?: string } }
   | { type: string; properties: Record<string, unknown> };
 
 export interface ParsedSSE {
@@ -105,6 +108,7 @@ export function createBatchedDispatcher(
 export function subscribeToOpenCodeEvents(
   onEvent: (event: OpenCodeEvent) => void,
   onError?: (err: unknown) => void,
+  sessionID?: string,
 ): () => void {
   let cancelled = false;
   let controller: AbortController | null = null;
@@ -114,17 +118,14 @@ export function subscribeToOpenCodeEvents(
   const dispatcher = createBatchedDispatcher(onEvent);
   const emit = (event: OpenCodeEvent) => dispatcher.push(event);
 
-  const auth = opencodeConfig.password
-    ? "Basic " + btoa(`${opencodeConfig.username}:${opencodeConfig.password}`)
-    : "";
-
   async function connect() {
     if (cancelled) return;
     controller = new AbortController();
     attempt++;
     try {
-      const res = await fetch(`${opencodeConfig.baseUrl}/global/event`, {
-        headers: auth ? { Authorization: auth, Accept: "text/event-stream" } : { Accept: "text/event-stream" },
+      const qs = sessionID ? `?sessionID=${encodeURIComponent(sessionID)}` : "";
+      const res = await fetch(`${opencodeConfig.baseUrl}/api/opencode/stream${qs}`, {
+        headers: { ...tokenHeader(), Accept: "text/event-stream" },
         signal: controller.signal,
       });
       if (!res.ok || !res.body) {

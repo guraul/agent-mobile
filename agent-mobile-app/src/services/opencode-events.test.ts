@@ -12,6 +12,12 @@ describe("parseSSE", () => {
     expect(out).toEqual({ event: "message", data: '{"a":1}' });
   });
 
+  it("parses BFF delta event data", () => {
+    const out = parseSSE('event: message\ndata: {"type":"delta","properties":{"sessionID":"s","messageID":"m","partID":"p","field":"text","text":"hi"}}\n');
+    expect(out?.event).toBe("message");
+    expect(JSON.parse(out!.data).type).toBe("delta");
+  });
+
   it("returns null when no data line", () => {
     expect(parseSSE("event: message\n")).toBeNull();
   });
