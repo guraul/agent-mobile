@@ -36,7 +36,7 @@
 - Produces: `requireAuthHeader(request: NextRequest): Promise<{ username: string } | null>`（从 `Authorization: Bearer` 读 token，兼容 cookie）
 - Produces: login JSON 响应新增 `{ success: true, token }`
 
-- [ ] **Step 1: 给 family-finance 引入 vitest**
+- [x] **Step 1: 给 family-finance 引入 vitest**
 
   在 `family-finance/` 根：
   ```bash
@@ -62,7 +62,7 @@
   ```
   根 `package.json` 加脚本：`"test": "vitest run"`。
 
-- [ ] **Step 2: 写失败测试**
+- [x] **Step 2: 写失败测试**
 
   创建 `family-finance/packages/web/lib/auth-shared.test.ts`：
   ```ts
@@ -88,7 +88,7 @@
   JWT_SECRET=stage2-test-secret-change-in-prod
   ```
 
-- [ ] **Step 3: 实现 `requireAuthHeader`**
+- [x] **Step 3: 实现 `requireAuthHeader`**
 
   在 `auth-shared.ts` 末尾追加：
   ```ts
@@ -104,7 +104,7 @@
   }
   ```
 
-- [ ] **Step 4: login JSON 响应加 token**
+- [x] **Step 4: login JSON 响应加 token**
 
   在 `login/route.ts` 的 `signToken` 之后，非 form 分支返回：
   ```ts
@@ -113,12 +113,12 @@
     : NextResponse.json({ success: true, token });
   ```
 
-- [ ] **Step 5: 测试通过**
+- [x] **Step 5: 测试通过**
 
   运行：`pnpm test packages/web/lib/auth-shared.test.ts`
   预期：PASS。
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
   ```bash
   git add -A
@@ -142,7 +142,7 @@
   // 转发到 ${base}${path}，注入 Basic auth，保持方法/body/query；非 2xx 时返回携带 opencode 状态码的 Response
   ```
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
   创建 `packages/web/lib/opencode.test.ts`：
   ```ts
@@ -210,12 +210,12 @@
   });
   ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
   运行：`pnpm test packages/web/lib/opencode.test.ts`
   预期：FAIL（模块不存在）。
 
-- [ ] **Step 3: 实现 `opencode.ts`**
+- [x] **Step 3: 实现 `opencode.ts`**
 
   ```ts
   import { NextResponse } from "next/server";
@@ -260,12 +260,12 @@
   }
   ```
 
-- [ ] **Step 4: 运行测试确认通过**
+- [x] **Step 4: 运行测试确认通过**
 
   运行：`pnpm test packages/web/lib/opencode.test.ts`
   预期：PASS。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
   ```bash
   git add packages/web/lib/opencode.ts packages/web/lib/opencode.test.ts
@@ -299,7 +299,7 @@
   - `session/{id}/abort` → `/session/{id}/abort`（POST）
   - `config/providers` → `/config/providers`（GET）
 
-- [ ] **Step 1: 实现 CORS helper**
+- [x] **Step 1: 实现 CORS helper**
 
   创建 `packages/web/lib/cors.ts`：
   ```ts
@@ -331,7 +331,7 @@
   }
   ```
 
-- [ ] **Step 2: 实现路由**
+- [x] **Step 2: 实现路由**
 
   创建 `packages/web/app/api/opencode/rest/[...path]/route.ts`：
   ```ts
@@ -399,12 +399,12 @@
   ```
   > 注：`ctx.params` 在 Next.js 14 为同步对象；若 15+ 异步，用 `await ctx.params`。以仓库实际版本（^14.0.4）为准。
 
-- [ ] **Step 3: 类型检查**
+- [x] **Step 3: 类型检查**
 
   运行：`pnpm --filter web exec tsc --noEmit`（或 `cd packages/web && npx tsc --noEmit`）
   预期：通过（若报 auth-shared 导出缺失，回到 Task 1 检查）。
 
-- [ ] **Step 4: 手动验证（本机 opencode 在 4096）**
+- [x] **Step 4: 手动验证（本机 opencode 在 4096）**
 
   配置 `packages/web/.env.local` 追加：
   ```
@@ -420,7 +420,7 @@
   ```
   预期：第一个返回 opencode 项目列表 JSON；无 token 时返回 401；OPTIONS 返回 204 + `Access-Control-Allow-Origin` 头。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
   ```bash
   git add packages/web/app/api/opencode packages/web/lib/cors.ts
@@ -451,7 +451,7 @@
   // 纯累加，无内部定时器；由调用方（路由）周期性 flush
   ```
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
   创建 `packages/web/lib/opencode-stream.test.ts`：
   ```ts
@@ -497,12 +497,12 @@
   });
   ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
   运行：`pnpm test packages/web/lib/opencode-stream.test.ts`
   预期：FAIL。
 
-- [ ] **Step 3: 实现 `opencode-stream.ts`**
+- [x] **Step 3: 实现 `opencode-stream.ts`**
 
   ```ts
   export interface BFFEvent {
@@ -558,12 +558,12 @@
   }
   ```
 
-- [ ] **Step 4: 运行测试确认通过**
+- [x] **Step 4: 运行测试确认通过**
 
   运行：`pnpm test packages/web/lib/opencode-stream.test.ts`
   预期：PASS。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
   ```bash
   git add packages/web/lib/opencode-stream.ts packages/web/lib/opencode-stream.test.ts
@@ -581,7 +581,7 @@
 - Consumes: `requireAuthHeader`（Task 1）、`parseOpencodeEvent` / `createDeltaBuffer`（Task 4）
 - Produces: SSE 响应，事件格式 `event: message\ndata: {type, properties}\n\n`；`?sessionID=` 过滤；长连接 + 心跳
 
-- [ ] **Step 1: 实现路由**
+- [x] **Step 1: 实现路由**
 
   创建 `packages/web/app/api/opencode/stream/route.ts`：
   ```ts
@@ -684,12 +684,12 @@
   ```
   > 说明：`createDeltaBuffer` 无内部定时器，flush 由 `flushTimer`（32ms）驱动，事件经 `send` 入队。`message.part.delta` 只进 buffer（field=text），其余事件直接转发。SSE 响应同样带 CORS 头（web 预览 EventSource/fetch 跨域需要）。
 
-- [ ] **Step 2: 类型检查**
+- [x] **Step 2: 类型检查**
 
   运行：`cd packages/web && npx tsc --noEmit`
   预期：通过。
 
-- [ ] **Step 3: 手动验证**
+- [x] **Step 3: 手动验证**
 
   dev server 下（opencode 有真实对话时）：
   ```bash
@@ -698,7 +698,7 @@
   ```
   预期：输出 `event: message` + `data:` 行（server.connected / message.* 事件）。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
   ```bash
   git add packages/web/app/api/opencode/stream/route.ts
@@ -716,7 +716,7 @@
 - Consumes: dev server（19234）+ 真实 opencode（4096）
 - Produces: 验证脚本，无产物
 
-- [ ] **Step 1: 写脚本**
+- [x] **Step 1: 写脚本**
 
   ```js
   // 用法：node test/bff-integration.mjs <adminUser> <adminPw>
@@ -758,14 +758,14 @@
   console.log("ALL PASS");
   ```
 
-- [ ] **Step 2: 运行**
+- [x] **Step 2: 运行**
 
   ```bash
   node family-finance/test/bff-integration.mjs <adminUser> <adminPw>
   ```
   预期：ALL PASS。
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
   ```bash
   git add family-finance/test/bff-integration.mjs
@@ -796,14 +796,14 @@
   // 401 时触发订阅回调（登录横幅联动）；返回退订函数
   ```
 
-- [ ] **Step 1: 安装 AsyncStorage**
+- [x] **Step 1: 安装 AsyncStorage**
 
   ```bash
   cd agent-mobile-app
   pnpm exec expo install @react-native-async-storage/async-storage
   ```
 
-- [ ] **Step 2: 改 `config/opencode.ts`**
+- [x] **Step 2: 改 `config/opencode.ts`**
 
   ```ts
   export const opencodeConfig = {
@@ -816,7 +816,7 @@
   ```
   > 说明：baseUrl 默认指向 BFF（:19234）。BFF 地址按实际部署填写（本地预览可临时用 127.0.0.1:19234）。**删除 username/password 字段**（凭证不再进 APK）。
 
-- [ ] **Step 3: 实现 `services/auth.ts`**
+- [x] **Step 3: 实现 `services/auth.ts`**
 
   ```ts
   import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -877,12 +877,12 @@
   }
   ```
 
-- [ ] **Step 4: 类型检查**
+- [x] **Step 4: 类型检查**
 
   运行：`cd agent-mobile-app && pnpm exec tsc --noEmit`
   预期：通过。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
   ```bash
   git add agent-mobile-app/src/config/opencode.ts agent-mobile-app/src/services/auth.ts agent-mobile-app/package.json agent-mobile-app/pnpm-lock.yaml
@@ -904,7 +904,7 @@
   listProviders(): Promise<{ providers: unknown[]; default: unknown }>
   ```
 
-- [ ] **Step 1: 修改 client**
+- [x] **Step 1: 修改 client**
 
   - `request` 的 URL 改为 `${opencodeConfig.baseUrl}/api/opencode/rest${path}`（若 path 已是 `/api/...` 则直接拼 baseUrl）
   - `request` 头合并 `tokenHeader()`（删除 Basic auth——BFF 用 JWT，凭证不进客户端）
@@ -920,12 +920,12 @@
   ```
   将 `auth.ts` 的 `login`/`tokenHeader`/`handleUnauthorized` 导入并在此调用。
 
-- [ ] **Step 2: 类型检查**
+- [x] **Step 2: 类型检查**
 
   运行：`cd agent-mobile-app && pnpm exec tsc --noEmit`
   预期：通过。
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
   ```bash
   git add agent-mobile-app/src/services/opencode-client.ts
@@ -948,10 +948,11 @@
     messages: OpenCodeMessage[],
     delta: { messageID: string; partID: string; field: string; text: string },
   ): OpenCodeMessage[];
-  // 定位 messageID → partID，把 text 追加到该 part 的 text 字段；找不到则原样返回
+  // 定位 messageID → partID，把 text 追加到该 part 的 text 字段；message 缺失时原样返回；
+  // part 缺失时创建 text part（delta 可能先于 message.part.updated 到达）
   ```
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
   在 `message-reducer.test.ts` 追加：
   ```ts
@@ -968,10 +969,9 @@
       expect((out[0].parts[0] as { text: string }).text).toBe("Hello world");
     });
 
-    it("leaves list unchanged when part/message missing", () => {
+    it("leaves list unchanged when message missing", () => {
       const src = base("Hello");
       expect(applyPartDelta(src, { messageID: "nope", partID: "p1", field: "text", text: "x" })).toBe(src);
-      expect(applyPartDelta(src, { messageID: "m1", partID: "nope", field: "text", text: "x" })).toBe(src);
     });
 
     it("creates a text part when absent and message exists", () => {
@@ -983,12 +983,12 @@
   });
   ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [x] **Step 2: 运行测试确认失败**
 
   运行：`cd agent-mobile-app && pnpm exec vitest run src/services/message-reducer.test.ts`
   预期：FAIL（applyPartDelta 不存在）。
 
-- [ ] **Step 3: 实现**
+- [x] **Step 3: 实现**
 
   在 `message-reducer.ts` 追加：
   ```ts
@@ -1016,17 +1016,17 @@
   }
   ```
 
-- [ ] **Step 4: 运行测试确认通过**
+- [x] **Step 4: 运行测试确认通过**
 
   运行：`pnpm exec vitest run src/services/message-reducer.test.ts`
   预期：PASS。
 
-- [ ] **Step 5: 全量单测**
+- [x] **Step 5: 全量单测**
 
   运行：`pnpm test`
   预期：全部通过。
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
   ```bash
   git add agent-mobile-app/src/services/message-reducer.ts agent-mobile-app/src/services/message-reducer.test.ts
@@ -1052,7 +1052,7 @@
   ): () => void;
   ```
 
-- [ ] **Step 1: 写失败测试（类型）**
+- [x] **Step 1: 写失败测试（类型）**
 
   在 `opencode-events.test.ts` 追加：
   ```ts
@@ -1064,7 +1064,7 @@
   });
   ```
 
-- [ ] **Step 2: 修改类型与订阅**
+- [x] **Step 2: 修改类型与订阅**
 
   - `OpenCodeEvent` 联合类型新增：
   ```ts
@@ -1073,12 +1073,12 @@
   ```
   - `subscribeToOpenCodeEvents` 加第三参数 `sessionID?: string`；URL 改为 `${opencodeConfig.baseUrl}/api/opencode/stream` + （`sessionID` 时 `?sessionID=${encodeURIComponent(sessionID)}`），头合并 `tokenHeader()`。
 
-- [ ] **Step 3: 单测通过 + 全量**
+- [x] **Step 3: 单测通过 + 全量**
 
   运行：`pnpm test`
   预期：全部通过。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
   ```bash
   git add agent-mobile-app/src/services/opencode-events.ts agent-mobile-app/src/services/opencode-events.test.ts
@@ -1097,7 +1097,7 @@
 - Consumes: `applyPartDelta`（Task 9）、`loadToken`/`login`/`onUnauthorized`（Task 7）、`listProviders`（Task 8）、`delta` 事件 + `subscribeToOpenCodeEvents(onEvent, onError, sessionID)`（Task 10）
 - Produces: 打字机渲染 + 动态模型 BottomSheet + pulse 顶部"未登录"横幅（点击弹窗登录）
 
-- [ ] **Step 1: SSE 分支加 delta + 传 sessionID**
+- [x] **Step 1: SSE 分支加 delta + 传 sessionID**
 
   在 `ChatPanel.tsx`：
   - 订阅改为 `subscribeToOpenCodeEvents((event) => {...}, undefined, sessionID)`（BFF 端过滤，省带宽）
@@ -1115,11 +1115,11 @@
   }
   ```
 
-- [ ] **Step 2: 动态模型列表**
+- [x] **Step 2: 动态模型列表**
 
   替换 `AGENT_MODELS` 常量逻辑：mount 时 `listProviders()`，把 `providers` 平铺成 `{ providerID, modelID }[]` 存入 state（失败时回退 `PRIMARY_AGENTS` 的 model）；BottomSheet 渲染该列表；退出 sheet 刷新。保留 `PRIMARY_AGENTS` 用于 agent 切换与默认 model。
 
-- [ ] **Step 3: pulse.tsx 登录横幅**
+- [x] **Step 3: pulse.tsx 登录横幅**
 
   在 `pulse.tsx` 顶部（列表上方）加横幅：
   ```tsx
@@ -1163,12 +1163,12 @@
   ```
   > 注：登录弹窗与横幅不拦截浏览（页面照常渲染，请求失败显示现有错误）。`BottomSheet` 从 `@/components/navigation/BottomSheet` 导入（ChatPanel 已使用同款）。
 
-- [ ] **Step 4: 类型检查 + 全量单测**
+- [x] **Step 4: 类型检查 + 全量单测**
 
   运行：`cd agent-mobile-app && pnpm exec tsc --noEmit && pnpm test`
   预期：通过。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
   ```bash
   git add agent-mobile-app/src/components/chat/ChatPanel.tsx agent-mobile-app/src/app/\(tabs\)/pulse.tsx
@@ -1188,29 +1188,29 @@
 **Interfaces:**
 - Consumes: 阶段 2 全部改动 + dev 环境（BFF 19234、opencode 4096）
 
-- [ ] **Step 1: 写 Playwright 脚本**
+- [x] **Step 1: 写 Playwright 脚本**
 
   参考现有 `test/agent-pill-verify.mjs` 模式，流程：登录（page.evaluate fetch POST /api/auth/login → token 写 localStorage 键 `pulse_opencode_token`）→ reload → 打开项目 → 发消息 → 捕获增量事件（断言出现 `delta` type）→ 断言最终文本完整 + step 顺序正确。
 
-- [ ] **Step 2: 运行验证**
+- [x] **Step 2: 运行验证**
 
   前置：`pnpm exec expo export --platform web` 构建 + 9928 静态服务 + BFF dev（19234）+ opencode（4096）。
   预期：打字机增量出现、step 顺序正确、动态模型列表可见、登录横幅消失。
 
-- [ ] **Step 3: 安全收窄 opencode serve**
+- [x] **Step 3: 安全收窄 opencode serve**
 
   - 重启 opencode serve 为 `--hostname 127.0.0.1`（移除 `--hostname 0.0.0.0`），仅 BFF 本机可访问
   - 删除 `agent-mobile-app/.env.local` 中 `EXPO_PUBLIC_OPENCODE_USERNAME` / `EXPO_PUBLIC_OPENCODE_PASSWORD`（凭证不再进 APK）
   - 验证：`curl http://<公网IP>:4096/global/health` 超时（不可达），`curl http://127.0.0.1:4096/global/health` 正常
 
-- [ ] **Step 4: 更新知识库**
+- [x] **Step 4: 更新知识库**
 
   - `modules/chat.md`：数据流加 BFF；`message.part.delta`/打字机说明；动态模型列表；登录横幅。
   - `API.md`：新增 `/api/opencode/*` 接口表（含 stream 协议、config/providers、CORS）。
   - `OPERATIONS.md`：新增 `OPENCODE_*` 环境变量（family-finance 侧）、BFF 部署说明、集成测试命令；opencode serve 收窄为 127.0.0.1；手机端 env 清理。
   - 顺带修正知识库遗留旧描述：`services.md` 的 `mergeMessages` 旧签名（已删 `mergeGapMs`）、`ARCHITECTURE.md` 聊天数据流图中"合并 assistant step + 2min 阈值"旧文案。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
   ```bash
   git add agent-mobile/test/bff-e2e.mjs
