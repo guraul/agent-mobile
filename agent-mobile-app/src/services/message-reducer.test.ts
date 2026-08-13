@@ -4,6 +4,7 @@ import {
   applyPartUpdated,
   applyMessageRemoved,
   mergeRecentMessages,
+  applyPartDelta,
 } from "./message-reducer";
 import type { OpenCodeMessage } from "./opencode-client";
 
@@ -116,5 +117,29 @@ describe("mergeRecentMessages", () => {
     const { messages, changed } = mergeRecentMessages(base, base);
     expect(changed).toBe(false);
     expect(messages[0].parts).toEqual(base[0].parts);
+  });
+});
+
+describe("applyPartDelta", () => {
+  const base = (text: string, partId = "p1", messageId = "m1"): OpenCodeMessage[] => ([
+    { info: { id: messageId, role: "assistant" as const, sessionID: "s1", time: { created: 1 } },
+      parts: [{ type: "text" as const, text, id: partId }] },
+  ]);
+
+  it("appends delta text to the target part", () => {
+    const out = applyPartDelta(base("Hello"), { messageID: "m1", partID: "p1", field: "text", text: " world" });
+    expect((out[0].parts[0] as { text: string }).text).toBe("Hello world");
+  });
+
+  it("leaves list unchanged when message missing", () => {
+    const src = base("Hello");
+    expect(applyPartDelta(src, { messageID: "nope", partID: "p1", field: "text", text: "x" })).toBe(src);
+  });
+
+  it("creates a text part when absent and message exists", () => {
+    const src: OpenCodeMessage[] = [{ info: { id: "m1", role: "assistant", sessionID: "s1", time: { created: 1 } }, parts: [] }];
+    const out = applyPartDelta(src, { messageID: "m1", partID: "p9", field: "text", text: "first" });
+    expect(out[0].parts).toHaveLength(1);
+    expect((out[0].parts[0] as { text: string }).text).toBe("first");
   });
 });
