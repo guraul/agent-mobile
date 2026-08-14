@@ -1,6 +1,6 @@
 # modules/services.md —— opencode 对接服务层
 
-> 最后更新：2026-08-13 · commit：`b4d9361`（阶段 2：BFF 中间层 + 打字机 + 动态模型 + 登录）
+> 最后更新：2026-08-14 · commit：`108bd36`（listAgents + /session/status 幽灵条目注意事项）
 
 ## 模块职责
 
@@ -54,6 +54,7 @@ auth.ts ──Bearer JWT──► 认证（family-finance 用户）       openco
 | `abort(id)` | `POST /session/{id}/abort` | 中止 |
 | `login(username,password)` | `POST /api/auth/login`（BFF） | 登录拿 JWT（委托 auth.ts） |
 | `listProviders()` | `GET /config/providers` | 动态模型列表 `{providers, default}` |
+| `listAgents()` | `GET /agent` | agent 列表（ChatPanel 用来动态加载 primary agent 的 model，替代硬编码） |
 
 **401 处理**：任何 REST 调用返回 401 → `handleUnauthorized()`（清 token + 触发 `onUnauthorized` 回调，pulse 顶部显示登录横幅）。
 
@@ -89,7 +90,7 @@ auth.ts ──Bearer JWT──► 认证（family-finance 用户）       openco
 
 ### message-merging.ts（纯函数）
 
-- `mergeMessages(raw, mergeGapMs=120_000)`：user 独立气泡；连续 assistant step 合并；时间差 > 阈值不合并；过滤空气泡。返回 `DisplayMessage[]`（含折叠后的 `tools`）。
+- `mergeMessages(raw)`：把 opencode 消息**展开为独立 `DisplayStep`**（不做跨 step 合并；2026-08-12 起废弃合并逻辑与 `mergeGapMs` 阈值）。user 消息 → 一个 `user` step；assistant 每个 part → 独立 `text`/`tool`/`reasoning` step。过滤 `step-start`/`step-finish`/`file`/`snapshot`/`agent`/空文本。返回 `DisplayStep[]`（ChatPanel 的 FlatList 直接渲染，text/user 为气泡，tool/reasoning 为 StepChip 旁白）。
 
 ### project-status.ts（纯函数）
 
@@ -106,6 +107,7 @@ auth.ts ──Bearer JWT──► 认证（family-finance 用户）       openco
 - **SSE 事件属性是 `Record<string, unknown>`**：事件处理处需自行 cast（如 `props.info`、`props.part`、delta 的 `properties`），有拼写风险。
 - **BFF 强制覆盖 Authorization 为 opencode Basic**：手机端 JWT 不传 upstream（BFF `lib/opencode.ts` `proxyRequest`）。
 - **`/session/status` 只含活跃会话**：补 idle 是调用方职责（useProjectEvents 中处理）。
+- **`/session/status` 可能有幽灵条目**：opencode 会残留**已删除 session** 的 busy/retry 状态（`GET /session/{id}` 返回 NotFound）。useProjectEvents 目前直接采信 statusMap，**未做**交叉校验——是已知缺口，可能导致误判某项目 running。修复方向：仅当 session id 在 `listSessions` 结果中才采信其 busy 状态。
 - **所有纯函数改动必须同步单测**：`*.test.ts` 与源码同目录（vitest `include` 匹配 `src`）。
 - **手机端不再持有 opencode 凭证**：只有 BFF 侧 `.env.local` 有 `OPENCODE_USERNAME/PASSWORD`。
 - 端点新增/修改后更新 `docs/knowledge-base/API.md`。

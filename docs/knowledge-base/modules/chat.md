@@ -1,6 +1,6 @@
 # modules/chat.md —— 聊天（项目对话）
 
-> 最后更新：2026-08-13 · commit：`b4d9361`（阶段 2：BFF 中间层 + 打字机 + 动态模型 + 登录）
+> 最后更新：2026-08-14 · commit：`108bd36`（agent 模型动态加载 + BottomSheet web 修复）
 
 ## 模块职责
 
@@ -56,7 +56,7 @@ SSE: BFF /api/opencode/stream（Bearer JWT + ?sessionID= 过滤）
 
 ### 动态模型列表（阶段 2，2026-08-13）
 
-- **来源**：mount 时 `listProviders()`（BFF 转发 `/config/providers`）拉取全量模型，平铺为 `{providerID, modelID}` 列表；失败回退 `PRIMARY_AGENTS` 的默认模型。
+- **来源**：mount 时 `listProviders()`（BFF 转发 `/config/providers`）拉取全量模型，平铺为 `{providerID, modelID}` 列表；失败回退 `FALLBACK_AGENTS`（deepseek）的默认模型。
 - **model pill**：点击打开 BottomSheet 弹出框选择模型（打开时刷新列表）；选中后 `setModel` 用于后续发送。
 
 ### DisplayStep 结构（不合并 step）
@@ -94,13 +94,13 @@ SSE: BFF /api/opencode/stream（Bearer JWT + ?sessionID= 过滤）
 - **三元素垂直中心对齐**：`alignItems: "center"`（不是 flex-end）+ 输入框 `boxSizing: "border-box"`（web 上 RN TextInput 默认 content-box 会使实际高度超过 minHeight 44，破坏对齐）+ `textAlignVertical: "center"`。
 - 输入框缩小为 40px（`minHeight: 40`），占位文字水平垂直居中（`textAlign: "center"` + `textAlignVertical: "center"`，2026-08-12）。
 
-### agent / model 切换（2026-08-12）
+### agent / model 切换（动态加载，2026-08-14 重构）
 
 - **机制**：opencode **不支持修改已存在 session 的 agent/model**（`PATCH /session/{id}/update` 只有 title/metadata/permission）；agent/model 只能**按消息指定**（`POST /session/{id}/prompt_async` body 的 `agent` / `model:{providerID,modelID}`）。`ModelRef = { providerID, modelID }`（结构化对象，不是字符串）。
-- **agent pill**（输入区上方左）：显示当前 agent，点击**循环切换** primary agents（build → plan → design，`PRIMARY_AGENTS` 常量，model 跟随该 agent 默认模型）。
-- **model pill**（旁边）：点击打开 **BottomSheet 弹出框**选择模型（**阶段 2 起为动态列表**：`listProviders()` 全量模型，失败回退 `PRIMARY_AGENTS` 默认模型；曾用内联下拉，被输入框遮挡且效果差，2026-08-12 改为 BottomSheet）。
-- 初始化：mount 时 `getSession(sessionID)` 读取 session 的 `agent` / `model`（注意 `OpenCodeSession.model` 用 `id` 字段，非 `modelID`）。
-- 发送：`sendMessageAsync` body 带 `agent: PRIMARY_AGENTS[agentIdx].id` + `model`。
+- **agent pill**（输入区上方左）：显示当前 agent，点击**循环切换** primary agents。primary agents 的 model **动态加载**：mount 时 `listAgents()`（`GET /agent`）过滤 `mode === "primary"`，取其 `model`（遵循服务端 `opencode.json` 配置）；加载中或失败回退 `FALLBACK_AGENTS`（build/plan/design，deepseek）。常量已从 `PRIMARY_AGENTS` 重命名为 `FALLBACK_AGENTS`。
+- **model pill**（旁边）：点击打开 **BottomSheet 弹出框**选择模型（**阶段 2 起为动态列表**：`listProviders()` 全量模型，失败回退 `FALLBACK_AGENTS` 默认模型；曾用内联下拉，被输入框遮挡且效果差，2026-08-12 改为 BottomSheet）。
+- 初始化：mount 时 `getSession(sessionID)` 读取 session 的 `agent` / `model`（注意 `OpenCodeSession.model` 用 `id` 字段，非 `modelID`）。**仅当 session.model 命中某个 primary agent 的默认 model 时才采纳**——避免迁移前的旧 model 把会话钉在旧 provider。
+- 发送：`sendMessageAsync` body 带 `agent: agents[agentIdx].id` + `model`。
 
 ## 修改本模块的注意事项
 

@@ -1,6 +1,6 @@
 # API.md —— 接口清单
 
-> 最后更新：2026-08-13 · commit：`b4d9361`（阶段 2：BFF 中间层 + 打字机 + 动态模型 + 登录）
+> 最后更新：2026-08-14 · commit：`108bd36`（补 /agent 端点）
 
 ## 结论
 
@@ -49,6 +49,7 @@
 | `/session/{id}/permissions/{permissionID}` | POST | 回复权限请求（once/always/reject） | `opencodeClient.replyPermission` |
 | `/session/{id}/abort` | POST | 中止执行 | `opencodeClient.abort` |
 | `/config/providers` | GET | 模型/提供商列表（动态模型下拉） | `opencodeClient.listProviders` |
+| `/agent` | GET | agent 列表（ChatPanel 加载 primary agent 的 model） | `opencodeClient.listAgents` |
 
 **opencode 认证**：Basic auth（`OPENCODE_USERNAME`/`OPENCODE_PASSWORD`，BFF 侧环境变量）。**手机端不持有**。
 **opencode 监听**：`--hostname 127.0.0.1`（仅 BFF 本机可达，公网不可直连）。

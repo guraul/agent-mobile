@@ -1,6 +1,6 @@
 # CONVENTIONS.md —— 约定与陷阱
 
-> 最后更新：2026-08-12 · commit：`e18cb24`（阶段1：DisplayStep 展开 + 轮询兜底）
+> 最后更新：2026-08-14 · commit：`108bd36`（BottomSheet web 黑框修复 + 阶段2 登录加固）
 
 ## 代码风格与命名约定
 
@@ -34,7 +34,10 @@
 | **project.time.updated 被 watcher 污染** | 项目 `time.updated` 会被文件 watcher 更新，不能用于活跃度判断 | 活跃度以 `session.time.updated` 为准（project-status.ts） |
 | web 静态导出无 index.html | `expo export` 不产出根 `index.html`，`/` 会 404/目录列表 | serve-static.mjs 已处理（302→/pulse） |
 | 页面交互延迟 | web 版交互依赖 JS bundle 加载完（3MB），低带宽下"看着加载完但点不动" | gzip 已开；仍有体感问题则考虑拆包/CDN |
-| `useNativeDriver` warning（web） | Animated 在 web 无原生驱动 | 无害，忽略 |
+| **BottomSheet web 黑框（重大 bug）** | react-native-web **不桥接** `Animated` 插值 `transform: [{ translateY: <interpolation> }]` 到 DOM——sheet 即便 `visible={false}` 也以 `translateY(0)` 渲染，用不透明 `surface[3]` 覆盖整个 Pulse 屏幕，表现为"黑框 + 底部 tab"。`useNativeDriver:true/false` 都无效（控制台的"Falling back to JS"是假象，transform 实际从不更新）。scrim 用 `opacity` 动画正常（opacity 在 web 回退有效），故只 sheet 受影响 | BottomSheet 用 `{visible ? <Animated.View/> : null}` **条件渲染**（`src/components/navigation/BottomSheet.tsx`）；勿改回常驻渲染+transform 隐藏。代价：丢失关闭滑出动画（web 上本就不工作） |
+| **serve-static gzipCache 缓存旧 bundle** | `scripts/serve-static.mjs` 的 `gzipCache` 按**文件路径**缓存 gzipped 字节；`expo export --clear` 覆盖 dist 文件后，`gzipCache.get(file)` 命中旧条目，服务仍返回**旧 JS/HTML**——代码改动看起来"没生效" | 每次 `pnpm exec expo export --platform web --clear` 后**必须** `pkill -f serve-static.mjs && node scripts/serve-static.mjs` 重启 9928。`Cache-Control: no-store` 只防浏览器缓存，防不了服务端 gzipCache |
+| **`/session/status` 幽灵条目** | opencode 的 `/session/status` 可能残留**已删除 session** 的 busy/retry 状态（`GET /session/{id}` 返回 NotFound）。导致误判某项目 running | 用项目实际 session 列表交叉校验：仅当 session id 在 `listSessions` 结果中才采信其 busy 状态。useProjectEvents 目前**未做**此校验，是已知缺口 |
+| `useNativeDriver` warning（web） | Animated 在 web 无原生驱动，控制台告警 | **非全无害**：见上"BottomSheet web 黑框"——依赖 `useNativeDriver` 驱动 transform 隐藏的组件会失效。opacity 类动画不受影响 |
 | **React Compiler 误伤状态更新** | `app.json` 的 `experiments.reactCompiler: true` 会让 React Compiler 错误 memo 组件，导致 `setState(null)` 后再 `setState(obj)` 的重渲染被跳过——表现为"打开详情→关闭→再点无反应"。已在 2026-08-10 禁用。**勿重新开启**，如需启用须回归测试 Pulse 打开/关闭/再打开流程 | 保持 `reactCompiler` 关闭 |
 | `accessible` 布尔透传警告（web） | `accessible={true}` 在 RN Web 会透传为 DOM 非布尔属性，触发 `received true for a non-boolean` 报错 | 勿给 View/组件传 `accessible={true}`（RN 默认即 accessible） |
 | EAS 构建挂起 | 前台跑 `eas build` 会阻塞/超时 | 一律 nohup 后台 + 日志文件 |

@@ -1,6 +1,6 @@
 # modules/components.md —— 组件库
 
-> 最后更新：2026-08-10 · commit：`022b4a6`
+> 最后更新：2026-08-14 · commit：`108bd36`（BottomSheet web 黑框修复）
 
 ## 模块职责
 
@@ -51,6 +51,5 @@
 - **新组件必须补 barrel 导出**（components/index.ts），否则页面无法 `@/components` 引用。
 - 组件只依赖 theme token，禁止硬编码颜色/间距（见 CONVENTIONS）。
 - `StatusType` 定义在 StatusDot.tsx，多组件引用，改状态集合会波及 StatusDot/Pill/Callout、EventItem。
-- BottomSheet 动画用 RN Animated（useNativeDriver），web 下退化为 JS 动画（有 warning，无害）。
-- BottomSheet 关闭动画期间仍渲染（isVisible ref 控制卸载时机），依赖此行为勿改。
-- 分类目录含 `chat/`（ProjectChat/ChatPanel/MessageBubble，见 modules/chat.md）；fullScreen 模式无 padding（内容组件自撑 padding）。
+- **BottomSheet 在 web 上的隐藏靠条件渲染，不靠动画**：react-native-web 不桥接 `Animated` 插值 `transform: [{translateY}]` 到 DOM，`useNativeDriver` true/false 皆无效——`visible={false}` 时 sheet 仍以 `translateY(0)` 渲染、用不透明 `surface[3]` 覆盖屏幕（即"黑框"bug）。当前实现：`{visible ? <Animated.View/> : null}`（`src/components/navigation/BottomSheet.tsx`）。scrim 用 `opacity` 动画，web 下正常，无需条件渲染。代价：web 上无关闭滑出动画（原生端 open 仍有滑入）。
+- BottomSheet `fullScreen` 模式无 padding，内容组件（ProjectChat header、ChatPanel 输入区）依赖自身 padding；加回 padding 会导致输入框/header 不贴边。

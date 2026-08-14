@@ -1,6 +1,6 @@
 # OPERATIONS.md —— 构建与运维
 
-> 最后更新：2026-08-13 · commit：`b4d9361`（阶段 2：BFF 中间层 + 打字机 + 动态模型 + 登录）
+> 最后更新：2026-08-14 · commit：`108bd36`（BottomSheet web 黑框修复 + 阶段2 登录加固）
 
 ## 环境变量清单
 
@@ -84,8 +84,8 @@ npx serve dist -l 9928                # 或 node scripts/serve-static.mjs（gzip
 ```
 
 - 服务地址：`http://<公网IP>:9928`（公网 IP 参考 `curl ifconfig.me`）
-- serve-static.mjs 特性：gzip（bundle 3MB→0.5MB）、`Cache-Control: no-store`（防旧缓存）
-- 重新部署 = 重跑 export + 重启服务（dist 覆盖即生效）
+- serve-static.mjs 特性：gzip（bundle 3MB→0.5MB）、`Cache-Control: no-store`（防浏览器缓存）
+- **重新部署 = 重跑 export + 重启服务**：`pnpm exec expo export --platform web --clear` 后**必须** `pkill -f serve-static.mjs && node scripts/serve-static.mjs` 重启。`gzipCache` 按路径缓存 gzipped 字节，dist 文件覆盖后仍返回旧 bundle——`Cache-Control: no-store` 只防浏览器缓存，防不了服务端 gzipCache（见 CONVENTIONS）
 - 进程管理：nohup 后台运行，日志 `/tmp/serve-9928.log`；停止 `pkill -f "serve dist"` 或 `pkill -f serve-static`
 
 ## Expo Go 真机预览

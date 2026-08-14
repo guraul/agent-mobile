@@ -1,6 +1,6 @@
 # Agent Mobile 项目知识库 · 索引总览
 
-> 最后更新：2026-08-12 · commit：`56503ba`（阶段1：DisplayStep 展开 + 轮询兜底 + agent/model 切换）
+> 最后更新：2026-08-14 · commit：`108bd36`（BottomSheet web 黑框修复 + 阶段2 登录加固 + agent 模型动态加载）
 > 维护：见 [CONVENTIONS.md](CONVENTIONS.md)「知识库维护约定」
 
 ## 使用说明
