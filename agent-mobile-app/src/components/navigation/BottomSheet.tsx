@@ -48,12 +48,16 @@ export function BottomSheet({
           Animated.timing(slideAnim, {
             toValue: 0,
             duration: motion.duration.deliberate,
-            useNativeDriver: true,
+            // useNativeDriver unsupported on web (no native module) and the
+            // "JS fallback" never applies the interpolated transform to the
+            // DOM — sheets then render at translateY(0) and cover the screen
+            // even when visible={false}.
+            useNativeDriver: false,
           }),
           Animated.timing(scrimAnim, {
             toValue: 1,
             duration: motion.duration.standard,
-            useNativeDriver: true,
+            useNativeDriver: false,
           }),
         ]).start();
       }
@@ -66,12 +70,12 @@ export function BottomSheet({
           Animated.timing(slideAnim, {
             toValue: 1,
             duration: motion.duration.standard,
-            useNativeDriver: true,
+            useNativeDriver: false,
           }),
           Animated.timing(scrimAnim, {
             toValue: 0,
             duration: motion.duration.quick,
-            useNativeDriver: true,
+            useNativeDriver: false,
           }),
         ]).start();
       }
@@ -151,13 +155,20 @@ export function BottomSheet({
           onPress={onClose}
         />
       </Animated.View>
-      <Animated.View
-        testID={testID}
-        style={[sheetContainerStyle, animatedSheetStyle]}
-      >
-        {!fullScreen && <View style={grabberStyle} />}
-        {children}
-      </Animated.View>
+      {/* react-native-web does not bridge `transform: [{ translateY:
+          <AnimatedInterpolation> }]` to the DOM — the sheet then paints at
+          its natural position even when visible={false}, covering the
+          underlying screen with an opaque surface. Gate the render so the
+          sheet is reliably hidden when closed on web. */}
+      {visible ? (
+          <Animated.View
+            testID={testID}
+            style={[sheetContainerStyle, animatedSheetStyle]}
+          >
+            {!fullScreen && <View style={grabberStyle} />}
+            {children}
+          </Animated.View>
+        ) : null}
     </>
   );
 }

@@ -37,13 +37,14 @@ const PAGE_SIZE = 50;
 // while preserving the most recent messages (matches the PAGE_SIZE reload window).
 const MAX_MESSAGES = PAGE_SIZE * 2;
 
-// primary agents (mode: "primary" in opencode.json) cycled by the agent pill;
-// model follows the agent's configured default. opencode's prompt API takes
-// per-message agent/model — it cannot mutate an existing session's agent.
-const PRIMARY_AGENTS = [
-  { id: "build", model: { providerID: "agnes", modelID: "agnes-2.5-flash" } },
-  { id: "plan", model: { providerID: "volcengine-plan", modelID: "minimax-m3" } },
-  { id: "design", model: { providerID: "volcengine-plan", modelID: "minimax-m3" } },
+// primary agents (mode: "primary" in opencode.json) cycled by the agent pill.
+// Their configured default models are loaded dynamically from the opencode
+// server on mount (listAgents) so model changes on the server take effect on
+// the next session open — the models below are only a fallback while loading.
+const FALLBACK_AGENTS = [
+  { id: "build", model: { providerID: "deepseek", modelID: "deepseek-v4-flash" } },
+  { id: "plan", model: { providerID: "deepseek", modelID: "deepseek-v4-flash" } },
+  { id: "design", model: { providerID: "deepseek", modelID: "deepseek-v4-flash" } },
 ] as const;
 
 interface ChatPanelProps {
@@ -62,7 +63,10 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
   // both are applied per-message via prompt_async (agent/model cannot be
   // mutated on an existing session via the opencode API).
   const [agentIdx, setAgentIdx] = useState(0);
-  const [model, setModel] = useState<{ providerID: string; modelID: string }>(PRIMARY_AGENTS[0].model);
+  const [model, setModel] = useState<{ providerID: string; modelID: string }>(FALLBACK_AGENTS[0].model);
+  const [agents, setAgents] = useState<{ id: string; model: { providerID: string; modelID: string } }[]>(
+    FALLBACK_AGENTS.map((a) => ({ id: a.id, model: { providerID: a.model.providerID, modelID: a.model.modelID } })),
+  );
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [modelList, setModelList] = useState<{ providerID: string; modelID: string }[]>([]);
   const listRef = useRef<FlatList<DisplayStep>>(null);
@@ -202,6 +206,29 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
     };
   }, [sessionID, recomputeDisplay]);
 
+  // load primary agents' configured models from the opencode server so the
+  // agent pill follows server-side agent.model (opencode.json), not a hardcoded copy.
+  useEffect(() => {
+    let cancelled = false;
+    opencodeClient
+      .listAgents()
+      .then((list) => {
+        if (cancelled) return;
+        const primary = list.filter((a) => a.mode === "primary" && a.model);
+        const known = FALLBACK_AGENTS.filter((f) => primary.some((a) => a.name === f.id));
+        if (known.length === 0) return;
+        setAgents(
+          primary
+            .filter((a) => FALLBACK_AGENTS.some((f) => f.id === a.name))
+            .map((a) => ({ id: a.name, model: { providerID: a.model!.providerID, modelID: a.model!.modelID } })),
+        );
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // initialize agent/model pills from the session's configured values
   useEffect(() => {
     let cancelled = false;
@@ -210,10 +237,19 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
       .then((s) => {
         if (cancelled) return;
         if (s.agent) {
-          const idx = PRIMARY_AGENTS.findIndex((a) => a.id === s.agent);
+          const idx = agents.findIndex((a) => a.id === s.agent);
           if (idx !== -1) setAgentIdx(idx);
         }
-        if (s.model?.providerID && s.model?.id) {
+        // Only adopt the session model when it matches one of the primary
+        // agents' defaults; stale session models (e.g. from before the model
+        // migration) must not pin the chat to an old provider.
+        if (
+          s.model?.providerID &&
+          s.model?.id &&
+          agents.some(
+            (a) => a.model.providerID === s.model!.providerID && a.model.modelID === s.model!.id,
+          )
+        ) {
           setModel({ providerID: s.model.providerID, modelID: s.model.id });
         }
       })
@@ -221,7 +257,7 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
     return () => {
       cancelled = true;
     };
-  }, [sessionID]);
+  }, [sessionID, agents]);
 
   // dynamic model list from config/providers; fall back to primary agents' models
   const loadModels = useCallback(() => {
@@ -237,7 +273,7 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
         if (flat.length > 0) setModelList(flat);
       })
       .catch(() => {
-        setModelList(PRIMARY_AGENTS.map((a) => ({ ...a.model })));
+        setModelList(agents.map((a) => ({ ...a.model })));
       });
   }, []);
 
@@ -254,7 +290,7 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
     try {
       await opencodeClient.sendMessageAsync(sessionID, {
         parts: [{ type: "text", text }],
-        agent: PRIMARY_AGENTS[agentIdx].id,
+        agent: agents[agentIdx].id,
         model,
       });
       await loadMessages();
@@ -334,14 +370,14 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
       <View style={styles.agentRow}>
         <Pressable
           onPress={() => {
-            setAgentIdx((idx) => (idx + 1) % PRIMARY_AGENTS.length);
-            setModel(PRIMARY_AGENTS[(agentIdx + 1) % PRIMARY_AGENTS.length].model);
+            setAgentIdx((idx) => (idx + 1) % agents.length);
+            setModel(agents[(agentIdx + 1) % agents.length].model);
           }}
           accessibilityLabel="Switch agent"
           accessibilityRole="button"
           style={styles.agentPill}
         >
-          <Text variant="caption" color="accent">{PRIMARY_AGENTS[agentIdx].id}</Text>
+          <Text variant="caption" color="accent">{agents[agentIdx].id}</Text>
           <Text variant="caption" color="muted">⇄</Text>
         </Pressable>
         <Pressable

@@ -1,5 +1,5 @@
 import { opencodeConfig } from "../config/opencode";
-import { tokenHeader } from "./auth";
+import { tokenHeader, handleUnauthorized } from "./auth";
 
 export type OpenCodeEvent =
   | { type: "message.updated"; properties: { info: { id: string; sessionID: string }; sessionID: string } }
@@ -121,13 +121,26 @@ export function subscribeToOpenCodeEvents(
   async function connect() {
     if (cancelled) return;
     controller = new AbortController();
+    const auth = tokenHeader();
+    if (!auth.Authorization) {
+      // not logged in yet — poll quietly for a token instead of hammering
+      // the BFF with 401 requests every few seconds
+      reconnectTimer = setTimeout(connect, 3000);
+      return;
+    }
     attempt++;
     try {
       const qs = sessionID ? `?sessionID=${encodeURIComponent(sessionID)}` : "";
       const res = await fetch(`${opencodeConfig.baseUrl}/api/opencode/stream${qs}`, {
-        headers: { ...tokenHeader(), Accept: "text/event-stream" },
+        headers: { ...auth, Accept: "text/event-stream" },
         signal: controller.signal,
       });
+      if (res.status === 401) {
+        // token rejected — clear the session and stop reconnecting; the app
+        // shows the login sheet, and connect() resumes once login stores a token
+        await handleUnauthorized();
+        return;
+      }
       if (!res.ok || !res.body) {
         throw new Error(`event stream ${res.status}`);
       }

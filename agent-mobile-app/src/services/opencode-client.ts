@@ -41,9 +41,10 @@ export type OpenCodePart =
   | { type: "agent"; name?: string; id?: string };
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const auth = tokenHeader();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    ...tokenHeader(),
+    ...auth,
     ...(options.headers as Record<string, string> | undefined),
   };
 
@@ -52,7 +53,11 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     headers,
   });
   if (res.status === 401) {
-    await handleUnauthorized();
+    // Only treat 401 as an expired session when this request actually sent a
+    // token. Requests fired before login (no Authorization header) hitting 401
+    // must not wipe a freshly stored login token — otherwise logging in then
+    // reloading loses the session and the SSE stream never authenticates.
+    if (auth.Authorization) await handleUnauthorized();
     throw new Error(`opencode ${path} unauthorized`);
   }
   if (!res.ok) {
@@ -70,6 +75,10 @@ export const opencodeClient = {
 
   listProviders(): Promise<{ providers: { id: string; name?: string; models: Record<string, unknown> }[]; default: Record<string, string> }> {
     return request(`/config/providers`);
+  },
+
+  listAgents(): Promise<{ name: string; mode?: string; model?: { providerID: string; modelID: string } }[]> {
+    return request(`/agent`);
   },
 
   getProject(): Promise<OpenCodeProject[]> {

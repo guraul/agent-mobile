@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { opencodeClient, type OpenCodeSession } from "@/services/opencode-client";
 import { subscribeToOpenCodeEvents, type OpenCodeEvent } from "@/services/opencode-events";
+import { tokenHeader } from "@/services/auth";
 import {
   determineProjectStatus,
   type ProjectEvent,
@@ -87,6 +88,13 @@ export function useProjectEvents(): UseProjectEventsResult {
   }, []);
 
   const refresh = useCallback(async () => {
+    // Without a login token the BFF would answer 401 — skip silently and
+    // avoid spamming failed requests; pulse.tsx re-invokes refresh() once
+    // the token is loaded or the user logs in.
+    if (!tokenHeader().Authorization) {
+      setLoading(false);
+      return;
+    }
     try {
       const projects = await opencodeClient.getProject();
       const sources: ProjectSource[] = projects

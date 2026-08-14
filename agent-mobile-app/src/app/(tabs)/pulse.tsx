@@ -40,7 +40,7 @@ interface GroupedEvent extends ProjectEvent {
 }
 
 export default function PulseScreen() {
-  const { events, loading, error } = useProjectEvents();
+  const { events, loading, error, refresh } = useProjectEvents();
   const [activeProject, setActiveProject] = useState<{
     id: string;
     projectPath: string;
@@ -50,11 +50,25 @@ export default function PulseScreen() {
   const [loginUser, setLoginUser] = useState("");
   const [loginPass, setLoginPass] = useState("");
   const [loginError, setLoginError] = useState<string | null>(null);
+  // Greeting depends on the client's local time; SSR (server UTC) and client
+  // (phone timezone) disagree, causing a hydration text mismatch (React #418)
+  // and a blank screen. Render it only after mount.
+  const [greeting, setGreeting] = useState("");
 
   useEffect(() => {
-    loadToken().then((tok) => setNeedLogin(!tok));
-    return onUnauthorized(() => setNeedLogin(true));
+    setGreeting(getGreeting());
   }, []);
+
+  useEffect(() => {
+    loadToken().then((tok) => {
+      setNeedLogin(!tok);
+      // token became available — retry the project list immediately instead
+      // of waiting for the 30s poll (the mount-time fetch ran before the
+      // token was loaded and 401'd).
+      if (tok) refresh();
+    });
+    return onUnauthorized(() => setNeedLogin(true));
+  }, [refresh]);
 
   const doLogin = async () => {
     try {
@@ -62,6 +76,7 @@ export default function PulseScreen() {
       await login(loginUser, loginPass);
       setNeedLogin(false);
       setLoginOpen(false);
+      refresh();
     } catch (e) {
       setLoginError(e instanceof Error ? e.message : String(e));
     }
@@ -106,7 +121,7 @@ export default function PulseScreen() {
 
       <View style={styles.greetingWrap}>
         <Text variant="headline" color="ink">
-          {getGreeting()}
+          {greeting}
         </Text>
         <View style={styles.presenceRow}>
           <StatusDot
