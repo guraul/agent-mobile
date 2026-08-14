@@ -146,3 +146,33 @@ export function applyPartDelta(
   }
   return messages;
 }
+
+/**
+ * Typewriter pacing: advance the number of characters revealed for each streaming
+ * part toward its target (the part's current full text length). Deltas arrive far
+ * faster than a human can read, so the UI reveals a bounded window per tick and
+ * re-renders only the affected bubble.
+ *
+ * @param shown     current revealed character count per partID
+ * @param targets   current full text length per partID (grows as deltas arrive)
+ * @param perTick   characters to reveal per tick
+ * @returns next reveal map (new object only if something advanced)
+ */
+export function nextRevealChars(
+  shown: Record<string, number>,
+  targets: Record<string, number>,
+  typingParts: Set<string>,
+  perTick: number,
+): Record<string, number> {
+  let changed = false;
+  const next = { ...shown };
+  for (const partId of typingParts) {
+    const current = next[partId] ?? 0;
+    const target = targets[partId] ?? current;
+    if (current < target) {
+      next[partId] = Math.min(target, current + perTick);
+      changed = true;
+    }
+  }
+  return changed ? next : shown;
+}

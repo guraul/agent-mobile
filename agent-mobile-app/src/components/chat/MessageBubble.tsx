@@ -1,5 +1,5 @@
 import React from "react";
-import { View, ScrollView } from "react-native";
+import { View } from "react-native";
 import Markdown from "react-native-markdown-display";
 import { Text, Box } from "../index";
 import { colors, radius } from "../../theme";
@@ -25,7 +25,7 @@ const aiMarkdown = {
   bullet_list_icon: { color: colors.muted },
 };
 
-export function MessageBubble({ step }: { step: DisplayStep }) {
+export const MessageBubble = React.memo(function MessageBubble({ step }: { step: DisplayStep }) {
   if (step.kind === "reasoning" || step.kind === "tool") {
     return <StepChip step={step} />;
   }
@@ -46,10 +46,12 @@ export function MessageBubble({ step }: { step: DisplayStep }) {
         <Text variant="captionStrong" color="accent">Pulse</Text>
       </Box>
       <Box padding="sm" rounded="md" style={{ maxWidth: "92%", backgroundColor: colors.surface[2], borderBottomLeftRadius: radius.xs }}>
-        <ScrollView style={{ maxHeight: 400 }} nestedScrollEnabled>
-          <Markdown style={aiMarkdown}>{step.text}</Markdown>
-        </ScrollView>
+        {/* No fixed-height scroll container here: the typewriter reveals the
+            text character by character, so the bubble must grow with the text
+            (like a messaging app). A fixed maxHeight would pin the bubble and
+            scroll inside it, hiding the typing growth. */}
+        <Markdown style={aiMarkdown}>{step.text}</Markdown>
       </Box>
     </Box>
   );
-}
+});

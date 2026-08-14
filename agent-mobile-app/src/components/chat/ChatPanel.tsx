@@ -25,8 +25,8 @@ import {
   applyMessageUpdated,
   applyPartUpdated,
   applyMessageRemoved,
-  mergeRecentMessages,
   applyPartDelta,
+  nextRevealChars,
 } from "../../services/message-reducer";
 import { mergeMessages, type DisplayStep } from "../../services/message-merging";
 import { MessageBubble } from "./MessageBubble";
@@ -36,6 +36,15 @@ const PAGE_SIZE = 50;
 // by loadMessages; trimming the head keeps the list from growing unbounded
 // while preserving the most recent messages (matches the PAGE_SIZE reload window).
 const MAX_MESSAGES = PAGE_SIZE * 2;
+
+// --- typewriter pacing -----------------------------------------------------
+// deepseek streams the whole reply in ~1.5s; applying every delta immediately
+// makes the text pop in as one block. We still apply deltas to the underlying
+// messages for correctness, but reveal text to the UI at a fixed rate so the
+// reply visibly types out. Per tick we reveal a few characters and re-render
+// only the affected bubble (MessageBubble is memoized).
+const TYPING_TICK_MS = 40;
+const TYPING_CHARS_PER_TICK = 3;
 
 // primary agents (mode: "primary" in opencode.json) cycled by the agent pill.
 // Their configured default models are loaded dynamically from the opencode
@@ -76,6 +85,49 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
   // programmatic scrollToEnd lands mid-list while content is still rendering, which
   // would otherwise flip stickToBottom off and freeze the list short of the latest message.
   const ignoreScrollUntil = useRef(0);
+  // --- typewriter reveal state ---------------------------------------------
+  // deltas arrive far faster than a human can read (deepseek streams a whole
+  // reply in ~1.5s), so applying them instantly makes the text pop in as one
+  // block. We keep the real messages array authoritative (delta → applyPartDelta)
+  // but only reveal a bounded window of characters per tick to the rendered
+  // bubbles. A part is identified by `${messageID}-${partID}` (matches the
+  // DisplayStep id for text steps built in mergeMessages).
+  const [revealChars, setRevealChars] = useState<Record<string, number>>({});
+  const revealCharsRef = useRef<Record<string, number>>({});
+  // full target text length per part (updated as deltas accumulate)
+  const revealTargets = useRef<Record<string, number>>({});
+  // messages that existed before this chat opened are shown in full, not typed
+  // out — only parts that receive a delta while we're watching get paced.
+  const typingPartsRef = useRef<Set<string>>(new Set());
+  const typingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const ensureTypingTimer = useCallback(() => {
+    if (typingTimerRef.current) return;
+    typingTimerRef.current = setInterval(() => {
+      const next = nextRevealChars(revealCharsRef.current, revealTargets.current, typingPartsRef.current, TYPING_CHARS_PER_TICK);
+      if (next === revealCharsRef.current) {
+        // no part still streaming — stop the ticker
+        if (typingTimerRef.current) {
+          clearInterval(typingTimerRef.current);
+          typingTimerRef.current = null;
+        }
+        return;
+      }
+      revealCharsRef.current = next;
+      setRevealChars(next);
+      // keep the latest characters in view as the text grows
+      listRef.current?.scrollToEnd({ animated: false });
+    }, TYPING_TICK_MS);
+  }, []);
+
+  const stopTypingTimer = useCallback(() => {
+    if (typingTimerRef.current) {
+      clearInterval(typingTimerRef.current);
+      typingTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => stopTypingTimer, [stopTypingTimer]);
 
   // Recompute display messages whenever raw messages change.
   // listMessages returns chronological (oldest first); sort by creation time so
@@ -147,6 +199,15 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
           const part = props.part;
           setMessages((prev) => {
             const next = applyPartUpdated(prev, part);
+            // the final part.updated carries the complete text; extend the
+            // typewriter target so the reveal can finish typing out the tail.
+            const p = part as { id?: string; text?: string };
+            if (p.id && typeof p.text === "string" && typingPartsRef.current.has(p.id)) {
+              revealTargets.current[p.id] = Math.max(
+                revealTargets.current[p.id] ?? 0,
+                p.text.length,
+              );
+            }
             recomputeDisplay(next);
             return next.length > MAX_MESSAGES ? next.slice(next.length - MAX_MESSAGES) : next;
           });
@@ -156,6 +217,15 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
         if (d.sessionID === sessionID) {
           setMessages((prev) => {
             const next = applyPartDelta(prev, { messageID: d.messageID, partID: d.partID, field: d.field, text: d.text });
+            // pace this part through the typewriter so the reply types out
+            // instead of popping in as one block (deepseek streams too fast to read).
+            // DisplayStep ids for text parts are the part's own id (mergeMessages),
+            // so key the reveal state on partID alone.
+            typingPartsRef.current.add(d.partID);
+            const msg = next.find((m) => m.info.id === d.messageID);
+            const part = msg?.parts.find((p) => (p as { id?: string }).id === d.partID);
+            revealTargets.current[d.partID] = ((part as { text?: string } | undefined)?.text ?? "").length;
+            ensureTypingTimer();
             recomputeDisplay(next);
             return next.length > MAX_MESSAGES ? next.slice(next.length - MAX_MESSAGES) : next;
           });
@@ -178,33 +248,49 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
   // Poll-based fallback: the local TUI and this opencode server (4096) are
   // separate instances sharing the DB but not their SSE event streams, so
   // messages created in the TUI never reach our /global/event subscription.
-  // Periodically diff the newest messages against the local list and merge:
-  // insert unseen messages and catch up parts on messages we already show.
-  useEffect(() => {
-    let cancelled = false;
-    const sync = async () => {
-      try {
-        const recent = await opencodeClient.listMessages(sessionID, { limit: 10 });
-        if (cancelled) return;
-        setMessages((prev) => {
-          const { messages: merged, changed } = mergeRecentMessages(prev, recent);
-          if (changed) {
-            recomputeDisplay(merged);
-            return merged.length > MAX_MESSAGES ? merged.slice(merged.length - MAX_MESSAGES) : merged;
-          }
-          return prev;
-        });
-      } catch {
-        // transient network/server hiccup — next tick retries
-      }
-    };
-    sync();
-    const timer = setInterval(sync, 5000);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
-  }, [sessionID, recomputeDisplay]);
+  //
+  // DISABLED (2026-08-14): the 5s poll competed with the SSE typewriter — every
+  // poll fetched the full text of a streaming part and replaced it wholesale,
+  // fighting the per-char reveal. For the phone use-case we rely solely on the
+  // SSE stream; re-enable only if cross-instance TUI sync is needed again.
+  // useEffect(() => {
+  //   let cancelled = false;
+  //   const sync = async () => {
+  //     try {
+  //       const recent = await opencodeClient.listMessages(sessionID, { limit: 10 });
+  //       if (cancelled) return;
+  //       setMessages((prev) => {
+  //         const { messages: merged, changed } = mergeRecentMessages(prev, recent);
+  //         if (changed) {
+  //           // polling can carry the full text of a part we're still typing out —
+  //           // extend the target so the reveal doesn't stall short of the real text.
+  //           for (const m of merged) {
+  //             for (const part of m.parts) {
+  //               const p = part as { id?: string; text?: string };
+  //               if (p.id && typingPartsRef.current.has(p.id) && typeof p.text === "string") {
+  //                 revealTargets.current[p.id] = Math.max(
+  //                   revealTargets.current[p.id] ?? 0,
+  //                   p.text.length,
+  //                 );
+  //               }
+  //             }
+  //           }
+  //           recomputeDisplay(merged);
+  //           return merged.length > MAX_MESSAGES ? merged.slice(merged.length - MAX_MESSAGES) : merged;
+  //         }
+  //         return prev;
+  //       });
+  //     } catch {
+  //       // transient network/server hiccup — next tick retries
+  //     }
+  //   };
+  //   sync();
+  //   const timer = setInterval(sync, 5000);
+  //   return () => {
+  //     cancelled = true;
+  //     clearInterval(timer);
+  //   };
+  // }, [sessionID, recomputeDisplay]);
 
   // load primary agents' configured models from the opencode server so the
   // agent pill follows server-side agent.model (opencode.json), not a hardcoded copy.
@@ -288,12 +374,15 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
     setSending(true);
     setError(null);
     try {
+      // No full reload here: the SSE stream echoes the user message back as
+      // `message.updated` (role=user), which the subscription above inserts
+      // chronologically. Reloading would rebuild the whole list and make the
+      // scroll position jump for every send.
       await opencodeClient.sendMessageAsync(sessionID, {
         parts: [{ type: "text", text }],
         agent: agents[agentIdx].id,
         model,
       });
-      await loadMessages();
       stickToBottom.current = true;
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -320,8 +409,10 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
   };
 
   const handleContentSizeChange = () => {
+    // while a reply is actively typing, always chase the latest text so the
+    // newest characters are never stranded behind the agent/model row.
     if (stickToBottom.current) {
-      listRef.current?.scrollToEnd({ animated: true });
+      listRef.current?.scrollToEnd({ animated: false });
     }
   };
 
@@ -347,13 +438,23 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
       <FlatList
         ref={listRef}
         data={display}
+        extraData={revealChars}
         keyExtractor={(s) => s.id}
         renderItem={({ item, index }) => {
           const prev = display[index - 1];
           const isTurnStart = !prev || prev.kind === "user" || item.kind === "user";
+          // typewriter pacing: while a part is mid-stream, show only the
+          // characters revealed so far so the reply visibly types out.
+          let step = item;
+          if (item.kind === "text") {
+            const shown = revealChars[item.id];
+            if (shown !== undefined && shown < item.text.length) {
+              step = { ...item, text: item.text.slice(0, shown) };
+            }
+          }
           return (
             <View style={{ marginTop: isTurnStart ? spacing.md : spacing.xxs }}>
-              <MessageBubble step={item} />
+              <MessageBubble step={step} />
             </View>
           );
         }}
@@ -494,24 +595,31 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingHorizontal: spacing.md,
     paddingTop: spacing.xs,
-    paddingBottom: 6,
+    paddingBottom: spacing.xs,
     borderTopWidth: 1,
     borderTopColor: colors.border.default,
     backgroundColor: colors.canvas,
   },
   input: {
     flex: 1,
-    minHeight: 40,
-    maxHeight: 100,
+    height: 40,
+    maxHeight: 40,
     boxSizing: "border-box",
     backgroundColor: colors.surface[1],
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
+    paddingVertical: 0,
     color: colors.ink,
     fontSize: 15,
-    textAlign: "center",
+    // center the caret/text vertically on both native and web. RN TextInput
+    // ignores textAlignVertical on web, so use lineHeight there; native keeps
+    // textAlignVertical. Fixed height + single line keeps the input on the
+    // same axis as the voice/send icons.
     textAlignVertical: "center",
+    ...Platform.select({
+      web: { lineHeight: 40 },
+      default: {},
+    }),
   },
   voiceBtn: {
     width: 40,

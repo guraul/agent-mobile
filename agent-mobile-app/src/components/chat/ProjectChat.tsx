@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { View, Pressable, StyleSheet } from "react-native";
-import { ChevronRight, MessageSquare } from "lucide-react-native";
+import { View, Pressable, StyleSheet, ScrollView } from "react-native";
+import { ArrowLeft, Plus, Layers } from "lucide-react-native";
 import { Text, Box, Button } from "../index";
-import { colors, spacing, iconStroke } from "../../theme";
+import { colors, spacing, radius, iconStroke } from "../../theme";
 import { opencodeClient, type OpenCodeSession } from "../../services/opencode-client";
 import { ChatPanel } from "./ChatPanel";
+import { BottomSheet } from "../navigation/BottomSheet";
 
 interface ProjectChatProps {
   projectPath: string;
@@ -15,14 +16,31 @@ function byRecent(a: OpenCodeSession, b: OpenCodeSession): number {
   return (b.time?.updated ?? 0) - (a.time?.updated ?? 0);
 }
 
+function sessionLabel(s: OpenCodeSession): string {
+  return s.title?.trim() || s.id;
+}
+
 /**
  * Direct chat entry for a project: opens the most recently active session,
  * or an empty chat composer when no session exists yet.
  */
 export function ProjectChat({ projectPath, onBack }: ProjectChatProps) {
   const [session, setSession] = useState<OpenCodeSession | null>(null);
+  const [sessions, setSessions] = useState<OpenCodeSession[]>([]);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pickerError, setPickerError] = useState<string | null>(null);
+
+  const refreshSessions = useCallback(async () => {
+    try {
+      setPickerError(null);
+      const list = await opencodeClient.listSessions(projectPath);
+      setSessions([...list].sort(byRecent));
+    } catch (e) {
+      setPickerError(e instanceof Error ? e.message : String(e));
+    }
+  }, [projectPath]);
 
   const resolve = useCallback(async () => {
     try {
@@ -30,6 +48,7 @@ export function ProjectChat({ projectPath, onBack }: ProjectChatProps) {
       const list = await opencodeClient.listSessions(projectPath);
       const mostRecent = list.length ? [...list].sort(byRecent)[0] : null;
       setSession(mostRecent);
+      setSessions([...list].sort(byRecent));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -43,27 +62,39 @@ export function ProjectChat({ projectPath, onBack }: ProjectChatProps) {
 
   const createAndOpen = async () => {
     try {
-      setError(null);
+      setPickerError(null);
       const created = await opencodeClient.createSession({ directory: projectPath });
+      await refreshSessions();
       setSession(created);
+      setPickerOpen(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setPickerError(e instanceof Error ? e.message : String(e));
     }
+  };
+
+  const openPicker = () => {
+    refreshSessions();
+    setPickerOpen(true);
+  };
+
+  const switchTo = (s: OpenCodeSession) => {
+    setSession(s);
+    setPickerOpen(false);
   };
 
   return (
     <View style={styles.flex}>
       <View style={styles.headerRow}>
-        <Pressable onPress={onBack} style={styles.backBtn} accessibilityRole="button">
-          <ChevronRight
-            color={colors.body}
-            size={18}
-            strokeWidth={iconStroke}
-            style={{ transform: [{ rotate: "180deg" }] }}
-          />
+        <Pressable onPress={onBack} style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="Back to projects">
+          <ArrowLeft color={colors.body} size={18} strokeWidth={iconStroke} />
+        </Pressable>
+        <View style={styles.titleWrap}>
           <Text variant="captionStrong" color="body" numberOfLines={1}>
             {projectPath.split("/").filter(Boolean).pop()}
           </Text>
+        </View>
+        <Pressable onPress={openPicker} style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="Switch session">
+          <Layers color={colors.body} size={18} strokeWidth={iconStroke} />
         </Pressable>
       </View>
 
@@ -79,11 +110,10 @@ export function ProjectChat({ projectPath, onBack }: ProjectChatProps) {
         </Box>
       ) : session ? (
         <View style={styles.flex}>
-          <ChatPanel sessionID={session.id} />
+          <ChatPanel key={session.id} sessionID={session.id} />
         </View>
       ) : (
         <Box padding="lg" style={styles.center}>
-          <MessageSquare color={colors.muted} size={28} strokeWidth={iconStroke} />
           <Text variant="body" color="muted">No session yet for this project.</Text>
           <Text variant="caption" color="muted">
             Start a new conversation.
@@ -92,12 +122,51 @@ export function ProjectChat({ projectPath, onBack }: ProjectChatProps) {
             <Button
               variant="primary"
               label="New session"
-              icon={MessageSquare}
+              icon={Plus}
               onPress={createAndOpen}
             />
           </Box>
         </Box>
       )}
+
+      <BottomSheet visible={pickerOpen} onClose={() => setPickerOpen(false)} testID="session-picker">
+        <Box padding="sm" style={styles.pickerHeader}>
+          <Text variant="body" color="ink">会话</Text>
+        </Box>
+        <ScrollView style={styles.pickerList}>
+          {pickerError ? (
+            <Text variant="caption" color="error">{pickerError}</Text>
+          ) : sessions.length === 0 ? (
+            <Text variant="caption" color="muted">暂无会话</Text>
+          ) : (
+            sessions.map((s) => {
+              const active = session?.id === s.id;
+              return (
+                <Pressable
+                  key={s.id}
+                  onPress={() => switchTo(s)}
+                  style={[styles.sessionItem, active && styles.sessionItemActive]}
+                  accessibilityRole="button"
+                >
+                  <Text
+                    variant="body"
+                    color={active ? "accent" : "ink"}
+                    numberOfLines={1}
+                  >
+                    {sessionLabel(s)}
+                  </Text>
+                  <Text variant="caption" color="muted">
+                    {new Date(s.time?.updated ?? 0).toLocaleString()}
+                  </Text>
+                </Pressable>
+              );
+            })
+          )}
+        </ScrollView>
+        <Box padding="sm" style={styles.pickerFooter}>
+          <Button variant="primary" label="New session" icon={Plus} onPress={createAndOpen} />
+        </Box>
+      </BottomSheet>
     </View>
   );
 }
@@ -110,15 +179,42 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     padding: spacing.sm,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.border.default,
     backgroundColor: colors.surface[3],
   },
-  backBtn: {
-    flexDirection: "row",
+  iconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.full,
     alignItems: "center",
-    gap: spacing.xxs,
+    justifyContent: "center",
+  },
+  titleWrap: {
     flexShrink: 1,
+    flexGrow: 1,
+    alignItems: "center",
+    paddingHorizontal: spacing.xs,
+  },
+  pickerHeader: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.default,
+  },
+  pickerList: {
+    maxHeight: 320,
+  },
+  pickerFooter: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border.default,
+  },
+  sessionItem: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.xs,
+    gap: 2,
+  },
+  sessionItemActive: {
+    backgroundColor: colors.accent.subtle,
   },
 });

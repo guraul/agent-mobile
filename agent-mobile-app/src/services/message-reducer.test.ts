@@ -5,6 +5,7 @@ import {
   applyMessageRemoved,
   mergeRecentMessages,
   applyPartDelta,
+  nextRevealChars,
 } from "./message-reducer";
 import type { OpenCodeMessage } from "./opencode-client";
 
@@ -141,5 +142,60 @@ describe("applyPartDelta", () => {
     const out = applyPartDelta(src, { messageID: "m1", partID: "p9", field: "text", text: "first" });
     expect(out[0].parts).toHaveLength(1);
     expect((out[0].parts[0] as { text: string }).text).toBe("first");
+  });
+});
+
+describe("nextRevealChars (typewriter pacing)", () => {
+  it("reveals perTick characters toward the target", () => {
+    const targets = { p1: 100 };
+    const typing = new Set(["p1"]);
+    let shown = nextRevealChars({}, targets, typing, 5);
+    expect(shown).toEqual({ p1: 5 });
+    shown = nextRevealChars(shown, targets, typing, 5);
+    expect(shown).toEqual({ p1: 10 });
+  });
+
+  it("does not overshoot the target", () => {
+    const targets = { p1: 7 };
+    const typing = new Set(["p1"]);
+    const shown = nextRevealChars({ p1: 5 }, targets, typing, 5);
+    expect(shown.p1).toBe(7);
+  });
+
+  it("returns the same object when nothing advances (no-op)", () => {
+    const shown = { p1: 100 };
+    const targets = { p1: 100 };
+    const typing = new Set(["p1"]);
+    expect(nextRevealChars(shown, targets, typing, 5)).toBe(shown);
+  });
+
+  it("leaves non-typing parts untouched", () => {
+    const targets = { p1: 50 };
+    const typing = new Set(["p1"]);
+    const shown = nextRevealChars({ p2: 30 }, targets, typing, 5);
+    expect(shown.p2).toBe(30);
+    expect(shown.p1).toBe(5);
+  });
+
+  it("handles a growing target (delta keeps arriving)", () => {
+    const typing = new Set(["p1"]);
+    let targets = { p1: 10 };
+    let shown: Record<string, number> = {};
+    // target grows as deltas arrive; reveal must eventually catch up
+    for (let i = 0; i < 3; i++) {
+      shown = nextRevealChars(shown, targets, typing, 4);
+      targets = { p1: 10 + (i + 1) * 10 };
+    }
+    // after 3 ticks: 12 revealed, target now 40
+    expect(shown.p1).toBe(12);
+    // keep ticking until caught up
+    let guard = 0;
+    while (guard < 50) {
+      const next = nextRevealChars(shown, targets, typing, 4);
+      if (next === shown) break;
+      shown = next;
+      guard++;
+    }
+    expect(shown.p1).toBe(40);
   });
 });
