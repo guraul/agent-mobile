@@ -27,6 +27,16 @@ export interface QuestionRequest {
   tool?: { messageID?: string; callID?: string };
 }
 
+export interface PermissionRequest {
+  id: string;
+  sessionID: string;
+  permission: string;
+  patterns?: string[];
+  metadata?: Record<string, unknown>;
+  always?: string[];
+  tool?: { messageID?: string; callID?: string };
+}
+
 export interface OpenCodeSession {
   id: string;
   title?: string;
@@ -145,15 +155,23 @@ export const opencodeClient = {
     return request<Record<string, "busy" | "retry" | "idle">>(`/session/status${q}`);
   },
 
+  // Reply to a permission request (bash/edit/external-directory access etc).
+  // `reply` is once/always/reject; an optional message accompanies a reject.
   replyPermission(
-    id: string,
-    permissionID: string,
-    response: "once" | "always" | "reject",
+    requestID: string,
+    reply: "once" | "always" | "reject",
+    message?: string,
   ): Promise<boolean> {
-    return request<boolean>(`/session/${id}/permissions/${permissionID}`, {
+    return request<boolean>(`/permission/${requestID}/reply`, {
       method: "POST",
-      body: JSON.stringify({ response }),
+      body: JSON.stringify({ reply, ...(message ? { message } : {}) }),
     });
+  },
+
+  // List pending permission requests (the agent is blocked waiting). Used to
+  // recover a permission asked before this chat opened (SSE won't replay it).
+  listPermissions(): Promise<PermissionRequest[]> {
+    return request<PermissionRequest[]>(`/permission`);
   },
 
   // Reply to a `question` tool request (the agent asks a clarifying question and

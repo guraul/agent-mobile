@@ -1,6 +1,6 @@
 # modules/chat.md —— 聊天（项目对话）
 
-> 最后更新：2026-08-14 · commit：`108bd36`+打字机限速+session切换+question 问答弹窗
+> 最后更新：2026-08-14 · commit：`108bd36`+打字机限速+session切换+question/permission 弹窗
 
 ## 模块职责
 
@@ -108,6 +108,14 @@ SSE: BFF /api/opencode/stream（Bearer JWT + ?sessionID= 过滤）
 - **跳过**：`rejectQuestion(requestID)`（避免 agent 永久等待）。
 - **关键坑**：question tool part 的 `state.input.questions` 有数据但**无 requestID**；requestID 只能从 `question.v2.asked` 事件或 `listQuestions()` 获取。
 - 注意：`question` 工具的回复路径是 `POST /question/{id}/reply`（不是 session 下的 permissions 路径）；`replyPermission` 是另一套（bash/edit 等权限请求）。
+
+### permission 权限弹窗（2026-08-14 新增）
+
+- **背景**：agent 执行需要权限的动作（bash 命令、编辑外部目录文件等）会触发 `permission.asked` 并**阻塞等待回复**；手机端若不响应，agent 卡死（曾见读 `~/.opencode/` 记忆文件触发 `external_directory` 权限卡死）。
+- **实时触发**：SSE 收到 `permission.asked`（`properties = {id, sessionID, permission, patterns[], metadata, always[], tool}`）→ ChatPanel 弹 BottomSheet，显示权限类型 + patterns + filepath，提供"允许一次/始终允许/拒绝"三按钮。
+- **加载恢复**：SSE 不重放 `permission.asked`；`loadMessages` 调 `listPermissions()` 恢复 pending 权限。
+- **回复**：`replyPermission(requestID, "once"|"always"|"reject")` → `POST /permission/{requestID}/reply`。
+- 注意：权限路径是 `/permission/{requestID}/reply`（v1）；旧 `/session/{id}/permissions/{permissionID}` 也已弃用为规范版本。
 
 ### agent / model 切换（动态加载，2026-08-14 重构）
 

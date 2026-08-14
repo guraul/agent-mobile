@@ -53,6 +53,10 @@
 | `/question` | GET | 待处理 question 请求列表（`{id, sessionID, questions[]}`，agent 等待回答） | `opencodeClient.listQuestions` |
 | `/question/{requestID}/reply` | POST | 回答 question（body `{answers: string[][]}`，每问一答，answer 为选中 label 数组） | `opencodeClient.replyQuestion` |
 | `/question/{requestID}/reject` | POST | 拒绝/跳过 question（避免 agent 永久等待） | `opencodeClient.rejectQuestion` |
+| `/permission` | GET | 待处理权限请求列表（`{id, sessionID, permission, patterns, metadata}`，agent 等待授权） | `opencodeClient.listPermissions` |
+| `/permission/{requestID}/reply` | POST | 回复权限请求（body `{reply: once\|always\|reject, message?}`，bash/edit/外部目录等访问授权） | `opencodeClient.replyPermission` |
+| `/permission` | GET | 待处理权限请求列表（`{id, sessionID, permission, patterns, metadata}`，agent 等待授权） | `opencodeClient.listPermissions` |
+| `/permission/{requestID}/reply` | POST | 回复权限请求（body `{reply: once\|always\|reject, message?}`，bash/edit/外部目录等访问授权） | `opencodeClient.replyPermission` |
 
 **opencode 认证**：Basic auth（`OPENCODE_USERNAME`/`OPENCODE_PASSWORD`，BFF 侧环境变量）。**手机端不持有**。
 **opencode 监听**：`--hostname 127.0.0.1`（仅 BFF 本机可达，公网不可直连）。

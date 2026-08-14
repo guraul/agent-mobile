@@ -20,6 +20,7 @@ import {
   type OpenCodeMessage,
   type OpenCodePart,
   type QuestionInfo,
+  type PermissionRequest,
 } from "../../services/opencode-client";
 import { subscribeToOpenCodeEvents } from "../../services/opencode-events";
 import {
@@ -91,6 +92,15 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
   const [questionCustom, setQuestionCustom] = useState("");
   // accumulated answers for questions already stepped past (answer[0..index-1])
   const questionAnswersRef = useRef<string[][]>([]);
+  // permission request: agent wants to run a tool / access a file and blocks
+  // until the user allows or rejects.
+  const [pendingPermission, setPendingPermission] = useState<{
+    id: string;
+    permission: string;
+    patterns?: string[];
+    metadata?: Record<string, unknown>;
+    always?: string[];
+  } | null>(null);
   const listRef = useRef<FlatList<DisplayStep>>(null);
   // stick to bottom when user is near the bottom; pause when they scroll up
   const stickToBottom = useRef(true);
@@ -176,6 +186,22 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
         }
       } catch {
         // transient — the live SSE stream will surface new questions anyway
+      }
+      // Same recovery for a permission request that predates this chat open.
+      try {
+        const pendingPerms = await opencodeClient.listPermissions();
+        const mine = pendingPerms.find((p) => p.sessionID === sessionID);
+        if (mine) {
+          setPendingPermission({
+            id: mine.id,
+            permission: mine.permission,
+            patterns: mine.patterns,
+            metadata: mine.metadata,
+            always: mine.always,
+          });
+        }
+      } catch {
+        // transient — the live SSE stream will surface new permissions anyway
       }
       // after initial load, jump to the latest message once the list has laid out.
       // The BottomSheet expand animation grows the list height from 0, so a single
@@ -288,6 +314,22 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
           setQuestionSelections([]);
           setQuestionCustom("");
           questionAnswersRef.current = [];
+        }
+      } else if (event.type === "permission.asked") {
+        const req = event.properties as PermissionRequest;
+        if (req.sessionID === sessionID) {
+          setPendingPermission({
+            id: req.id,
+            permission: req.permission,
+            patterns: req.patterns,
+            metadata: req.metadata,
+            always: req.always,
+          });
+        }
+      } else if (event.type === "permission.replied") {
+        const props = event.properties as { sessionID?: string; requestID?: string };
+        if (props.sessionID === sessionID) {
+          setPendingPermission(null);
         }
       }
     }, undefined, sessionID);
@@ -509,6 +551,17 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
     }
   };
 
+  const replyPermission = async (reply: "once" | "always" | "reject") => {
+    const p = pendingPermission;
+    if (!p) return;
+    try {
+      await opencodeClient.replyPermission(p.id, reply);
+      setPendingPermission(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
   const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     if (Date.now() < ignoreScrollUntil.current) return;
     const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
@@ -670,6 +723,34 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
                 onPress={answerCurrentQuestion}
               />
               <Button variant="ghost" label="跳过此问题" onPress={rejectQuestion} />
+            </Box>
+          </Box>
+        </BottomSheet>
+      ) : null}
+
+      {pendingPermission ? (
+        <BottomSheet visible onClose={() => replyPermission("reject")} testID="permission-sheet">
+          <View style={styles.modelSheetHeader}>
+            <Text variant="body" color="ink">权限请求</Text>
+          </View>
+          <Box padding="sm" gap="sm">
+            <Text variant="body" color="ink">
+              Agent 请求{pendingPermission.permission === "external_directory" ? "访问外部目录" : `执行 ${pendingPermission.permission}`}
+            </Text>
+            {pendingPermission.patterns?.length ? (
+              <Text variant="caption" color="muted">
+                {pendingPermission.patterns.join(", ")}
+              </Text>
+            ) : null}
+            {typeof pendingPermission.metadata?.filepath === "string" ? (
+              <Text variant="caption" color="muted">
+                {pendingPermission.metadata.filepath}
+              </Text>
+            ) : null}
+            <Box gap="sm">
+              <Button variant="primary" label="允许一次" onPress={() => replyPermission("once")} />
+              <Button variant="primary" label="始终允许" onPress={() => replyPermission("always")} />
+              <Button variant="ghost" label="拒绝" onPress={() => replyPermission("reject")} />
             </Box>
           </Box>
         </BottomSheet>

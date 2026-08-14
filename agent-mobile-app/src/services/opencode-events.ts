@@ -1,6 +1,6 @@
 import { opencodeConfig } from "../config/opencode";
 import { tokenHeader, handleUnauthorized } from "./auth";
-import type { QuestionInfo, QuestionRequest } from "./opencode-client";
+import type { QuestionInfo, QuestionRequest, PermissionRequest } from "./opencode-client";
 
 export type OpenCodeEvent =
   | { type: "message.updated"; properties: { info: { id: string; sessionID: string }; sessionID: string } }
@@ -10,6 +10,9 @@ export type OpenCodeEvent =
   | { type: "session.idle"; properties: { sessionID: string } }
   | { type: "session.error"; properties: { sessionID: string; error: string } }
   | { type: "permission.updated"; properties: Record<string, unknown> }
+  // permission request: agent wants to run a tool / access a file and blocks
+  | { type: "permission.asked"; properties: PermissionRequest }
+  | { type: "permission.replied"; properties: { sessionID: string; requestID: string; reply?: string } }
   | { type: "server.connected"; properties: Record<string, unknown> }
   | { type: "delta"; properties: { sessionID: string; messageID: string; partID: string; field: string; text: string } }
   | { type: "stream.error"; properties: { error?: string } }

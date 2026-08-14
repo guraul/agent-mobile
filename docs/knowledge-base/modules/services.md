@@ -58,6 +58,10 @@ auth.ts ──Bearer JWT──► 认证（family-finance 用户）       openco
 | `listQuestions()` | `GET /question` | 待处理 question 请求（agent 用 `question` 工具提问后等待回答） |
 | `replyQuestion(requestID, answers)` | `POST /question/{id}/reply` | 回答 question（`answers: string[][]`，每问一答） |
 | `rejectQuestion(requestID)` | `POST /question/{id}/reject` | 拒绝 question（避免 agent 永久等待） |
+| `listPermissions()` | `GET /permission` | 待处理权限请求（bash/edit/外部目录访问等） |
+| `replyPermission(requestID, reply)` | `POST /permission/{id}/reply` | 回复权限（`once`/`always`/`reject`） |
+| `listPermissions()` | `GET /permission` | 待处理权限请求（bash/edit/external_directory 等） |
+| `replyPermission(requestID, reply, message?)` | `POST /permission/{id}/reply` | 回复权限（`once`/`always`/`reject`，可带 message） |
 
 **401 处理**：任何 REST 调用返回 401 → `handleUnauthorized()`（清 token + 触发 `onUnauthorized` 回调，pulse 顶部显示登录横幅）。
 
