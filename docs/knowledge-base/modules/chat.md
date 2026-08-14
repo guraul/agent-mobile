@@ -1,6 +1,6 @@
 # modules/chat.md —— 聊天（项目对话）
 
-> 最后更新：2026-08-14 · commit：`108bd36`+打字机前端限速（revealChars 逐字揭示 + FlatList extraData + 强制吸底 + session 切换弹层 + 输入区对齐）
+> 最后更新：2026-08-14 · commit：`108bd36`+打字机限速+session切换+question 问答弹窗
 
 ## 模块职责
 
@@ -98,6 +98,16 @@ SSE: BFF /api/opencode/stream（Bearer JWT + ?sessionID= 过滤）
 - **三元素同一水平线（2026-08-14）**：voice/send 按钮固定 40×40、输入框 `height: 40`（非 minHeight）、`paddingVertical: 0`。三者 `alignItems: "center"` 在 inputRow 内，视觉上一条水平线。
 - **文字垂直居中（web）**：RN TextInput 在 web 忽略 `textAlignVertical`，需 `Platform.select({ web: { lineHeight: 40 } })` 才真正居中；native 用 `textAlignVertical: "center"`。
 - 发送后**不重拉**：`send()` 不再调 `loadMessages()`——自己的 user 气泡由 SSE `message.updated(role=user)` 回流，重拉会导致列表跳动。
+
+### question 问答弹窗（2026-08-14 新增）
+
+- **背景**：agent 用 `question` 工具提问澄清（如 brainstorming skill 的"Ask clarifying questions"）时会**阻塞等待回答**；手机端若不响应，agent 永久卡死（session 永远 busy）。曾出现"写200字新概念"后 agent 卡死的问题。
+- **实时触发**：SSE 收到 `question.v2.asked`（`properties = {id, sessionID, questions[], tool}`）→ ChatPanel 弹 BottomSheet，一次显示一个 question（header + question + options + 自定义输入）。
+- **加载恢复**：SSE **不会重放** `question.v2.asked`（重连只有心跳）。若 question 在打开聊天前已发出（agent 卡住），`loadMessages` 后调 `listQuestions()` 找到该 session 的 pending question 恢复弹窗。
+- **多问题逐个弹**：`questions[]` 多个时，回答一个 → 存 `questionAnswersRef` → 弹下一个 → 全部答完调 `replyQuestion(requestID, allAnswers)`。
+- **跳过**：`rejectQuestion(requestID)`（避免 agent 永久等待）。
+- **关键坑**：question tool part 的 `state.input.questions` 有数据但**无 requestID**；requestID 只能从 `question.v2.asked` 事件或 `listQuestions()` 获取。
+- 注意：`question` 工具的回复路径是 `POST /question/{id}/reply`（不是 session 下的 permissions 路径）；`replyPermission` 是另一套（bash/edit 等权限请求）。
 
 ### agent / model 切换（动态加载，2026-08-14 重构）
 

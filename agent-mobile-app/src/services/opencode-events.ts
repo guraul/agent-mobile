@@ -1,5 +1,6 @@
 import { opencodeConfig } from "../config/opencode";
 import { tokenHeader, handleUnauthorized } from "./auth";
+import type { QuestionInfo, QuestionRequest } from "./opencode-client";
 
 export type OpenCodeEvent =
   | { type: "message.updated"; properties: { info: { id: string; sessionID: string }; sessionID: string } }
@@ -12,6 +13,10 @@ export type OpenCodeEvent =
   | { type: "server.connected"; properties: Record<string, unknown> }
   | { type: "delta"; properties: { sessionID: string; messageID: string; partID: string; field: string; text: string } }
   | { type: "stream.error"; properties: { error?: string } }
+  // question tool: agent asks a clarifying question and blocks until answered
+  | { type: "question.v2.asked"; properties: QuestionRequest }
+  | { type: "question.v2.replied"; properties: { sessionID: string; requestID: string; answers?: string[][] } }
+  | { type: "question.v2.rejected"; properties: { sessionID: string; requestID: string } }
   | { type: string; properties: Record<string, unknown> };
 
 export interface ParsedSSE {

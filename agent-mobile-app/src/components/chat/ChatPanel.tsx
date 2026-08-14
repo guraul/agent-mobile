@@ -12,13 +12,14 @@ import {
   type NativeScrollEvent,
 } from "react-native";
 import { Mic, Send, Square } from "lucide-react-native";
-import { Text, Box } from "../index";
+import { Text, Box, Button } from "../index";
 import { BottomSheet } from "../navigation/BottomSheet";
 import { colors, spacing, radius, iconStroke } from "../../theme";
 import {
   opencodeClient,
   type OpenCodeMessage,
   type OpenCodePart,
+  type QuestionInfo,
 } from "../../services/opencode-client";
 import { subscribeToOpenCodeEvents } from "../../services/opencode-events";
 import {
@@ -78,6 +79,18 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
   );
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [modelList, setModelList] = useState<{ providerID: string; modelID: string }[]>([]);
+  // question tool: agent asks a clarifying question and blocks until answered.
+  // We queue the request and show one question at a time in a BottomSheet, then
+  // POST the reply so the agent can continue.
+  const [pendingQuestion, setPendingQuestion] = useState<{
+    requestID: string;
+    questions: QuestionInfo[];
+    index: number;
+  } | null>(null);
+  const [questionSelections, setQuestionSelections] = useState<string[]>([]);
+  const [questionCustom, setQuestionCustom] = useState("");
+  // accumulated answers for questions already stepped past (answer[0..index-1])
+  const questionAnswersRef = useRef<string[][]>([]);
   const listRef = useRef<FlatList<DisplayStep>>(null);
   // stick to bottom when user is near the bottom; pause when they scroll up
   const stickToBottom = useRef(true);
@@ -148,6 +161,22 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
       setMessages(list);
       recomputeDisplay(list);
       setError(null);
+      // A question tool that is still running (agent waiting for an answer) may
+      // predate this chat opening — the SSE stream won't replay `question.v2.asked`.
+      // Recover it from the pending-question list so the user can answer instead
+      // of the agent hanging forever.
+      try {
+        const pending = await opencodeClient.listQuestions();
+        const mine = pending.find((q) => q.sessionID === sessionID && q.questions.length > 0);
+        if (mine) {
+          questionAnswersRef.current = [];
+          setPendingQuestion({ requestID: mine.id, questions: mine.questions, index: 0 });
+          setQuestionSelections([]);
+          setQuestionCustom("");
+        }
+      } catch {
+        // transient — the live SSE stream will surface new questions anyway
+      }
       // after initial load, jump to the latest message once the list has laid out.
       // The BottomSheet expand animation grows the list height from 0, so a single
       // scrollToEnd can fire while the list is still 0-height; retry a few times.
@@ -239,6 +268,26 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
             recomputeDisplay(next);
             return next;
           });
+        }
+      } else if (event.type === "question.v2.asked") {
+        const req = event.properties as {
+          id: string;
+          sessionID: string;
+          questions: QuestionInfo[];
+        };
+        if (req.sessionID === sessionID && req.questions.length > 0) {
+          questionAnswersRef.current = [];
+          setPendingQuestion({ requestID: req.id, questions: req.questions, index: 0 });
+          setQuestionSelections([]);
+          setQuestionCustom("");
+        }
+      } else if (event.type === "question.v2.replied" || event.type === "question.v2.rejected") {
+        const props = event.properties as { sessionID?: string; requestID?: string };
+        if (props.sessionID === sessionID) {
+          setPendingQuestion(null);
+          setQuestionSelections([]);
+          setQuestionCustom("");
+          questionAnswersRef.current = [];
         }
       }
     }, undefined, sessionID);
@@ -399,6 +448,67 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
     }
   };
 
+  // toggle a selected option for the current question
+  const toggleQuestionOption = (label: string) => {
+    const q = pendingQuestion;
+    if (!q) return;
+    const info = q.questions[q.index];
+    setQuestionSelections((prev) => {
+      if (info?.multiple) {
+        return prev.includes(label) ? prev.filter((l) => l !== label) : [...prev, label];
+      }
+      return prev.includes(label) ? [] : [label];
+    });
+  };
+
+  // advance to the next question, or submit when the last one is answered
+  const answerCurrentQuestion = () => {
+    const q = pendingQuestion;
+    if (!q) return;
+    const info = q.questions[q.index];
+    const selected = [...questionSelections];
+    const customVal = questionCustom.trim();
+    if (info?.custom !== false && customVal) selected.push(customVal);
+    const answer = selected.length ? selected : [];
+    questionAnswersRef.current[q.index] = answer;
+
+    if (q.index < q.questions.length - 1) {
+      setPendingQuestion({ ...q, index: q.index + 1 });
+      setQuestionSelections([]);
+      setQuestionCustom("");
+    } else {
+      submitQuestionAnswers([...questionAnswersRef.current]);
+    }
+  };
+
+  const submitQuestionAnswers = async (allAnswers: string[][]) => {
+    const q = pendingQuestion;
+    if (!q) return;
+    try {
+      await opencodeClient.replyQuestion(q.requestID, allAnswers);
+      setPendingQuestion(null);
+      setQuestionSelections([]);
+      setQuestionCustom("");
+      questionAnswersRef.current = [];
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  const rejectQuestion = async () => {
+    const q = pendingQuestion;
+    if (!q) return;
+    try {
+      await opencodeClient.rejectQuestion(q.requestID);
+      setPendingQuestion(null);
+      setQuestionSelections([]);
+      setQuestionCustom("");
+      questionAnswersRef.current = [];
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
   const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     if (Date.now() < ignoreScrollUntil.current) return;
     const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
@@ -514,6 +624,57 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
         ))}
       </BottomSheet>
 
+      {pendingQuestion ? (
+        <BottomSheet visible onClose={rejectQuestion} testID="question-sheet">
+          <View style={styles.modelSheetHeader}>
+            <Text variant="body" color="ink">
+              {pendingQuestion.questions[pendingQuestion.index].header ||
+                `问题 ${pendingQuestion.index + 1}/${pendingQuestion.questions.length}`}
+            </Text>
+          </View>
+          <Box padding="sm" gap="sm">
+            <Text variant="body" color="ink">
+              {pendingQuestion.questions[pendingQuestion.index].question}
+            </Text>
+            {pendingQuestion.questions[pendingQuestion.index].options?.map((opt) => {
+              const active = questionSelections.includes(opt.label);
+              return (
+                <Pressable
+                  key={opt.label}
+                  onPress={() => toggleQuestionOption(opt.label)}
+                  accessibilityRole="button"
+                  style={[styles.questionOption, active && styles.questionOptionActive]}
+                >
+                  <Text variant="body" color={active ? "accent" : "ink"}>
+                    {opt.label}
+                  </Text>
+                  {opt.description ? (
+                    <Text variant="caption" color="muted">{opt.description}</Text>
+                  ) : null}
+                </Pressable>
+              );
+            })}
+            {pendingQuestion.questions[pendingQuestion.index].custom !== false ? (
+              <TextInput
+                style={styles.questionCustomInput}
+                value={questionCustom}
+                onChangeText={setQuestionCustom}
+                placeholder="输入自定义答案（可选）"
+                placeholderTextColor={colors.disabled}
+              />
+            ) : null}
+            <Box gap="sm">
+              <Button
+                variant="primary"
+                label={pendingQuestion.index < pendingQuestion.questions.length - 1 ? "下一步" : "提交"}
+                onPress={answerCurrentQuestion}
+              />
+              <Button variant="ghost" label="跳过此问题" onPress={rejectQuestion} />
+            </Box>
+          </Box>
+        </BottomSheet>
+      ) : null}
+
       <View style={styles.inputRow}>
         <Pressable
           onPress={() => alert("Voice input")}
@@ -588,6 +749,26 @@ const styles = StyleSheet.create({
   },
   modelItemActive: {
     backgroundColor: colors.accent.subtle,
+  },
+  questionOption: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.xs,
+    borderWidth: 1,
+    borderColor: colors.border.default,
+    gap: 2,
+  },
+  questionOptionActive: {
+    borderColor: colors.accent.default,
+    backgroundColor: colors.accent.subtle,
+  },
+  questionCustomInput: {
+    backgroundColor: colors.surface[2],
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    color: colors.ink,
+    fontSize: 15,
   },
   inputRow: {
     flexDirection: "row",

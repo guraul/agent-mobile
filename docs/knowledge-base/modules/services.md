@@ -55,6 +55,9 @@ auth.ts ──Bearer JWT──► 认证（family-finance 用户）       openco
 | `login(username,password)` | `POST /api/auth/login`（BFF） | 登录拿 JWT（委托 auth.ts） |
 | `listProviders()` | `GET /config/providers` | 动态模型列表 `{providers, default}` |
 | `listAgents()` | `GET /agent` | agent 列表（ChatPanel 用来动态加载 primary agent 的 model，替代硬编码） |
+| `listQuestions()` | `GET /question` | 待处理 question 请求（agent 用 `question` 工具提问后等待回答） |
+| `replyQuestion(requestID, answers)` | `POST /question/{id}/reply` | 回答 question（`answers: string[][]`，每问一答） |
+| `rejectQuestion(requestID)` | `POST /question/{id}/reject` | 拒绝 question（避免 agent 永久等待） |
 
 **401 处理**：任何 REST 调用返回 401 → `handleUnauthorized()`（清 token + 触发 `onUnauthorized` 回调，pulse 顶部显示登录横幅）。
 

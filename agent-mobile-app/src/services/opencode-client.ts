@@ -7,6 +7,26 @@ export interface OpenCodeProject {
   vcs?: string;
 }
 
+export interface QuestionOption {
+  label: string;
+  description?: string;
+}
+
+export interface QuestionInfo {
+  question: string;
+  header?: string;
+  options?: QuestionOption[];
+  multiple?: boolean;
+  custom?: boolean;
+}
+
+export interface QuestionRequest {
+  id: string;
+  sessionID: string;
+  questions: QuestionInfo[];
+  tool?: { messageID?: string; callID?: string };
+}
+
 export interface OpenCodeSession {
   id: string;
   title?: string;
@@ -134,6 +154,29 @@ export const opencodeClient = {
       method: "POST",
       body: JSON.stringify({ response }),
     });
+  },
+
+  // Reply to a `question` tool request (the agent asks a clarifying question and
+  // blocks until answered). `answers` is one entry per question in the request;
+  // each entry is the array of selected option labels (empty = unanswered).
+  replyQuestion(requestID: string, answers: string[][]): Promise<boolean> {
+    return request<boolean>(`/question/${requestID}/reply`, {
+      method: "POST",
+      body: JSON.stringify({ answers }),
+    });
+  },
+
+  // Reject/dismiss a pending question request so the agent doesn't hang forever
+  // waiting for an answer the phone can't give.
+  rejectQuestion(requestID: string): Promise<boolean> {
+    return request<boolean>(`/question/${requestID}/reject`, { method: "POST" });
+  },
+
+  // List pending question requests (the agent is waiting for answers). Used to
+  // recover a question that was asked before this chat opened (SSE won't replay
+  // question.v2.asked).
+  listQuestions(): Promise<QuestionRequest[]> {
+    return request<QuestionRequest[]>(`/question`);
   },
 
   sendMessage(

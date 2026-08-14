@@ -50,6 +50,9 @@
 | `/session/{id}/abort` | POST | 中止执行 | `opencodeClient.abort` |
 | `/config/providers` | GET | 模型/提供商列表（动态模型下拉） | `opencodeClient.listProviders` |
 | `/agent` | GET | agent 列表（ChatPanel 加载 primary agent 的 model） | `opencodeClient.listAgents` |
+| `/question` | GET | 待处理 question 请求列表（`{id, sessionID, questions[]}`，agent 等待回答） | `opencodeClient.listQuestions` |
+| `/question/{requestID}/reply` | POST | 回答 question（body `{answers: string[][]}`，每问一答，answer 为选中 label 数组） | `opencodeClient.replyQuestion` |
+| `/question/{requestID}/reject` | POST | 拒绝/跳过 question（避免 agent 永久等待） | `opencodeClient.rejectQuestion` |
 
 **opencode 认证**：Basic auth（`OPENCODE_USERNAME`/`OPENCODE_PASSWORD`，BFF 侧环境变量）。**手机端不持有**。
 **opencode 监听**：`--hostname 127.0.0.1`（仅 BFF 本机可达，公网不可直连）。
