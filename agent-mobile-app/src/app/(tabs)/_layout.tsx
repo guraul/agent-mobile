@@ -26,7 +26,7 @@ export default function TabsLayout() {
       }}
     >
       <Tabs.Screen
-        name="pulse"
+        name="index"
         options={{
           title: "Pulse",
           tabBarIcon: ({ color, size }) => (

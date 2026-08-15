@@ -2,25 +2,34 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useEffect, useState } from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { Platform, View, Text } from "react-native";
+import { ErrorUtils } from "react-native/Libraries/vendor/core/ErrorUtils";
 
 export default function RootLayout() {
   const [fatal, setFatal] = useState<string | null>(null);
 
   useEffect(() => {
-    const onErr = (msg: string | Event, src?: string, line?: number, col?: number, err?: Error) => {
-      const text = typeof msg === "string" ? msg : msg.type ?? String(msg);
-      setFatal(`${text}\n${src ?? ""}:${line ?? ""}:${col ?? ""}\n${err?.stack ?? ""}`.slice(0, 800));
-    };
-    const onUnhandled = (e: PromiseRejectionEvent) => {
-      setFatal("unhandled rejection: " + String(e.reason).slice(0, 500));
-    };
-    window.addEventListener("error", onErr);
-    window.addEventListener("unhandledrejection", onUnhandled);
-    return () => {
-      window.removeEventListener("error", onErr);
-      window.removeEventListener("unhandledrejection", onUnhandled);
-    };
+    const show = (text: string) => setFatal(text.slice(0, 800));
+    if (Platform.OS === "web") {
+      const onErr = (msg: string | Event, src?: string, line?: number, col?: number, err?: Error) => {
+        const text = typeof msg === "string" ? msg : msg.type ?? String(msg);
+        show(`${text}\n${src ?? ""}:${line ?? ""}:${col ?? ""}\n${err?.stack ?? ""}`);
+      };
+      const onUnhandled = (e: PromiseRejectionEvent) => {
+        show("unhandled rejection: " + String(e.reason).slice(0, 500));
+      };
+      window.addEventListener("error", onErr);
+      window.addEventListener("unhandledrejection", onUnhandled);
+      return () => {
+        window.removeEventListener("error", onErr);
+        window.removeEventListener("unhandledrejection", onUnhandled);
+      };
+    }
+    const prev = ErrorUtils.getGlobalHandler();
+    ErrorUtils.setGlobalHandler((error, isFatal) => {
+      show(`[${isFatal ? "fatal" : "error"}] ${String(error)}`);
+    });
+    return () => ErrorUtils.setGlobalHandler(prev);
   }, []);
 
   if (fatal) {
