@@ -75,7 +75,9 @@ node test/bff-e2e.mjs      # 登录 → 横幅消失 → 打开项目 → 动态
 
 - 构建注入 BFF 地址：`EXPO_PUBLIC_OPENCODE_URL=http://127.0.0.1:19235 pnpm exec expo export --platform web --clear`（**必须 `--clear`**，否则 env 不注入）。
 
-## Web 预览部署（手机浏览器，静态产物）
+## Web 预览部署（手机浏览器，静态产物）【当前已停用，改用 Expo Go 9928】
+
+> 2026-08-15 起 9928 由 Expo Go Metro dev server 占用（见下节），静态 web 方案保留备用。
 
 ```bash
 cd agent-mobile-app
@@ -86,13 +88,30 @@ npx serve dist -l 9928                # 或 node scripts/serve-static.mjs（gzip
 - 服务地址：`http://<公网IP>:9928`（公网 IP 参考 `curl ifconfig.me`）
 - serve-static.mjs 特性：gzip（bundle 3MB→0.5MB）、`Cache-Control: no-store`（防浏览器缓存）
 - **重新部署 = 重跑 export + 重启服务**：`pnpm exec expo export --platform web --clear` 后**必须** `pkill -f serve-static.mjs && node scripts/serve-static.mjs` 重启。`gzipCache` 按路径缓存 gzipped 字节，dist 文件覆盖后仍返回旧 bundle——`Cache-Control: no-store` 只防浏览器缓存，防不了服务端 gzipCache（见 CONVENTIONS）
-- 进程管理：nohup 后台运行，日志 `/tmp/serve-9928.log`；停止 `pkill -f "serve dist"` 或 `pkill -f serve-static`
+- 进程管理：systemd 单元 `serve-9928.service`（已 disable）；恢复 `systemctl start serve-9928`
 
-## Expo Go 真机预览
+## Expo Go 真机预览（当前方案，9928 端口）
+
+**2026-08-15 起**：9928 由 Metro dev server 占用（替代静态 web），手机 Expo Go 直连，**不新开 8081**。
 
 ```bash
-pnpm start --tunnel    # 依赖全局 @expo/ngrok；手机 Expo Go 扫码/输 exp:// URL
+# 启动（systemd 托管，开机自启）
+systemctl start expo-metro-9928
+systemctl status expo-metro-9928     # 日志：Waiting on http://localhost:9928
+
+# 手动启动（调试用）
+cd agent-mobile-app
+REACT_NATIVE_PACKAGER_HOSTNAME=106.13.181.13 \
+EXPO_PUBLIC_OPENCODE_URL=http://106.13.181.13:19234 \
+npx expo start --port 9928 --host lan
 ```
+
+- **手机端**：装最新版 Expo Go（须支持 SDK 57）→ 手动输入 `exp://106.13.181.13:9928`（公网场景扫 LAN 二维码无效，手输 URL）
+- **关键 env**：`REACT_NATIVE_PACKAGER_HOSTNAME=106.13.181.13` 让 Metro 广播的 bundle URL 用公网 IP，否则手机加载 bundle 指向内网 IP 失败；`EXPO_PUBLIC_OPENCODE_URL` 注入 BFF 地址（Expo Go 加载开发 bundle，env 从启动命令注入）
+- **systemd 单元**：`/etc/systemd/system/expo-metro-9928.service`（`Type=simple` + `Restart=always`，WorkingDirectory=agent-mobile-app，ExecStart 用 `node node_modules/expo/bin/cli start --port 9928 --host lan`）
+- **安全**：Metro dev server 无鉴权，公网可拉 bundle——**仅测试用**，正式发布走 EAS APK；测试完 `systemctl stop expo-metro-9928`
+- **切换回 web 版**：`systemctl stop expo-metro-9928 && systemctl start serve-9928`
+- 热重载：改代码 Metro 实时刷新，比 web 版每次 export+重启快
 
 ## Android APK 构建（EAS 云）
 
@@ -139,8 +158,8 @@ curl -u opencode:<密码> http://127.0.0.1:4096/global/health
 
 | 端口 | 用途 | 进程 |
 |---|---|---|
-| 9928 | web 预览（静态产物） | `npx serve dist` 或 `node scripts/serve-static.mjs` |
+| 9928 | Expo Go Metro dev server（当前，测试用） | `expo-metro-9928.service`（`expo start --port 9928`） |
 | 19234 | BFF（family-finance 主 checkout next dev） | `next dev -p 19234` |
 | 19235 | BFF（阶段 2 worktree next dev） | `next dev -p 19235` |
 | 4096 | OpenCode Server（AI agent 后端，127.0.0.1） | `opencode serve` |
-| 8081 | Metro dev server / tunnel | `expo start` |
+| 8081 | Metro dev server 默认端口（当前未用，9928 已占用） | `expo start` |
