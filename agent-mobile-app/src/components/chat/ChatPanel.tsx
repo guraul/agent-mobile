@@ -8,6 +8,7 @@ import {
   Platform,
   RefreshControl,
   StyleSheet,
+  Alert,
   type NativeSyntheticEvent,
   type NativeScrollEvent,
 } from "react-native";
@@ -758,7 +759,7 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
 
       <View style={styles.inputRow}>
         <Pressable
-          onPress={() => alert("Voice input")}
+          onPress={() => Alert.alert("Voice input", "Coming soon.")}
           accessibilityLabel="Voice input"
           accessibilityRole="button"
           style={styles.voiceBtn}

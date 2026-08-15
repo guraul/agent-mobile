@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Pressable,
   TextInput,
+  Alert,
   type ViewStyle,
 } from "react-native";
 import { Bell } from "lucide-react-native";
@@ -107,7 +108,7 @@ export default function PulseScreen() {
       <ScreenHeader
         title="Pulse"
         rightIcon={Bell}
-        onRightPress={() => alert("Notifications")}
+        onRightPress={() => Alert.alert("Notifications", "Coming soon.")}
         rightAccessibilityLabel="Notifications"
       />
 
