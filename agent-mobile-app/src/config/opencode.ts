@@ -1,6 +1,6 @@
 export const opencodeConfig = {
   baseUrl:
     process.env.EXPO_PUBLIC_OPENCODE_URL ??
-    "http://110.40.136.33:19234",
+    "http://106.13.181.13:19234",
   token: "",
 };
