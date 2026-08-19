@@ -1,6 +1,6 @@
 # Agent Mobile 项目知识库 · 索引总览
 
-> 最后更新：2026-08-14 · commit：`108bd36`（BottomSheet web 黑框修复 + 阶段2 登录加固 + agent 模型动态加载）
+> 最后更新：2026-08-16 · commit：`690853a`（web→APK 兼容性：BFF 地址 + cleartext + 原生 API 适配 + 9928 切 APK 下载服务）
 > 维护：见 [CONVENTIONS.md](CONVENTIONS.md)「知识库维护约定」
 
 ## 使用说明
@@ -44,7 +44,8 @@
 | Talk/Memory/Me 占位页 | router | `agent-mobile-app/src/app/(tabs)/talk.tsx` 等 |
 | 组件库（primitives/feedback/navigation） | components | `agent-mobile-app/src/components/index.ts` |
 | 设计 token（暗色主题） | theme | `agent-mobile-app/src/theme/index.ts` |
-| Web 静态预览服务（9928，gzip） | ops | `agent-mobile-app/scripts/serve-static.mjs` |
+| Web 静态预览服务（9928，gzip，备用） | ops | `agent-mobile-app/scripts/serve-static.mjs` |
+| APK 下载服务（9928，当前） | ops | `test/download/pulse.apk`（python3 http.server） |
 | E2E 测试（Playwright） | ops | `agent-mobile-app/scripts/e2e/pulse-e2e.mjs` |
 
 ## 技术栈表
@@ -159,4 +160,5 @@ opencode server (127.0.0.1:4096, Basic auth)
 | 排查 opencode 机制（auto compact 等） | 源码在 `/root/project/opencode-src`（仓库外，含 .git 历史） |
 | 预览 web 版 | `pnpm exec expo export --platform web` + 9928 服务（见 OPERATIONS.md） |
 | 打 APK | `eas build -p android --profile preview`（见 OPERATIONS.md） |
+| 下载/分发 APK | `eas build:download --build-id <id>` → 覆盖 `test/download/pulse.apk` → 9928 服务（见 OPERATIONS.md） |
 | 改应用元信息（包名/名称/主题色） | `agent-mobile-app/app.json` |

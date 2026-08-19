@@ -1,6 +1,6 @@
 # CONVENTIONS.md —— 约定与陷阱
 
-> 最后更新：2026-08-14 · commit：`108bd36`+打字机前端限速（revealChars + extraData + 发送不重拉 + session 切换 + 输入对齐）
+> 最后更新：2026-08-16 · commit：`690853a`（web→APK 兼容性：BFF 地址 + cleartext + 原生 API 适配）
 
 ## 代码风格与命名约定
 
@@ -50,6 +50,11 @@
 | 旧页面缓存 | 浏览器缓存旧 HTML | 响应已带 `Cache-Control: no-store` |
 | chromium 测试 | Playwright 需复用系统浏览器（snap chromium 已删） | `executablePath: '/root/.cache/ms-playwright/chromium_headless_shell-1228/chrome-headless-shell-linux64/chrome-headless-shell'` + `--no-sandbox`，勿 `playwright install`；headless 中 `locator.click`/`mouse` 对 RN Web Pressable 时序不稳定，可用 `dispatchEvent(new MouseEvent('click',{...}))` 复现真实点击 |
 | **E2E 断言误匹配** | 脚本按气泡文本 `includes()` 断言时，AI 回复中若引用了测试消息文本会被误命中 | 断言尽量结合角色（USER/AI）与位置，或匹配不含引用的唯一标识 |
+| **APK 冷启动 unmatched route** | `(tabs)` 组无 `index.tsx`，冷启动 `pulseapp:///` 无匹配路由 → 白屏 | 首页路由文件命名 `index.tsx`（pulse.tsx → index.tsx，commit `de9120c`） |
+| **RN 原生无 `window` / 全局 `alert()`** | `window.addEventListener`、全局 `alert()` 在原生不存在，调用即崩 | `Platform.OS === 'web'` 判断 + `Alert.alert`（commit `824054f`） |
+| **ErrorUtils 覆盖闪退（release）** | release 下覆盖 RN 全局错误 handler 有递归崩溃风险 | 移除 `ErrorUtils.setGlobalHandler` 覆盖（commit `824054f`） |
+| **Android 9+ 禁明文 HTTP** | BFF 是 `http://` 明文，Android 9+ 默认禁 cleartext → `UnknownServiceException: cleartext communication ... not permitted` | `expo-build-properties` 插件配 `android.usesCleartextTraffic: true`（app.json，commit `46473bf`） |
+| **EAS 云构建无 .env.local** | `.env.local` 被 gitignore，EAS 云构建只拉 git 代码 → 用代码 fallback 地址，若 fallback 是旧 IP 则连错 BFF | 代码 fallback 保持正确 IP `http://106.13.181.13:19234`（`src/config/opencode.ts`，commit `46473bf`）；或 EAS 环境变量注入 |
 
 ## 修改红线
 

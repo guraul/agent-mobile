@@ -1,6 +1,6 @@
 # OPERATIONS.md —— 构建与运维
 
-> 最后更新：2026-08-14 · commit：`108bd36`（BottomSheet web 黑框修复 + 阶段2 登录加固）
+> 最后更新：2026-08-16 · commit：`690853a`（web→APK：9928 切 APK 下载服务 + BFF 地址修正 + cleartext）
 
 ## 环境变量清单
 
@@ -8,7 +8,7 @@
 
 | 变量 | 用途 | 是否必填 | 默认值 |
 |---|---|---|---|
-| `EXPO_PUBLIC_OPENCODE_URL` | BFF baseUrl（手机端所有请求走这里） | 否 | `http://110.40.136.33:19234` |
+| `EXPO_PUBLIC_OPENCODE_URL` | BFF baseUrl（手机端所有请求走这里） | 否 | `http://106.13.181.13:19234` |
 
 > **阶段 2 起手机端不再持有 opencode 凭证**（`EXPO_PUBLIC_OPENCODE_USERNAME/PASSWORD` 已删除，凭证只在 BFF 侧）。
 
@@ -90,9 +90,9 @@ npx serve dist -l 9928                # 或 node scripts/serve-static.mjs（gzip
 - **重新部署 = 重跑 export + 重启服务**：`pnpm exec expo export --platform web --clear` 后**必须** `pkill -f serve-static.mjs && node scripts/serve-static.mjs` 重启。`gzipCache` 按路径缓存 gzipped 字节，dist 文件覆盖后仍返回旧 bundle——`Cache-Control: no-store` 只防浏览器缓存，防不了服务端 gzipCache（见 CONVENTIONS）
 - 进程管理：systemd 单元 `serve-9928.service`（已 disable）；恢复 `systemctl start serve-9928`
 
-## Expo Go 真机预览（当前方案，9928 端口）
+## Expo Go 真机预览（备用方案，9928 端口）
 
-**2026-08-15 起**：9928 由 Metro dev server 占用（替代静态 web），手机 Expo Go 直连，**不新开 8081**。
+**2026-08-15 起**：9928 由 Metro dev server 占用（替代静态 web），手机 Expo Go 直连，**不新开 8081**。**2026-08-16 起 9928 已切换为 APK 下载服务**（见下节），Expo Go 方案保留备用。
 
 ```bash
 # 启动（systemd 托管，开机自启）
@@ -113,6 +113,26 @@ npx expo start --port 9928 --host lan
 - **切换回 web 版**：`systemctl stop expo-metro-9928 && systemctl start serve-9928`
 - 热重载：改代码 Metro 实时刷新，比 web 版每次 export+重启快
 
+## APK 下载服务（当前方案，9928 端口）
+
+**2026-08-16 起**：9928 由 APK 下载服务占用（替代 Expo Go Metro），手机浏览器直接下载最新 APK 侧载安装。
+
+```bash
+# 服务（systemd 托管）
+systemctl start apk-download-9928
+systemctl status apk-download-9928
+
+# 手动启动（调试用）
+cd /root/project/agent-mobile/test/download
+python3 -m http.server 9928 --bind 0.0.0.0
+```
+
+- **下载地址**：`http://106.13.181.13:9928/pulse.apk`（手机浏览器打开即下载，Content-Type: application/vnd.android.package-archive）
+- **APK 文件**：`/root/project/agent-mobile/test/download/pulse.apk`（EAS 构建产物，`eas build:download --build-id <id>` 下载后覆盖）
+- **systemd 单元**：`/etc/systemd/system/apk-download-9928.service`（`Type=simple` + `Restart=always`，ExecStart 用 python3 http.server）
+- **安全**：无鉴权，公网可下载——**仅内部分发测试用**，正式发布走 EAS APK / 上架
+- **切换回 Expo Go**：`systemctl stop apk-download-9928 && systemctl start expo-metro-9928`
+
 ## Android APK 构建（EAS 云）
 
 ```bash
@@ -120,12 +140,15 @@ export EXPO_TOKEN=<token>
 eas whoami                                        # 验证登录（guraul）
 eas build -p android --profile preview            # APK，仅 arm64-v8a，内部分发
 eas build:list -p android --limit 1               # 查状态/拿下载 URL
+eas build:download --build-id <id> --non-interactive   # 下载 APK 到本地
 ```
 
 - preview profile：`buildType: apk` + `gradleCommand ":app:assembleRelease -PreactNativeArchitectures=arm64-v8a"`（eas.json），产物约 40-50MB
 - 构建产物在 expo.dev 项目页下载（`https://expo.dev/accounts/guraul/projects/agent-mobile-pulse`）
 - **构建命令勿前台阻塞运行**（易挂起会话）：用 `nohup ... &` 后台跑，约 10-20 分钟完成
 - 首次需 `eas init --account guraul --non-interactive`（已执行，项目 ID 已写入 app.json）
+- **APK 访问 BFF 需明文 HTTP**：BFF 是 `http://` 明文，Android 9+ 默认禁 cleartext，app.json 已配 `expo-build-properties` → `android.usesCleartextTraffic: true`（勿删，否则 APK 内所有请求报 `UnknownServiceException`）
+- **EAS 云构建不含 `.env.local`**（gitignore）：构建时 `EXPO_PUBLIC_OPENCODE_URL` 取不到，走 `src/config/opencode.ts` 的代码 fallback（当前为 `http://106.13.181.13:19234`）。改 BFF 地址时**必须同步改 fallback**，否则 APK 连错地址
 
 ## 上架准备（未执行）
 
@@ -158,7 +181,7 @@ curl -u opencode:<密码> http://127.0.0.1:4096/global/health
 
 | 端口 | 用途 | 进程 |
 |---|---|---|
-| 9928 | Expo Go Metro dev server（当前，测试用） | `expo-metro-9928.service`（`expo start --port 9928`） |
+| 9928 | APK 下载服务（当前，内部分发） | `apk-download-9928.service`（python3 http.server） |
 | 19234 | BFF（family-finance 主 checkout next dev） | `next dev -p 19234` |
 | 19235 | BFF（阶段 2 worktree next dev） | `next dev -p 19235` |
 | 4096 | OpenCode Server（AI agent 后端，127.0.0.1） | `opencode serve` |

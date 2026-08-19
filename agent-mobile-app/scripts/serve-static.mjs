@@ -36,7 +36,7 @@ createServer(async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   const acceptsGzip = /gzip/.test(req.headers['accept-encoding'] || '');
   let path = decodeURIComponent((req.url || '/').split('?')[0]);
-  if (path === '/') return res.writeHead(302, { Location: '/pulse' }).end();
+  if (path === '/') path = '/index.html';
   const file = normalize(join(ROOT, path));
   if (!file.startsWith(ROOT)) return res.writeHead(403).end();
   try {
