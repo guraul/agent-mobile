@@ -55,6 +55,13 @@ export function useProjectEvents(): UseProjectEventsResult {
     }
 
     const now = Date.now();
+    const startOfDay = new Date(now);
+    startOfDay.setHours(0, 0, 0, 0);
+    const globalSessionUpdated: Record<string, number> = {};
+    for (const s of sessions) {
+      globalSessionUpdated[s.id] = s.time?.updated ?? 0;
+    }
+
     const next = projects.map((proj) => {
       const projSessions = sessionsByProject.get(proj.worktree) ?? [];
 
@@ -80,9 +87,17 @@ export function useProjectEvents(): UseProjectEventsResult {
       );
     });
 
-    const startOfDay = new Date(now);
-    startOfDay.setHours(0, 0, 0, 0);
-    const active = next.filter((e) => e.updated >= startOfDay.getTime());
+    // A project is shown only when it has a session that updated today.
+    // This both hides stale pure-idle projects and guards against stale
+    // "busy" entries in /session/status (opencode leaves a session marked
+    // busy long after it finished; requiring today's activity filters those
+    // out so they don't show up as "running" forever).
+    const active = next.filter((e) =>
+      e.sessionIDs.some((id) => {
+        const upd = globalSessionUpdated[id];
+        return upd > 0 && upd >= startOfDay.getTime();
+      }),
+    );
     active.sort((a, b) => b.updated - a.updated);
     setEvents(active);
   }, []);
