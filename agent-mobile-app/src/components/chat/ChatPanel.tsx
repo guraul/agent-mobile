@@ -4,6 +4,7 @@ import {
   TextInput,
   Pressable,
   FlatList,
+  ScrollView,
   KeyboardAvoidingView,
   Platform,
   RefreshControl,
@@ -239,7 +240,7 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
       if (event.type === "message.updated") {
         const props = event.properties as {
           sessionID?: string;
-          info?: { id: string; role: "user" | "assistant"; time?: { created?: number }; sessionID?: string };
+          info?: { id: string; role: "user" | "assistant"; time?: { created?: number }; sessionID?: string; error?: unknown };
         };
         if (props.sessionID === sessionID && props.info) {
           const info = props.info;
@@ -296,7 +297,7 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
             return next;
           });
         }
-      } else if (event.type === "question.v2.asked") {
+      } else if (event.type === "question.asked" || event.type === "question.v2.asked") {
         const req = event.properties as {
           id: string;
           sessionID: string;
@@ -308,7 +309,12 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
           setQuestionSelections([]);
           setQuestionCustom("");
         }
-      } else if (event.type === "question.v2.replied" || event.type === "question.v2.rejected") {
+      } else if (
+        event.type === "question.replied" ||
+        event.type === "question.rejected" ||
+        event.type === "question.v2.replied" ||
+        event.type === "question.v2.rejected"
+      ) {
         const props = event.properties as { sessionID?: string; requestID?: string };
         if (props.sessionID === sessionID) {
           setPendingQuestion(null);
@@ -444,7 +450,11 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
       .then((data) => {
         const flat: { providerID: string; modelID: string }[] = [];
         for (const p of data.providers) {
+          // only DeepSeek models, excluding openrouter / siliconflow-cn
+          if (p.id === "openrouter" || p.id === "siliconflow-cn") continue;
           for (const modelID of Object.keys(p.models ?? {})) {
+            // only surface DeepSeek models in the picker
+            if (!modelID.toLowerCase().includes("deepseek")) continue;
             flat.push({ providerID: p.id, modelID });
           }
         }
@@ -662,20 +672,28 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
         <View style={styles.modelSheetHeader}>
           <Text variant="body" color="ink">选择模型</Text>
         </View>
-        {modelList.map((m, i) => (
-          <Pressable
-            key={`${m.providerID}:${m.modelID}`}
-            onPress={() => {
-              setModel(m);
-              setModelMenuOpen(false);
-            }}
-            style={[styles.modelItem, m.modelID === model.modelID && styles.modelItemActive]}
-          >
-            <Text variant="body" color={m.modelID === model.modelID ? "accent" : "ink"}>
-              {m.modelID}
-            </Text>
-          </Pressable>
-        ))}
+        <ScrollView style={styles.modelSheetScroll}>
+          {modelList.map((m, i) => (
+            <Pressable
+              key={`${m.providerID}:${m.modelID}`}
+              onPress={() => {
+                setModel(m);
+                setModelMenuOpen(false);
+              }}
+              style={[
+                styles.modelItem,
+                m.providerID === model.providerID && m.modelID === model.modelID && styles.modelItemActive,
+              ]}
+            >
+              <Text
+                variant="body"
+                color={m.providerID === model.providerID && m.modelID === model.modelID ? "accent" : "ink"}
+              >
+                {m.providerID}: {m.modelID}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
       </BottomSheet>
 
       {pendingQuestion ? (
@@ -823,6 +841,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border.default,
     marginBottom: spacing.xs,
+  },
+  modelSheetScroll: {
+    maxHeight: 400,
   },
   modelItem: {
     paddingHorizontal: spacing.sm,

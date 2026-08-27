@@ -1,6 +1,6 @@
 # modules/pulse-stream.md —— Pulse 首页（项目导航）
 
-> 最后更新：2026-08-11 · commit：`072537f`（opencode 集成 + 消息顺序修复）
+> 最后更新：2026-08-25 · commit：`b8a122b`（工作区未提交）+其他项目可折叠栏
 
 ## 模块职责
 
@@ -10,13 +10,13 @@ Pulse 首页：问候 + AI 在场状态 + **真实项目导航**（按状态分�
 
 ## 入口文件
 
-`agent-mobile-app/src/app/(tabs)/pulse.tsx`
+`agent-mobile-app/src/app/(tabs)/index.tsx`（Pulse 首页；历史名 `pulse.tsx`，已并入 index.tsx 作为默认 tab）
 
 ## 关键文件清单
 
 | 文件路径 | 职责 |
 |---|---|
-| `agent-mobile-app/src/app/(tabs)/pulse.tsx` | 页面：状态分组渲染、sheet 装配 |
+| `agent-mobile-app/src/app/(tabs)/index.tsx` | 页面：状态分组 + 其他项目折叠栏渲染、sheet 装配 |
 | `agent-mobile-app/src/hooks/useProjectEvents.ts` | 聚合 opencode 项目 + 会话 + 状态 + SSE 实时 |
 | `agent-mobile-app/src/services/project-status.ts` | `determineProjectStatus` 纯函数（状态判定） |
 | `agent-mobile-app/src/services/opencode-client.ts` | REST 客户端（/project、/session、/session/status） |
@@ -35,8 +35,10 @@ KeyboardAvoidingView (ios: padding)
 └── ScrollView
     ├── error callout（若有）
     ├── loading / 空态
-    └── groups[]：{ label: "NEEDS YOU" | "TODAY", items: GroupedEvent[] }
-        └── EventItem（onPress → setActiveProject → BottomSheet fullScreen）
+    ├── groups[]：{ label: "NEEDS YOU" | "TODAY", items: GroupedEvent[] }
+    │   └── EventItem（onPress → setActiveProject → BottomSheet fullScreen）
+    └── OTHER PROJECTS 可折叠栏（2026-08-25 新增，otherOpen state）
+        └── 展开后：不活跃项目列表（同 EventItem，status="idle"）
 └── BottomSheet(fullScreen, testID="project-chat-sheet")
     └── activeProject && <ProjectChat projectPath onBack />
 ```
@@ -48,6 +50,9 @@ KeyboardAvoidingView (ios: padding)
 | Needs you | `event.status === "needs-you"`（等待授权 / agent 空闲等待输入） |
 | Today | `event.status === "running"`（agent 正在工作） |
 | 过滤 | 仅当天活跃（`updated >= 当天 0 点`），按 `updated` 降序 |
+| **Other projects** | **当天不活跃的项目**（`useProjectEvents` 的 `otherProjects`），按 `updated` 降序；默认收起，点击 chevron 展开 |
+
+> **其他项目栏（2026-08-25）**：活跃过滤会让不活跃项目"无处可看"。`useProjectEvents` 新增 `otherProjects` state，把被活跃过滤掉的项目单独返回；pulse.tsx 在底部渲染可折叠栏（`ChevronDown/Right` + "OTHER PROJECTS (N)"），点击项目照常进聊天（`ProjectChat` 自己 `listSessions` 找会话）。
 
 ## 状态判定优先级（project-status.ts）
 
@@ -70,8 +75,8 @@ refresh()（30s 轮询 + server.connected 触发）
 recompute()：
   ├─ session 按 directory 分组到项目
   ├─ 每个项目补 idle 状态 + determineProjectStatus
-  ├─ 过滤当天活跃 + updated 降序
-  └─ setEvents
+  ├─ 过滤当天活跃 + updated 降序 → setEvents
+  └─ 被过滤掉的不活跃项目 → setOtherProjects（updated 降序）
 SSE 事件 → 更新 refs 后 recompute：
   session.status / permission.updated / permission.replied / session.updated / session.created / session.deleted
 ```

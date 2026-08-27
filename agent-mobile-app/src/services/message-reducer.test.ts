@@ -43,6 +43,23 @@ describe("applyMessageUpdated", () => {
     });
     expect(out.map((m) => m.info.id)).toEqual(["a", "new", "b"]);
   });
+
+  it("preserves the error field from an SSE message.updated", () => {
+    const err = { name: "APIError", data: { message: "Invalid API key" } };
+    const out = applyMessageUpdated(base, {
+      id: "msg1",
+      role: "user",
+      sessionID: "s1",
+      time: { created: 2 },
+      error: err,
+    });
+    expect(out[0].info.error).toEqual(err);
+  });
+
+  it("leaves error undefined when the update carries none", () => {
+    const out = applyMessageUpdated(base, { id: "msg1", role: "user", sessionID: "s1" });
+    expect(out[0].info.error).toBeUndefined();
+  });
 });
 
 describe("applyPartUpdated", () => {

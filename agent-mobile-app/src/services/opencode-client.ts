@@ -55,7 +55,9 @@ export interface OpenCodeMessage {
     role: "user" | "assistant";
     sessionID: string;
     time?: { created: number };
-    error?: string;
+    // Model-call failure carried on the message envelope. At runtime this is
+    // a NamedError object ({ name, data }), not a string.
+    error?: unknown;
   };
   parts: OpenCodePart[];
 }

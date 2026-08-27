@@ -16,9 +16,15 @@ export type OpenCodeEvent =
   | { type: "server.connected"; properties: Record<string, unknown> }
   | { type: "delta"; properties: { sessionID: string; messageID: string; partID: string; field: string; text: string } }
   | { type: "stream.error"; properties: { error?: string } }
-  // question tool: agent asks a clarifying question and blocks until answered
+  // question tool: agent asks a clarifying question and blocks until answered.
+  // The running opencode server emits "question.asked"/"question.replied"
+  // (the v1-compat names); the schema-level "question.v2.*" names are kept for
+  // forward/backward compatibility with other opencode versions.
+  | { type: "question.asked"; properties: QuestionRequest }
   | { type: "question.v2.asked"; properties: QuestionRequest }
+  | { type: "question.replied"; properties: { sessionID: string; requestID: string; answers?: string[][] } }
   | { type: "question.v2.replied"; properties: { sessionID: string; requestID: string; answers?: string[][] } }
+  | { type: "question.rejected"; properties: { sessionID: string; requestID: string } }
   | { type: "question.v2.rejected"; properties: { sessionID: string; requestID: string } }
   | { type: string; properties: Record<string, unknown> };
 

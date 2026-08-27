@@ -43,7 +43,7 @@
 ## 依赖关系
 
 - 依赖：`src/theme/`（colors、spacing、radius、motion、typography）
-- 被依赖：所有页面（pulse.tsx、PlaceholderScreen）及 `app/(tabs)/_layout.tsx`（BottomTabBar）
+- 被依赖：所有页面（`(tabs)/index.tsx`、PlaceholderScreen）及 `app/(tabs)/_layout.tsx`（BottomTabBar）
 - 组件间：navigation 组件内部使用 primitives（如 EventItem 用 Box/Text/StatusPill）
 
 ## 修改注意事项

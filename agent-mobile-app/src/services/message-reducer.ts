@@ -38,7 +38,7 @@ function upsertPart(parts: OpenCodePart[], part: OpenCodePart): OpenCodePart[] {
  */
 export function applyMessageUpdated(
   messages: OpenCodeMessage[],
-  info: { id: string; role: "user" | "assistant"; sessionID?: string; time?: { created?: number } },
+  info: { id: string; role: "user" | "assistant"; sessionID?: string; time?: { created?: number }; error?: unknown },
 ): OpenCodeMessage[] {
   const idx = findIndex(messages, info.id);
   const nextInfo = {
@@ -50,6 +50,9 @@ export function applyMessageUpdated(
       : idx >= 0
         ? messages[idx].info.time
         : { created: Date.now() },
+    // preserve the model-call error (if any) — dropping it here would hide the
+    // failure from the UI until the next full message reload.
+    ...(info.error !== undefined ? { error: info.error } : {}),
   };
   if (idx === -1) {
     const created = nextInfo.time?.created ?? Date.now();

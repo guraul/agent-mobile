@@ -17,7 +17,7 @@ Expo Router 文件路由：根 Stack + 4-tab Tabs，承载全部页面注册。
 |---|---|---|
 | `src/app/_layout.tsx` | — | SafeAreaProvider + StatusBar(light) + Stack（headerShown:false，仅 `(tabs)`） |
 | `src/app/(tabs)/_layout.tsx` | `/` 组 | Tabs 容器，4 个 Tab.Screen |
-| `src/app/(tabs)/pulse.tsx` | `/pulse` | Pulse 事件流页（默认 tab） |
+| `src/app/(tabs)/index.tsx` | `/`（默认 tab） | Pulse 事件流页（默认 tab，历史名 pulse.tsx） |
 | `src/app/(tabs)/talk.tsx` | `/talk` | 占位页 |
 | `src/app/(tabs)/memory.tsx` | `/memory` | 占位页 |
 | `src/app/(tabs)/me.tsx` | `/me` | 占位页 |

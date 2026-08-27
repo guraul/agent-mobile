@@ -17,6 +17,7 @@ export interface ProjectSource {
 
 export interface UseProjectEventsResult {
   events: ProjectEvent[];
+  otherProjects: ProjectEvent[];
   loading: boolean;
   error: string | null;
   refresh: () => void;
@@ -33,6 +34,7 @@ export interface UseProjectEventsResult {
  */
 export function useProjectEvents(): UseProjectEventsResult {
   const [events, setEvents] = useState<ProjectEvent[]>([]);
+  const [otherProjects, setOtherProjects] = useState<ProjectEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -100,6 +102,15 @@ export function useProjectEvents(): UseProjectEventsResult {
     );
     active.sort((a, b) => b.updated - a.updated);
     setEvents(active);
+
+    // Projects without any session activity today are still reachable — expose
+    // them separately (sorted by most-recently-updated) so Pulse can show a
+    // collapsible "other projects" entry instead of hiding them entirely.
+    const other = next.filter(
+      (e) => !active.some((a) => a.id === e.id),
+    );
+    other.sort((a, b) => b.updated - a.updated);
+    setOtherProjects(other);
   }, []);
 
   const refresh = useCallback(async () => {
@@ -216,5 +227,5 @@ export function useProjectEvents(): UseProjectEventsResult {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return { events, loading, error, refresh };
+  return { events, otherProjects, loading, error, refresh };
 }

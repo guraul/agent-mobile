@@ -1,6 +1,6 @@
 # modules/chat.md —— 聊天（项目对话）
 
-> 最后更新：2026-08-14 · commit：`108bd36`+打字机限速+session切换+question/permission 弹窗
+> 最后更新：2026-08-25 · commit：`b8a122b`（工作区未提交）+question 事件类型修正+错误气泡+模型列表过滤
 
 ## 模块职责
 
@@ -54,7 +54,7 @@ SSE: BFF /api/opencode/stream（Bearer JWT + ?sessionID= 过滤）
 ### 登录（阶段 2，2026-08-13）
 
 - **JWT 认证**：手机端经 BFF `/api/auth/login` 登录拿 JWT，存 AsyncStorage（key `pulse_opencode_token`）。
-- **登录横幅**：pulse.tsx 顶部——`loadToken()` 无 token 或收到 `onUnauthorized` 时显示"未登录 — 点击登录"，点击打开 BottomSheet 登录弹窗（账号/密码 + 登录按钮）。
+- **登录横幅**：index.tsx（Pulse 首页）顶部——`loadToken()` 无 token 或收到 `onUnauthorized` 时显示"未登录 — 点击登录"，点击打开 BottomSheet 登录弹窗（账号/密码 + 登录按钮）。
 - **401 联动**：任何 REST/stream 调用返回 401 → `handleUnauthorized()` 清 token + 触发横幅。
 
 ### 动态模型列表（阶段 2，2026-08-13）
@@ -65,10 +65,18 @@ SSE: BFF /api/opencode/stream（Bearer JWT + ?sessionID= 过滤）
 ### DisplayStep 结构（不合并 step）
 
 - `mergeMessages` 输出 `DisplayStep[]`，**不再合并**同轮 assistant step 为单个气泡；每条有意义的 part 独立成 step。
-- step 类型：`user`（用户气泡）/ `text`（assistant 主气泡，markdown）/ `reasoning`（思考中…）/ `tool`（工具(x)调用中…）。
+- step 类型：`user`（用户气泡）/ `text`（assistant 主气泡，markdown）/ `reasoning`（思考中…）/ `tool`（工具(x)调用中…）/ **`error`（错误气泡，2026-08-25 新增）**。
 - **step-start / step-finish 被过滤**（opencode 每次工具调用循环都产生一对，噪音大；2026-08-12 起不再展示）。
 - 空 text part、snapshot/agent/file/compaction 等 part 也被过滤。
 - 单测：`message-merging.test.ts` 覆盖 step 展开/过滤/顺序。
+
+### 错误气泡（模型调用失败，2026-08-25 新增）
+
+- **触发**：模型调用失败（如 provider API key 无效）时，opencode 把错误写进 assistant 消息的 **`info.error`**（对象，`{name, data:{message}}`，NamedError 结构），并发布 `session.error` + 最终 `message.updated(info 带 error)`。消息无 text part，`mergeMessages` 曾静默丢弃。
+- **渲染**：`mergeMessages` 对带 `info.error` 的 assistant 消息产出 `{kind:"error"}` step，`MessageBubble` 渲染为红色左边框气泡 + "Pulse · 出错了" 标题（颜色走 `colors.status.error`，勿硬编码）。
+- **实时链路（关键）**：SSE `message.updated` 的 `info.error` 由 **`applyMessageUpdated` 透传**（曾只保留 id/role/sessionID/time，把 error 丢掉 → 错误只会在全量 reload 时显示，需重进聊天才看到；2026-08-25 修复透传）。
+- **⚠️ error 是对象不是字符串**：`OpenCodeMessage.info.error` 运行时是 NamedError 对象 `{name, data}`，不是 string。若把对象直接塞进 `<Text>` 会触发 React error #31（"Objects are not valid as a React child"）→ **整棵组件树崩溃 → 白屏**。`mergeMessages` 用 `errorText()` 安全转换（name + data.message，兜底 JSON）。
+- 单测：`message-merging.test.ts` 覆盖字符串/对象两种 error；`message-reducer.test.ts` 覆盖 SSE 透传 error + 无 error 时保持 undefined。
 
 ### 消息顺序：chronological
 
@@ -99,14 +107,15 @@ SSE: BFF /api/opencode/stream（Bearer JWT + ?sessionID= 过滤）
 - **文字垂直居中（web）**：RN TextInput 在 web 忽略 `textAlignVertical`，需 `Platform.select({ web: { lineHeight: 40 } })` 才真正居中；native 用 `textAlignVertical: "center"`。
 - 发送后**不重拉**：`send()` 不再调 `loadMessages()`——自己的 user 气泡由 SSE `message.updated(role=user)` 回流，重拉会导致列表跳动。
 
-### question 问答弹窗（2026-08-14 新增）
+### question 问答弹窗（2026-08-14 新增，事件类型 2026-08-25 修正）
 
 - **背景**：agent 用 `question` 工具提问澄清（如 brainstorming skill 的"Ask clarifying questions"）时会**阻塞等待回答**；手机端若不响应，agent 永久卡死（session 永远 busy）。曾出现"写200字新概念"后 agent 卡死的问题。
-- **实时触发**：SSE 收到 `question.v2.asked`（`properties = {id, sessionID, questions[], tool}`）→ ChatPanel 弹 BottomSheet，一次显示一个 question（header + question + options + 自定义输入）。
-- **加载恢复**：SSE **不会重放** `question.v2.asked`（重连只有心跳）。若 question 在打开聊天前已发出（agent 卡住），`loadMessages` 后调 `listQuestions()` 找到该 session 的 pending question 恢复弹窗。
+- **实时触发**：SSE 收到 `question.asked`（`properties = {id, sessionID, questions[], tool}`）→ ChatPanel 弹 BottomSheet，一次显示一个 question（header + question + options + 自定义输入）。
+- **⚠️ 事件类型坑（2026-08-25）**：opencode server（1.18.22）实际发出的是 **`question.asked` / `question.replied` / `question.rejected`**（v1 兼容名），**不是** schema 里定义的 `question.v2.asked` 等。曾因 ChatPanel 只监听 `question.v2.asked` 导致实时弹窗不触发、必须重进才显示（`loadMessages → listQuestions()` 恢复）。现 ChatPanel 同时兼容两种命名（`opencode-events.ts` 类型定义亦然）。
+- **加载恢复**：SSE **不会重放** `question.asked`（重连只有心跳）。若 question 在打开聊天前已发出（agent 卡住），`loadMessages` 后调 `listQuestions()` 找到该 session 的 pending question 恢复弹窗。
 - **多问题逐个弹**：`questions[]` 多个时，回答一个 → 存 `questionAnswersRef` → 弹下一个 → 全部答完调 `replyQuestion(requestID, allAnswers)`。
 - **跳过**：`rejectQuestion(requestID)`（避免 agent 永久等待）。
-- **关键坑**：question tool part 的 `state.input.questions` 有数据但**无 requestID**；requestID 只能从 `question.v2.asked` 事件或 `listQuestions()` 获取。
+- **关键坑**：question tool part 的 `state.input.questions` 有数据但**无 requestID**；requestID 只能从 `question.asked` 事件或 `listQuestions()` 获取。
 - 注意：`question` 工具的回复路径是 `POST /question/{id}/reply`（不是 session 下的 permissions 路径）；`replyPermission` 是另一套（bash/edit 等权限请求）。
 
 ### permission 权限弹窗（2026-08-14 新增）
@@ -122,6 +131,8 @@ SSE: BFF /api/opencode/stream（Bearer JWT + ?sessionID= 过滤）
 - **机制**：opencode **不支持修改已存在 session 的 agent/model**（`PATCH /session/{id}/update` 只有 title/metadata/permission）；agent/model 只能**按消息指定**（`POST /session/{id}/prompt_async` body 的 `agent` / `model:{providerID,modelID}`）。`ModelRef = { providerID, modelID }`（结构化对象，不是字符串）。
 - **agent pill**（输入区上方左）：显示当前 agent，点击**循环切换** primary agents。primary agents 的 model **动态加载**：mount 时 `listAgents()`（`GET /agent`）过滤 `mode === "primary"`，取其 `model`（遵循服务端 `opencode.json` 配置）；加载中或失败回退 `FALLBACK_AGENTS`（build/plan/design，deepseek）。常量已从 `PRIMARY_AGENTS` 重命名为 `FALLBACK_AGENTS`。
 - **model pill**（旁边）：点击打开 **BottomSheet 弹出框**选择模型（**阶段 2 起为动态列表**：`listProviders()` 全量模型，失败回退 `FALLBACK_AGENTS` 默认模型；曾用内联下拉，被输入框遮挡且效果差，2026-08-12 改为 BottomSheet）。
+- **model 列表过滤（2026-08-25）**：`loadModels()` 只保留 **modelID 含 `deepseek`（大小写不敏感）** 的模型，且**排除 `openrouter`、`siliconflow-cn`** 两个 provider（避免列表刷屏 + 第三方中转模型混杂）。真实数据源来自 BFF `listProviders()` 转发 opencode `/config/providers`。
+- **model 列表滚动 + provider 前缀（2026-08-25）**：列表包 `ScrollView`（`maxHeight: 400`）可滚动；每项显示 **`{providerID}: {modelID}`**（如 `deepseek: deepseek-v4-flash`、`volcengine-plan: deepseek-v4-flash`）以区分跨 provider 的同名模型；active 高亮按 **providerID + modelID 双匹配**（避免同名模型误高亮）。
 - 初始化：mount 时 `getSession(sessionID)` 读取 session 的 `agent` / `model`（注意 `OpenCodeSession.model` 用 `id` 字段，非 `modelID`）。**仅当 session.model 命中某个 primary agent 的默认 model 时才采纳**——避免迁移前的旧 model 把会话钉在旧 provider。
 - 发送：`sendMessageAsync` body 带 `agent: agents[agentIdx].id` + `model`。
 
@@ -134,5 +145,7 @@ SSE: BFF /api/opencode/stream（Bearer JWT + ?sessionID= 过滤）
 - **勿移除 delta 打字机**：BFF 缓冲合并是阶段 2 核心；`applyPartDelta` 必须保持纯函数（可单测）。
 - **自定义 `code_inline` 样式必须显式覆盖 `padding`**：react-native-markdown-display 默认 `code_inline` 带 `padding: 10`，只覆盖 color/backgroundColor 会留下 39px 高的大框覆盖相邻行；需加 `padding: 0, lineHeight: 22`（2026-08-11 已修）。
 - **BottomSheet fullScreen 无 padding**：输入区靠组件自身 padding 撑起（ChatPanel 自带 paddingBottom）。
-- 单测：`message-merging.test.ts`、`message-reducer.test.ts`、`order-sim.test.ts`（模拟完整 SSE 链路）。
-- E2E：`scripts/e2e/pulse-e2e.mjs` 覆盖打开项目 → 发消息 → 顺序校验；`test/steps-verify*.mjs` 验证旁白渲染；`test/agent-pill-verify.mjs` 验证 agent 循环 + prompt 参数；`test/model-sheet-verify.mjs` 验证模型弹出框；`test/bff-e2e.mjs` 验证登录 + 打字机 + 动态模型（阶段 2）。
+- **勿把对象塞进 `<Text>`/`<Markdown>`**：运行时字段可能是对象（如 `info.error` 是 NamedError `{name,data}`），直接渲染会 React error #31 → 白屏。必须经 `errorText()` 等安全转字符串。
+- **勿只监听 `question.v2.asked`**：opencode 实际发 `question.asked`（v1 兼容名），两端命名都要同时兼容，否则实时弹窗不触发。
+- 单测：`message-merging.test.ts`（含 error step 字符串/对象 case）、`message-reducer.test.ts`（含 SSE 透传 error case）、`order-sim.test.ts`（模拟完整 SSE 链路）。
+- E2E：`scripts/e2e/pulse-e2e.mjs` 覆盖打开项目 → 发消息 → 顺序校验；`test/steps-verify*.mjs` 验证旁白渲染；`test/agent-pill-verify.mjs` 验证 agent 循环 + prompt 参数；`test/model-sheet-verify.mjs` 验证模型弹出框；`test/bff-e2e.mjs` 验证登录 + 打字机 + 动态模型（阶段 2）；`test/diag/*.mjs` 各种诊断/隔离验证脚本。

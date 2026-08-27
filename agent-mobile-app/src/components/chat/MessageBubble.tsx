@@ -40,6 +40,19 @@ export const MessageBubble = React.memo(function MessageBubble({ step }: { step:
     );
   }
 
+  if (step.kind === "error") {
+    return (
+      <Box marginBottom="sm" style={{ alignItems: "flex-start" }}>
+        <Box marginLeft="xxs" marginBottom="xxs">
+          <Text variant="captionStrong" color="error">Pulse · 出错了</Text>
+        </Box>
+        <Box padding="sm" rounded="md" style={{ maxWidth: "92%", backgroundColor: colors.surface[2], borderLeftWidth: 3, borderLeftColor: colors.status.error }}>
+          <Text variant="body" color="error">{step.text}</Text>
+        </Box>
+      </Box>
+    );
+  }
+
   return (
     <Box marginBottom="sm" style={{ alignItems: "flex-start" }}>
       <Box marginLeft="xxs" marginBottom="xxs">

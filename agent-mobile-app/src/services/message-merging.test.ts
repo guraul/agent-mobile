@@ -48,4 +48,26 @@ describe("mergeMessages", () => {
     expect(out).toHaveLength(1);
     expect(out[0].kind).toBe("user");
   });
+
+  it("surfaces an assistant message error as an error step", () => {
+    const errMsg = msg("a1", "assistant", [], 2000);
+    (errMsg.info as { error?: string }).error = "Invalid API key";
+    const out = mergeMessages([msg("u1", "user", [{ type: "text", text: "hi" }]), errMsg]);
+    expect(out).toEqual([
+      { kind: "user", id: "u1", text: "hi", createdAt: 1000 },
+      { kind: "error", id: "a1", text: "Invalid API key", createdAt: 2000 },
+    ]);
+  });
+
+  it("coerces an object error (NamedError) into a readable string", () => {
+    const errMsg = msg("a1", "assistant", [], 2000);
+    (errMsg.info as { error?: unknown }).error = {
+      name: "ProviderAuthError",
+      data: { providerID: "volcengine-plan", message: "Invalid API key" },
+    };
+    const out = mergeMessages([errMsg]);
+    expect(out).toEqual([
+      { kind: "error", id: "a1", text: "ProviderAuthError: Invalid API key", createdAt: 2000 },
+    ]);
+  });
 });

@@ -16,7 +16,7 @@
 |---|---|---|---|
 | `/api/auth/login` | POST | 登录，返回 `{success, token}`（JWT，1 天） | 无（用户名/密码） |
 | `/api/opencode/rest/[...path]` | GET/POST/PATCH/DELETE | 转发到 opencode REST（`/project`、`/session`、`/config/providers` 等） | Bearer JWT |
-| `/api/opencode/stream` | GET | SSE 事件流（`message.*`、`delta`、`session.*`、`permission.*`、`server.connected`、`stream.error`） | Bearer JWT |
+| `/api/opencode/stream` | GET | SSE 事件流（`message.*`、`delta`、`session.*`、`permission.*`、`question.*`（`question.asked/replied/rejected`，v1 名）、`server.connected`、`stream.error`） | Bearer JWT |
 
 **认证**：`Authorization: Bearer <JWT>`（`/api/auth/login` 签发）。401 → 手机端清 token + 显示登录横幅。
 **CORS**：允许 `http://106.13.181.13:9928`、`http://127.0.0.1:9928`、`http://localhost:9928`（`lib/cors.ts` `CORS_ORIGINS`）。OPTIONS 预检返回 204 + CORS 头。

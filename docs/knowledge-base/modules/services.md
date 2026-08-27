@@ -1,6 +1,6 @@
 # modules/services.md —— opencode 对接服务层
 
-> 最后更新：2026-08-14 · commit：`108bd36`（listAgents + /session/status 幽灵条目注意事项）
+> 最后更新：2026-08-25 · commit：`b8a122b`（工作区未提交）+error透传+question事件类型
 
 ## 模块职责
 
@@ -87,17 +87,19 @@ auth.ts ──Bearer JWT──► 认证（family-finance 用户）       openco
 
 - **`delta` 事件**：`properties = { sessionID, messageID, partID, field, text }`，BFF 将 opencode 原始 `message.part.updated` 按 32ms 缓冲合并后推送（打字机）。
 - **`stream.error` 事件**：BFF 与 opencode 上游断开时推送。
+- **question 事件类型（2026-08-25）**：opencode server 实际发 **`question.asked`/`question.replied`/`question.rejected`**（v1 兼容名），`OpenCodeEvent` 类型里与 schema 名 `question.v2.*` 同时保留，消费端（ChatPanel）两端都监听。
 
 ### message-reducer.ts（纯函数）
 
-- `applyMessageUpdated(messages, info)`：消息存在则更新 info；不存在则**按 time.created 插入**（chronological 语义）。
+- `applyMessageUpdated(messages, info)`：消息存在则更新 info；不存在则**按 time.created 插入**（chronological 语义）。**2026-08-25 起透传 `info.error`**（模型调用失败对象），不再丢弃——否则 SSE 实时更新的错误在 UI 上不显示，要全量 reload 才见。
 - `applyPartUpdated(messages, part)`：按 part id upsert 到目标消息。
 - `applyMessageRemoved(messages, id)`：删除消息。
 - **`applyPartDelta(messages, {messageID, partID, field, text})`**：增量追加文本——消息缺失返回原数组；part 缺失创建 text part；已有 part 的 `text` 字段 += delta.text（打字机核心）。
 
 ### message-merging.ts（纯函数）
 
-- `mergeMessages(raw)`：把 opencode 消息**展开为独立 `DisplayStep`**（不做跨 step 合并；2026-08-12 起废弃合并逻辑与 `mergeGapMs` 阈值）。user 消息 → 一个 `user` step；assistant 每个 part → 独立 `text`/`tool`/`reasoning` step。过滤 `step-start`/`step-finish`/`file`/`snapshot`/`agent`/空文本。返回 `DisplayStep[]`（ChatPanel 的 FlatList 直接渲染，text/user 为气泡，tool/reasoning 为 StepChip 旁白）。
+- `mergeMessages(raw)`：把 opencode 消息**展开为独立 `DisplayStep`**（不做跨 step 合并；2026-08-12 起废弃合并逻辑与 `mergeGapMs` 阈值）。user 消息 → 一个 `user` step；assistant 每个 part → 独立 `text`/`tool`/`reasoning` step；**assistant 带 `info.error` → `error` step（2026-08-25）**。过滤 `step-start`/`step-finish`/`file`/`snapshot`/`agent`/空文本。返回 `DisplayStep[]`（ChatPanel 的 FlatList 直接渲染，text/user/error 为气泡，tool/reasoning 为 StepChip 旁白）。
+- **`errorText(err)`（2026-08-25）**：把 `info.error`（运行时是 NamedError 对象 `{name, data:{message}}`）安全转字符串（`name: data.message`，兜底 JSON）——**直接渲染对象会 React error #31 → 白屏**。
 
 ### project-status.ts（纯函数）
 
@@ -106,7 +108,7 @@ auth.ts ──Bearer JWT──► 认证（family-finance 用户）       openco
 ## 依赖关系
 
 - 依赖：`config/opencode.ts`、`auth.ts`（client/events）；类型定义内聚于 `opencode-client.ts`。
-- 被依赖：`hooks/useProjectEvents.ts`、`app/(tabs)/pulse.tsx`（登录横幅）、`components/chat/*`。
+- 被依赖：`hooks/useProjectEvents.ts`、`app/(tabs)/index.tsx`（登录横幅）、`components/chat/*`。
 
 ## 修改本模块的注意事项
 

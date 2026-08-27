@@ -1,6 +1,6 @@
 # Agent Mobile 项目知识库 · 索引总览
 
-> 最后更新：2026-08-16 · commit：`690853a`（web→APK 兼容性：BFF 地址 + cleartext + 原生 API 适配 + 9928 切 APK 下载服务）
+> 最后更新：2026-08-25 · commit：`b8a122b`（工作区未提交）+其他项目栏+错误气泡+模型过滤+question事件修正
 > 维护：见 [CONVENTIONS.md](CONVENTIONS.md)「知识库维护约定」
 
 ## 使用说明
@@ -29,12 +29,12 @@
 
 | 功能 | 所属模块 | 入口文件 |
 |---|---|---|
-| Pulse 首页（项目导航 + 状态分组 + 全屏聊天 sheet） | pulse-stream | `agent-mobile-app/src/app/(tabs)/pulse.tsx` |
-| 项目状态聚合（running/needs-you/idle + SSE 实时） | pulse-stream | `agent-mobile-app/src/hooks/useProjectEvents.ts` |
+| Pulse 首页（项目导航 + 状态分组 + 其他项目折叠栏 + 全屏聊天 sheet） | pulse-stream | `agent-mobile-app/src/app/(tabs)/index.tsx` |
+| 项目状态聚合（running/needs-you/idle + 不活跃项目 otherProjects + SSE 实时） | pulse-stream | `agent-mobile-app/src/hooks/useProjectEvents.ts` |
 | 项目状态判定纯函数 | services | `agent-mobile-app/src/services/project-status.ts` |
 | 项目聊天（最近 session / 新建 session） | chat | `agent-mobile-app/src/components/chat/ProjectChat.tsx` |
-| 对话面板（下拉刷新/分页/滚动保持/输入三件套/轮询兜底/agent+model切换） | chat | `agent-mobile-app/src/components/chat/ChatPanel.tsx` |
-| 消息气泡（user/text markdown + StepChip 旁白） | chat | `agent-mobile-app/src/components/chat/MessageBubble.tsx` |
+| 对话面板（下拉刷新/分页/滚动保持/输入三件套/轮询兜底/agent+model切换/question+permission弹窗） | chat | `agent-mobile-app/src/components/chat/ChatPanel.tsx` |
+| 消息气泡（user/text markdown + 错误气泡 + StepChip 旁白） | chat | `agent-mobile-app/src/components/chat/MessageBubble.tsx` |
 | 过程旁白（思考中/工具调用中） | chat | `agent-mobile-app/src/components/chat/StepChip.tsx` |
 | OpenCode REST 客户端 | services | `agent-mobile-app/src/services/opencode-client.ts` |
 | SSE 事件流订阅（rAF 批量 + 指数退避） | services | `agent-mobile-app/src/services/opencode-events.ts` |
@@ -98,7 +98,7 @@ agent-mobile/                                  # git 根仓库
     └── src/
         ├── app/_layout.tsx                    # 根 Stack
         ├── app/(tabs)/_layout.tsx             # Tabs（4 tab）
-        ├── app/(tabs)/pulse.tsx               # Pulse 页（项目导航，完整）
+        ├── app/(tabs)/index.tsx              # Pulse 页（项目导航，完整；默认 tab）
         ├── app/(tabs)/talk|memory|me.tsx      # 占位页
         ├── config/opencode.ts                 # opencode 连接配置（env）
         ├── hooks/useProjectEvents.ts          # 项目事件聚合 hook
@@ -118,7 +118,7 @@ services（opencode-client/events/reducer/merging/project-status；无 UI 依赖
   ↑
 chat（ChatPanel/MessageBubble/StepChip/ProjectChat；依赖 components + services + theme）
   ↑
-pulse-stream（pulse.tsx + useProjectEvents；依赖 components + chat + services + theme）
+pulse-stream（index.tsx + useProjectEvents；依赖 components + chat + services + theme）
   ↑
 router（app/_layout → (tabs)/_layout → 各页面，依赖全部）
   ↑
@@ -131,7 +131,7 @@ ops（serve-static.mjs / e2e；服务 dist/ 导出产物，与应用代码解耦
 opencode server (127.0.0.1:4096, Basic auth)
   ├── REST /project /session /session/{id}/message → opencodeClient
   ├── SSE /global/event → opencode-events (rAF 批量 + 退避重连)
-  │     ├── → useProjectEvents → pulse.tsx（项目分组渲染）
+  │     ├── → useProjectEvents → index.tsx（项目分组渲染）
   │     └── → ChatPanel → message-reducer（增量 patch）→ message-merging → MessageBubble
   └── 发送消息：ChatPanel → sendMessageAsync (prompt_async) → SSE 回流
 ```
@@ -141,7 +141,7 @@ opencode server (127.0.0.1:4096, Basic auth)
 | 常见任务 | 涉及文件 |
 |---|---|
 | 新增/修改项目状态判定 | `agent-mobile-app/src/services/project-status.ts` + 测试 |
-| 改 Pulse 列表 UI/分组 | `agent-mobile-app/src/app/(tabs)/pulse.tsx` |
+| 改 Pulse 列表 UI/分组 | `agent-mobile-app/src/app/(tabs)/index.tsx` |
 | 改项目聚合逻辑（轮询/SSE 事件处理） | `agent-mobile-app/src/hooks/useProjectEvents.ts` |
 | 改聊天面板（输入/刷新/分页） | `agent-mobile-app/src/components/chat/ChatPanel.tsx` |
 | 改消息气泡（样式/工具折叠） | `agent-mobile-app/src/components/chat/MessageBubble.tsx` |

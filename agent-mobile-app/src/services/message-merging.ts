@@ -4,7 +4,8 @@ export type DisplayStep =
   | { kind: "user";      id: string; text: string; createdAt: number }
   | { kind: "reasoning"; id: string; createdAt: number }
   | { kind: "tool";      id: string; tool: string; status?: string; createdAt: number }
-  | { kind: "text";      id: string; text: string; createdAt: number };
+  | { kind: "text";      id: string; text: string; createdAt: number }
+  | { kind: "error";     id: string; text: string; createdAt: number };
 
 function isTextPart(part: OpenCodePart): part is OpenCodePart & { type: "text"; text?: string } {
   return part.type === "text";
@@ -14,6 +15,27 @@ function isToolPart(part: OpenCodePart): part is OpenCodePart & { type: "tool"; 
 }
 function isReasoningPart(part: OpenCodePart): part is OpenCodePart & { type: "reasoning" } {
   return part.type === "reasoning";
+}
+
+// The model call error on an assistant message is a NamedError object
+// ({ name: "ProviderAuthError", data: { message, ... } }), never a plain
+// string. Coerce it to a readable single-line string so it can be rendered
+// safely as a React child.
+function errorText(err: unknown): string {
+  if (typeof err === "string") return err;
+  if (err && typeof err === "object") {
+    const obj = err as { name?: unknown; data?: { message?: unknown } };
+    if (typeof obj.name === "string" && obj.data && typeof obj.data.message === "string") {
+      return `${obj.name}: ${obj.data.message}`;
+    }
+    if (typeof obj.name === "string") return obj.name;
+    try {
+      return JSON.stringify(err);
+    } catch {
+      return String(err);
+    }
+  }
+  return String(err);
 }
 
 export function mergeMessages(
@@ -29,6 +51,15 @@ export function mergeMessages(
         .map((p) => p.text ?? "")
         .join("\n");
       out.push({ kind: "user", id: msg.info.id, text, createdAt });
+      continue;
+    }
+
+    // An assistant message carrying info.error means the model call failed
+    // (e.g. an invalid/expired provider API key). The raw error text lives
+    // only on the message envelope, not in any part, so surface it as its
+    // own step instead of silently dropping the message.
+    if (msg.info.error) {
+      out.push({ kind: "error", id: msg.info.id, text: errorText(msg.info.error), createdAt });
       continue;
     }
 

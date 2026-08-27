@@ -10,7 +10,7 @@ import {
   Alert,
   type ViewStyle,
 } from "react-native";
-import { Bell } from "lucide-react-native";
+import { Bell, ChevronDown, ChevronRight } from "lucide-react-native";
 import { ScreenHeader, StatusDot, EventItem, BottomSheet, Text, Box, Button } from "@/components";
 import { ProjectChat } from "@/components/chat/ProjectChat";
 import { useProjectEvents, type ProjectEvent } from "@/hooks/useProjectEvents";
@@ -41,11 +41,12 @@ interface GroupedEvent extends ProjectEvent {
 }
 
 export default function PulseScreen() {
-  const { events, loading, error, refresh } = useProjectEvents();
+  const { events, otherProjects, loading, error, refresh } = useProjectEvents();
   const [activeProject, setActiveProject] = useState<{
     id: string;
     projectPath: string;
   } | null>(null);
+  const [otherOpen, setOtherOpen] = useState(false);
   const [needLogin, setNeedLogin] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const [loginUser, setLoginUser] = useState("");
@@ -194,6 +195,52 @@ export default function PulseScreen() {
             </View>
           </View>
         ))}
+
+        {otherProjects.length > 0 ? (
+          <View style={styles.section}>
+            <Pressable
+              onPress={() => setOtherOpen((o) => !o)}
+              accessibilityRole="button"
+              accessibilityLabel="Other projects"
+              style={sectionLabelStyle}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.xxs }}>
+                {otherOpen ? (
+                  <ChevronDown size={14} color={colors.muted} strokeWidth={2} />
+                ) : (
+                  <ChevronRight size={14} color={colors.muted} strokeWidth={2} />
+                )}
+                <Text variant="caption" color="muted">
+                  OTHER PROJECTS ({otherProjects.length})
+                </Text>
+              </View>
+            </Pressable>
+            {otherOpen ? (
+              <View style={styles.list}>
+                {otherProjects.map((event, index, arr) => (
+                  <View
+                    key={event.id}
+                    style={
+                      index === arr.length - 1 ? styles.lastItemWrap : undefined
+                    }
+                  >
+                    <EventItem
+                      type="PROJECT"
+                      title={event.name}
+                      summary={event.summary}
+                      status="idle"
+                      statusLabel={event.statusLabel}
+                      onPress={() =>
+                        setActiveProject({ id: event.id, projectPath: event.projectPath })
+                      }
+                      testID={`project-${event.id}`}
+                    />
+                  </View>
+                ))}
+              </View>
+            ) : null}
+          </View>
+        ) : null}
       </ScrollView>
 
       <BottomSheet

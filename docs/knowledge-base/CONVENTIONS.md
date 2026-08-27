@@ -1,6 +1,6 @@
 # CONVENTIONS.md —— 约定与陷阱
 
-> 最后更新：2026-08-16 · commit：`690853a`（web→APK 兼容性：BFF 地址 + cleartext + 原生 API 适配）
+> 最后更新：2026-08-25 · commit：`b8a122b`（工作区未提交）+error透传+question事件+对象渲染白屏
 
 ## 代码风格与命名约定
 
@@ -55,6 +55,9 @@
 | **ErrorUtils 覆盖闪退（release）** | release 下覆盖 RN 全局错误 handler 有递归崩溃风险 | 移除 `ErrorUtils.setGlobalHandler` 覆盖（commit `824054f`） |
 | **Android 9+ 禁明文 HTTP** | BFF 是 `http://` 明文，Android 9+ 默认禁 cleartext → `UnknownServiceException: cleartext communication ... not permitted` | `expo-build-properties` 插件配 `android.usesCleartextTraffic: true`（app.json，commit `46473bf`） |
 | **EAS 云构建无 .env.local** | `.env.local` 被 gitignore，EAS 云构建只拉 git 代码 → 用代码 fallback 地址，若 fallback 是旧 IP 则连错 BFF | 代码 fallback 保持正确 IP `http://106.13.181.13:19234`（`src/config/opencode.ts`，commit `46473bf`）；或 EAS 环境变量注入 |
+| **SSE 只透传 info.error 不透传文本错误** | 模型调用失败时，错误在 assistant 消息的 **`info.error`**（对象 `{name, data:{message}}`），不在任何 part 里。`applyMessageUpdated` 若只保留 id/role/sessionID/time 会把 error 丢掉 → 实时不显示、要重进才见 | `applyMessageUpdated` 必须透传 `info.error`；`mergeMessages` 对带 error 的消息产出 `error` step |
+| **对象直接渲染 React error #31 → 白屏** | 运行时字段可能是对象（如 `info.error` = NamedError `{name,data}`），若直接塞进 `<Text>`/`<Markdown>`，React 报 "Objects are not valid as a React child"，**整棵组件树崩溃 → 全白屏**（曾表现为"打开聊天 load 一会儿全白"） | 渲染前用 `errorText()` 等安全转字符串；给 `info.error` 之类声明 `unknown` 类型而非 `string` |
+| **question 事件名是 `question.asked` 非 `question.v2.asked`** | opencode server（1.18.22）实际发出 `question.asked`/`question.replied`/`question.rejected`（v1 兼容名），schema 里定义的 `question.v2.*` 未在运行时使用。只监听 v2 名 → 实时弹窗不触发，重进才显示（loadMessages→listQuestions 恢复） | ChatPanel 与 `OpenCodeEvent` 类型同时兼容两种命名 |
 
 ## 修改红线
 
