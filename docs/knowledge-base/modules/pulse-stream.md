@@ -1,6 +1,6 @@
 # modules/pulse-stream.md —— Pulse 首页（项目导航 + 基金估值）
 
-> 最后更新：2026-08-27 · commit：`a8872d7`（跑马灯改列表条目 + needs-you 置顶）
+> 最后更新：2026-08-27 · commit：`5565b12`（交易提醒交互闭环：点看详情 + 确认处理）
 
 ## 模块职责
 
@@ -51,6 +51,7 @@ KeyboardAvoidingView (ios: padding)
 
 > **分组条目类型（2026-08-27）**：`groups[].items` 由 `GroupItem` 联合类型组成——`{kind:"project", event}`（项目）或 `{kind:"market", hasAlert}`（基金行情）。渲染时按 kind 分发到 `EventItem` 或 `FundMarqueeItem`。
 > **跑马灯布局规则（2026-08-27 重构）**：跑马灯不再置顶。无 trade-alert 时作为独立 MARKET 分组（Today 之后）；收到 `fund.trade-alert` 时升级为 NEEDS YOU 第一项（StatusPill 变 warning"有基金需要交易"）。FundMarqueeItem 与 EventItem 视觉一致（同 surface.1/边框/padding/圆角），UI 上像普通列表列。
+> **交易提醒交互闭环（2026-08-27）**：alert 时点击 MARKET 条目（`aria-label="有基金需要交易"`，Pressable）→ 弹 `trade-alert-sheet` BottomSheet 展示各基金（估净/目标/超出%）；点"确认处理" → `dismissAlert()` 清空 alert → sheet 关闭，MARKET 回落独立分组。
 
 ## 分组规则
 
@@ -75,7 +76,8 @@ family-finance BFF /api/events/stream（SSE，JWT）
 
 - **fund-events.ts**：fetch SSE 订阅 `/api/events/stream`，复用 `tokenHeader` JWT；断线指数退避重连（同 opencode-events 模式）；只解析 `fund.estimate` / `fund.trade-alert`。
 - **Marquee.tsx**：内容超宽（>90% 屏宽）时 `Animated.loop` translateX 无缝循环滚动（内容复制两份），否则静止展示。
-- **FundMarqueeItem.tsx**：与 EventItem 相同视觉的行情条目（MARKET 标签 + 基金名/估值两行跑马灯 + StatusPill）；`hasAlert` 时 StatusPill 为 warning"有基金需要交易(N)"，否则 idle"Watching"。
+- **FundMarqueeItem.tsx**：与 EventItem 相同视觉的行情条目（MARKET 标签 + 基金名/估值两行跑马灯 + StatusPill）；`hasAlert` 时 StatusPill 为 warning"有基金需要交易(N)"，否则 idle"Watching"；Pressable 可点击（onPress）。
+- **useFundEvents.dismissAlert()（2026-08-27）**：确认处理后清空 alert（needs-you 消失，跑马灯回落 MARKET 分组）。alert 是前端 state，收到 trade-alert 后保持，直到 dismiss 或新事件覆盖。
 - 涨跌颜色：changePct>=0 用 `success`（红涨），否则 `error`（绿跌）——注意中国市场红涨绿跌约定。
 
 ## 状态判定优先级（project-status.ts）
