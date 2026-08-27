@@ -64,7 +64,7 @@ export function FundMarqueeItem({ funds, hasAlert = false, onPress }: FundMarque
                 variant="captionStrong"
                 color={f.changePct >= 0 ? "success" : "error"}
               >
-                {f.estimatedNav.toFixed(4)} {f.changePct >= 0 ? "+" : ""}
+                {f.estimatedNav.toFixed(4)} 昨 {f.prevNav.toFixed(4)} {f.changePct >= 0 ? "+" : ""}
                 {f.changePct.toFixed(2)}%
               </Text>
             </View>
