@@ -1,6 +1,6 @@
 import React from "react";
-import { View, type ViewStyle } from "react-native";
-import { colors, spacing } from "../../theme";
+import { Pressable, View, type ViewStyle } from "react-native";
+import { colors, spacing, motion } from "../../theme";
 import { Box } from "../primitives/Box";
 import { Text } from "../primitives/Text";
 import { StatusPill } from "../feedback/StatusPill";
@@ -10,6 +10,7 @@ import type { FundEstimateItem } from "../../services/fund-events";
 export interface FundMarqueeItemProps {
   funds: FundEstimateItem[];
   hasAlert?: boolean;
+  onPress?: () => void;
 }
 
 /**
@@ -17,8 +18,9 @@ export interface FundMarqueeItemProps {
  * 同 surface.1 背景、边框、padding、gap；type 标签 + title/summary 两行 + StatusPill。
  * title 行为基金名跑马灯滚动，summary 行为估值 + 涨跌幅跑马灯滚动。
  * hasAlert 时 StatusPill 变 warning"有基金需要交易"，否则 idle"Watching"。
+ * 可点击（onPress，与 EventItem 同 pressed 反馈）。
  */
-export function FundMarqueeItem({ funds, hasAlert = false }: FundMarqueeItemProps) {
+export function FundMarqueeItem({ funds, hasAlert = false, onPress }: FundMarqueeItemProps) {
   const containerStyle: ViewStyle = {
     backgroundColor: colors.surface[1],
     borderBottomWidth: 1,
@@ -32,7 +34,16 @@ export function FundMarqueeItem({ funds, hasAlert = false }: FundMarqueeItemProp
   if (funds.length === 0) return null;
 
   return (
-    <View style={containerStyle}>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={hasAlert ? "有基金需要交易" : "基金行情"}
+      style={({ pressed }) => [
+        containerStyle,
+        pressed && { backgroundColor: colors.surface[2] },
+        pressed && { transform: [{ scale: motion.scale.pressed }] },
+      ]}
+    >
       <Text variant="captionStrong" color="muted">
         MARKET
       </Text>
@@ -66,6 +77,6 @@ export function FundMarqueeItem({ funds, hasAlert = false }: FundMarqueeItemProp
           label={hasAlert ? `有基金需要交易(${funds.length})` : "Watching"}
         />
       </Box>
-    </View>
+    </Pressable>
   );
 }

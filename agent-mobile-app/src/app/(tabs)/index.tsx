@@ -43,12 +43,13 @@ interface GroupedEvent extends ProjectEvent {
 
 export default function PulseScreen() {
   const { events, otherProjects, loading, error, refresh } = useProjectEvents();
-  const { funds, alert } = useFundEvents();
+  const { funds, alert, dismissAlert } = useFundEvents();
   const [activeProject, setActiveProject] = useState<{
     id: string;
     projectPath: string;
   } | null>(null);
   const [otherOpen, setOtherOpen] = useState(false);
+  const [alertOpen, setAlertOpen] = useState(false);
   const [needLogin, setNeedLogin] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const [loginUser, setLoginUser] = useState("");
@@ -196,7 +197,11 @@ export default function PulseScreen() {
                   }
                 >
                   {item.kind === "market" ? (
-                    <FundMarqueeItem funds={funds} hasAlert={item.hasAlert} />
+                    <FundMarqueeItem
+                      funds={funds}
+                      hasAlert={item.hasAlert}
+                      onPress={item.hasAlert ? () => setAlertOpen(true) : undefined}
+                    />
                   ) : (
                     <EventItem
                       type={item.event.status === "needs-you" ? "ACTION" : "PROJECT"}
@@ -288,6 +293,39 @@ export default function PulseScreen() {
           />
           {loginError ? <Text variant="caption" color="error">{loginError}</Text> : null}
           <Button variant="primary" label="登录" onPress={doLogin} />
+        </Box>
+      </BottomSheet>
+
+      <BottomSheet visible={alertOpen} onClose={() => setAlertOpen(false)} testID="trade-alert-sheet">
+        <Box padding="md" gap="sm">
+          <Text variant="body" color="ink">有基金需要交易</Text>
+          {alert?.map((f) => (
+            <View
+              key={f.code}
+              style={{
+                backgroundColor: colors.surface[2],
+                borderRadius: radius.sm,
+                padding: spacing.sm,
+                gap: spacing.xxs,
+              }}
+            >
+              <Text variant="captionStrong" color="ink">{f.name}</Text>
+              <Text variant="caption" color="muted">
+                估净 {f.estimatedNav.toFixed(4)} · 目标 {f.targetNav.toFixed(4)}
+              </Text>
+              <Text variant="captionStrong" color="warning">
+                超出 {(f.diff * 100).toFixed(2)}%
+              </Text>
+            </View>
+          ))}
+          <Button
+            variant="primary"
+            label="确认处理"
+            onPress={() => {
+              dismissAlert();
+              setAlertOpen(false);
+            }}
+          />
         </Box>
       </BottomSheet>
 

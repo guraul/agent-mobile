@@ -9,6 +9,8 @@ export interface UseFundEventsResult {
   funds: FundEstimateItem[];
   alert: FundTradeAlertItem[] | null;
   connected: boolean;
+  /** 确认处理交易提醒——清空 alert，needs-you 消失（跑马灯回落 MARKET 分组） */
+  dismissAlert: () => void;
 }
 
 /**
@@ -36,6 +38,11 @@ export function useFundEvents(): UseFundEventsResult {
     setAlert(list);
   }, []);
 
+  const dismissAlert = useCallback(() => {
+    alertRef.current = null;
+    setAlert(null);
+  }, []);
+
   useEffect(() => {
     let mounted = true;
     const unsub = subscribeToFundEvents(
@@ -55,5 +62,5 @@ export function useFundEvents(): UseFundEventsResult {
     };
   }, [handleEstimate, handleAlert]);
 
-  return { funds, alert, connected };
+  return { funds, alert, connected, dismissAlert };
 }
