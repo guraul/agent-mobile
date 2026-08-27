@@ -1,6 +1,6 @@
 # Agent Mobile 项目知识库 · 索引总览
 
-> 最后更新：2026-08-25 · commit：`b8a122b`（工作区未提交）+其他项目栏+错误气泡+模型过滤+question事件修正
+> 最后更新：2026-08-27 · commit：`ddcd3ae`（Pulse 接入基金事件流：跑马灯估值 + 交易提醒）
 > 维护：见 [CONVENTIONS.md](CONVENTIONS.md)「知识库维护约定」
 
 ## 使用说明
@@ -29,8 +29,9 @@
 
 | 功能 | 所属模块 | 入口文件 |
 |---|---|---|
-| Pulse 首页（项目导航 + 状态分组 + 其他项目折叠栏 + 全屏聊天 sheet） | pulse-stream | `agent-mobile-app/src/app/(tabs)/index.tsx` |
+| Pulse 首页（项目导航 + 状态分组 + 其他项目折叠栏 + 基金估值跑马灯 + 全屏聊天 sheet） | pulse-stream | `agent-mobile-app/src/app/(tabs)/index.tsx` |
 | 项目状态聚合（running/needs-you/idle + 不活跃项目 otherProjects + SSE 实时） | pulse-stream | `agent-mobile-app/src/hooks/useProjectEvents.ts` |
+| 基金事件订阅（fund.estimate 估值 + fund.trade-alert 交易提醒） | pulse-stream | `agent-mobile-app/src/hooks/useFundEvents.ts` + `services/fund-events.ts` |
 | 项目状态判定纯函数 | services | `agent-mobile-app/src/services/project-status.ts` |
 | 项目聊天（最近 session / 新建 session） | chat | `agent-mobile-app/src/components/chat/ProjectChat.tsx` |
 | 对话面板（下拉刷新/分页/滚动保持/输入三件套/轮询兜底/agent+model切换/question+permission弹窗） | chat | `agent-mobile-app/src/components/chat/ChatPanel.tsx` |
@@ -114,11 +115,11 @@ theme（无依赖，叶子）
   ↑
 components（依赖 theme）
   ↑
-services（opencode-client/events/reducer/merging/project-status；无 UI 依赖）
+services（opencode-client/events/reducer/merging/project-status/fund-events；无 UI 依赖）
   ↑
 chat（ChatPanel/MessageBubble/StepChip/ProjectChat；依赖 components + services + theme）
   ↑
-pulse-stream（index.tsx + useProjectEvents；依赖 components + chat + services + theme）
+pulse-stream（index.tsx + useProjectEvents + useFundEvents；依赖 components + chat + services + theme）
   ↑
 router（app/_layout → (tabs)/_layout → 各页面，依赖全部）
   ↑
@@ -134,6 +135,9 @@ opencode server (127.0.0.1:4096, Basic auth)
   │     ├── → useProjectEvents → index.tsx（项目分组渲染）
   │     └── → ChatPanel → message-reducer（增量 patch）→ message-merging → MessageBubble
   └── 发送消息：ChatPanel → sendMessageAsync (prompt_async) → SSE 回流
+
+family-finance BFF (106.13.181.13:19234) /api/events/stream
+  └── SSE（JWT + 退避重连）→ fund-events → useFundEvents → index.tsx（估值跑马灯 + trade-alert 提醒）
 ```
 
 ## 速查表
@@ -150,6 +154,7 @@ opencode server (127.0.0.1:4096, Basic auth)
 | 改 SSE 增量更新 | `agent-mobile-app/src/services/message-reducer.ts` |
 | 新增 opencode 端点封装 | `agent-mobile-app/src/services/opencode-client.ts` |
 | 改 SSE 订阅/重连 | `agent-mobile-app/src/services/opencode-events.ts` |
+| 改基金事件订阅/跑马灯/交易提醒 | `agent-mobile-app/src/services/fund-events.ts` + `hooks/useFundEvents.ts` + `components/navigation/Marquee.tsx` |
 | 改后端地址/账号 | `agent-mobile-app/.env.local`（EXPO_PUBLIC_OPENCODE_*） |
 | 新增 tab / 页面 | `agent-mobile-app/src/app/(tabs)/_layout.tsx` + 新建路由文件 |
 | 改颜色 | `agent-mobile-app/src/theme/colors.ts` |
