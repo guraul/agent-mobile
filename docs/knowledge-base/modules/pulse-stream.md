@@ -1,6 +1,6 @@
 # modules/pulse-stream.md —— Pulse 首页（项目导航 + 基金估值）
 
-> 最后更新：2026-08-27 · commit：`ddcd3ae`（Pulse 接入基金事件流：跑马灯估值 + 交易提醒）
+> 最后更新：2026-08-27 · commit：`a8872d7`（跑马灯改列表条目 + needs-you 置顶）
 
 ## 模块职责
 
@@ -20,7 +20,8 @@ Pulse 首页：问候 + AI 在场状态 + **真实项目导航**（按状态分�
 | `agent-mobile-app/src/hooks/useProjectEvents.ts` | 聚合 opencode 项目 + 会话 + 状态 + SSE 实时 |
 | `agent-mobile-app/src/hooks/useFundEvents.ts` | 订阅基金事件流：`funds`（最新估值）+ `alert`（交易提醒） |
 | `agent-mobile-app/src/services/fund-events.ts` | 订阅 BFF `/api/events/stream`（JWT + 指数退避重连） |
-| `agent-mobile-app/src/components/navigation/Marquee.tsx` | 横向自动滚动跑马灯组件 |
+| `agent-mobile-app/src/components/navigation/Marquee.tsx` | 横向自动滚动跑马灯组件（基金名/估值滚动） |
+| `agent-mobile-app/src/components/navigation/FundMarqueeItem.tsx` | 基金行情列表条目（与 EventItem 同视觉，MARKET 标签 + 两行跑马灯 + StatusPill） |
 | `agent-mobile-app/src/services/project-status.ts` | `determineProjectStatus` 纯函数（状态判定） |
 | `agent-mobile-app/src/services/opencode-client.ts` | REST 客户端（/project、/session、/session/status） |
 | `agent-mobile-app/src/services/opencode-events.ts` | opencode SSE 订阅（session.* / permission.* / server.connected） |
@@ -35,19 +36,21 @@ Pulse 首页：问候 + AI 在场状态 + **真实项目导航**（按状态分�
 KeyboardAvoidingView (ios: padding)
 ├── ScreenHeader (title="Pulse", right Bell → alert("Notifications"))
 ├── greetingWrap: getGreeting() 时间问候 + StatusDot(running, pulse) + "I'm here."
-├── 基金估值区块（2026-08-27 新增，Box surface.1）
-│   ├── 收到 fund.trade-alert → alertRow: StatusDot(warning) + "有基金需要交易(N)"
-│   └── Marquee（横向自动滚动）：各基金 name + estimatedNav(4位) + changePct(%)
 └── ScrollView
     ├── error callout（若有）
     ├── loading / 空态
-    ├── groups[]：{ label: "NEEDS YOU" | "TODAY", items: GroupedEvent[] }
-    │   └── EventItem（onPress → setActiveProject → BottomSheet fullScreen）
+    ├── groups[]（2026-08-27 起支持混合条目 project + market）：
+    │   ├── NEEDS YOU（永远最上）：项目 EventItem + 有 trade-alert 时第一项是 MARKET（warning"有基金需要交易"）
+    │   ├── TODAY：running 项目 EventItem
+    │   └── MARKET（2026-08-27，无 trade-alert 时）：FundMarqueeItem 行情条目，Today 之后
     └── OTHER PROJECTS 可折叠栏（2026-08-25 新增，otherOpen state）
         └── 展开后：不活跃项目列表（同 EventItem，status="idle"）
 └── BottomSheet(fullScreen, testID="project-chat-sheet")
     └── activeProject && <ProjectChat projectPath onBack />
 ```
+
+> **分组条目类型（2026-08-27）**：`groups[].items` 由 `GroupItem` 联合类型组成——`{kind:"project", event}`（项目）或 `{kind:"market", hasAlert}`（基金行情）。渲染时按 kind 分发到 `EventItem` 或 `FundMarqueeItem`。
+> **跑马灯布局规则（2026-08-27 重构）**：跑马灯不再置顶。无 trade-alert 时作为独立 MARKET 分组（Today 之后）；收到 `fund.trade-alert` 时升级为 NEEDS YOU 第一项（StatusPill 变 warning"有基金需要交易"）。FundMarqueeItem 与 EventItem 视觉一致（同 surface.1/边框/padding/圆角），UI 上像普通列表列。
 
 ## 分组规则
 
@@ -72,6 +75,7 @@ family-finance BFF /api/events/stream（SSE，JWT）
 
 - **fund-events.ts**：fetch SSE 订阅 `/api/events/stream`，复用 `tokenHeader` JWT；断线指数退避重连（同 opencode-events 模式）；只解析 `fund.estimate` / `fund.trade-alert`。
 - **Marquee.tsx**：内容超宽（>90% 屏宽）时 `Animated.loop` translateX 无缝循环滚动（内容复制两份），否则静止展示。
+- **FundMarqueeItem.tsx**：与 EventItem 相同视觉的行情条目（MARKET 标签 + 基金名/估值两行跑马灯 + StatusPill）；`hasAlert` 时 StatusPill 为 warning"有基金需要交易(N)"，否则 idle"Watching"。
 - 涨跌颜色：changePct>=0 用 `success`（红涨），否则 `error`（绿跌）——注意中国市场红涨绿跌约定。
 
 ## 状态判定优先级（project-status.ts）
