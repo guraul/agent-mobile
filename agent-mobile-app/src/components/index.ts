@@ -30,5 +30,7 @@ export { BottomSheet } from "./navigation/BottomSheet";
 export type { BottomSheetProps } from "./navigation/BottomSheet";
 export { Marquee } from "./navigation/Marquee";
 export type { MarqueeProps } from "./navigation/Marquee";
+export { FundMarqueeItem } from "./navigation/FundMarqueeItem";
+export type { FundMarqueeItemProps } from "./navigation/FundMarqueeItem";
 export { EventItem } from "./navigation/EventItem";
 export type { EventItemProps } from "./navigation/EventItem";

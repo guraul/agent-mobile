@@ -11,7 +11,7 @@ import {
   type ViewStyle,
 } from "react-native";
 import { Bell, ChevronDown, ChevronRight } from "lucide-react-native";
-import { ScreenHeader, StatusDot, EventItem, BottomSheet, Text, Box, Button, Marquee } from "@/components";
+import { ScreenHeader, StatusDot, EventItem, BottomSheet, Text, Box, Button, FundMarqueeItem } from "@/components";
 import { ProjectChat } from "@/components/chat/ProjectChat";
 import { useProjectEvents, type ProjectEvent } from "@/hooks/useProjectEvents";
 import { useFundEvents } from "@/hooks/useFundEvents";
@@ -93,9 +93,23 @@ export default function PulseScreen() {
     .filter((e) => e.status === "running")
     .map((e) => ({ ...e, section: "today" as const }));
 
-  const groups: { label: string; items: GroupedEvent[] }[] = [
-    { label: "Needs you", items: needsYou },
-    { label: "Today", items: today },
+  type GroupItem =
+    | { kind: "project"; event: GroupedEvent }
+    | { kind: "market"; hasAlert: boolean };
+
+  // 跑马灯：有 trade-alert 时升级到 Needs you（第一项）；否则作为独立 MARKET 分组放 Today 之后
+  const hasTradeAlert = alert !== null && alert.length > 0;
+  const needsYouItems: GroupItem[] = hasTradeAlert
+    ? [{ kind: "market", hasAlert: true }, ...needsYou.map((event): GroupItem => ({ kind: "project", event }))]
+    : needsYou.map((event): GroupItem => ({ kind: "project", event }));
+  const todayItems: GroupItem[] = today.map((event): GroupItem => ({ kind: "project", event }));
+
+  const groups: { label: string; items: GroupItem[] }[] = [
+    { label: "Needs you", items: needsYouItems },
+    { label: "Today", items: todayItems },
+    ...(funds.length > 0 && !hasTradeAlert
+      ? [{ label: "Market", items: [{ kind: "market" as const, hasAlert: false }] }]
+      : []),
   ].filter((g) => g.items.length > 0);
 
   const sectionLabelStyle: ViewStyle = {
@@ -143,35 +157,6 @@ export default function PulseScreen() {
         </View>
       </View>
 
-      {funds.length > 0 ? (
-        <Box margin="sm" padding="sm" backgroundColor="surface.1" rounded="md">
-          {alert && alert.length > 0 ? (
-            <View style={styles.alertRow}>
-              <StatusDot status="warning" size={8} accessibilityLabel="Trade alert" />
-              <Text variant="captionStrong" color="warning">
-                有基金需要交易（{alert.length}）
-              </Text>
-            </View>
-          ) : null}
-          <Marquee>
-            {funds.map((f) => (
-              <View key={f.code} style={styles.fundItem}>
-                <Text variant="captionStrong" color="ink" numberOfLines={1}>
-                  {f.name}
-                </Text>
-                <Text
-                  variant="caption"
-                  color={f.changePct >= 0 ? "success" : "error"}
-                >
-                  {f.estimatedNav.toFixed(4)} ({f.changePct >= 0 ? "+" : ""}
-                  {f.changePct.toFixed(2)}%)
-                </Text>
-              </View>
-            ))}
-          </Marquee>
-        </Box>
-      ) : null}
-
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
@@ -203,24 +188,28 @@ export default function PulseScreen() {
               </Text>
             </View>
             <View style={styles.list}>
-              {group.items.map((event, index, arr) => (
+              {group.items.map((item, index, arr) => (
                 <View
-                  key={event.id}
+                  key={item.kind === "market" ? "market" : `project-${item.event.id}`}
                   style={
                     index === arr.length - 1 ? styles.lastItemWrap : undefined
                   }
                 >
-                  <EventItem
-                    type={event.status === "needs-you" ? "ACTION" : "PROJECT"}
-                    title={event.name}
-                    summary={event.summary}
-                    status={statusTypeFor(event.status)}
-                    statusLabel={event.statusLabel}
-                    onPress={() =>
-                      setActiveProject({ id: event.id, projectPath: event.projectPath })
-                    }
-                    testID={`project-${event.id}`}
-                  />
+                  {item.kind === "market" ? (
+                    <FundMarqueeItem funds={funds} hasAlert={item.hasAlert} />
+                  ) : (
+                    <EventItem
+                      type={item.event.status === "needs-you" ? "ACTION" : "PROJECT"}
+                      title={item.event.name}
+                      summary={item.event.summary}
+                      status={statusTypeFor(item.event.status)}
+                      statusLabel={item.event.statusLabel}
+                      onPress={() =>
+                        setActiveProject({ id: item.event.id, projectPath: item.event.projectPath })
+                      }
+                      testID={`project-${item.event.id}`}
+                    />
+                  )}
                 </View>
               ))}
             </View>
@@ -365,18 +354,5 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     color: colors.ink,
     fontSize: 15,
-  },
-  alertRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    paddingBottom: spacing.xs,
-  },
-  fundItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    minWidth: 180,
   },
 });
