@@ -49,7 +49,7 @@ export default function PulseScreen() {
     projectPath: string;
   } | null>(null);
   const [otherOpen, setOtherOpen] = useState(false);
-  const [alertOpen, setAlertOpen] = useState(false);
+  const [fundSheetOpen, setFundSheetOpen] = useState(false);
   const [needLogin, setNeedLogin] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const [loginUser, setLoginUser] = useState("");
@@ -200,7 +200,7 @@ export default function PulseScreen() {
                     <FundMarqueeItem
                       funds={funds}
                       hasAlert={item.hasAlert}
-                      onPress={item.hasAlert ? () => setAlertOpen(true) : undefined}
+                      onPress={() => setFundSheetOpen(true)}
                     />
                   ) : (
                     <EventItem
@@ -296,36 +296,52 @@ export default function PulseScreen() {
         </Box>
       </BottomSheet>
 
-      <BottomSheet visible={alertOpen} onClose={() => setAlertOpen(false)} testID="trade-alert-sheet">
+      <BottomSheet visible={fundSheetOpen} onClose={() => setFundSheetOpen(false)} testID="fund-sheet">
         <Box padding="md" gap="sm">
-          <Text variant="body" color="ink">有基金需要交易</Text>
-          {alert?.map((f) => (
-            <View
-              key={f.code}
-              style={{
-                backgroundColor: colors.surface[2],
-                borderRadius: radius.sm,
-                padding: spacing.sm,
-                gap: spacing.xxs,
+          <Text variant="body" color="ink">
+            {hasTradeAlert ? "有基金需要交易" : "基金行情"}
+          </Text>
+          {hasTradeAlert && alert
+            ? alert.map((f) => (
+                <View
+                  key={f.code}
+                  style={styles.fundRow}
+                >
+                  <Text variant="captionStrong" color="ink">{f.name}</Text>
+                  <Text variant="caption" color="muted">
+                    估净 {f.estimatedNav.toFixed(4)} · 目标 {f.targetNav.toFixed(4)}
+                  </Text>
+                  <Text variant="captionStrong" color="warning">
+                    超出 {(f.diff * 100).toFixed(2)}%
+                  </Text>
+                </View>
+              ))
+            : funds.map((f) => (
+                <View
+                  key={f.code}
+                  style={styles.fundRow}
+                >
+                  <Text variant="captionStrong" color="ink">{f.name}</Text>
+                  <Text variant="caption" color="muted">{f.code}</Text>
+                  <Text
+                    variant="captionStrong"
+                    color={f.changePct >= 0 ? "success" : "error"}
+                  >
+                    {f.estimatedNav.toFixed(4)} {f.changePct >= 0 ? "+" : ""}
+                    {f.changePct.toFixed(2)}%
+                  </Text>
+                </View>
+              ))}
+          {hasTradeAlert ? (
+            <Button
+              variant="primary"
+              label="确认处理"
+              onPress={() => {
+                dismissAlert();
+                setFundSheetOpen(false);
               }}
-            >
-              <Text variant="captionStrong" color="ink">{f.name}</Text>
-              <Text variant="caption" color="muted">
-                估净 {f.estimatedNav.toFixed(4)} · 目标 {f.targetNav.toFixed(4)}
-              </Text>
-              <Text variant="captionStrong" color="warning">
-                超出 {(f.diff * 100).toFixed(2)}%
-              </Text>
-            </View>
-          ))}
-          <Button
-            variant="primary"
-            label="确认处理"
-            onPress={() => {
-              dismissAlert();
-              setAlertOpen(false);
-            }}
-          />
+            />
+          ) : null}
         </Box>
       </BottomSheet>
 
@@ -392,5 +408,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     color: colors.ink,
     fontSize: 15,
+  },
+  fundRow: {
+    backgroundColor: colors.surface[2],
+    borderRadius: radius.sm,
+    padding: spacing.sm,
+    gap: spacing.xxs,
   },
 });
