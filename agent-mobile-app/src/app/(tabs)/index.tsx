@@ -11,9 +11,10 @@ import {
   type ViewStyle,
 } from "react-native";
 import { Bell, ChevronDown, ChevronRight } from "lucide-react-native";
-import { ScreenHeader, StatusDot, EventItem, BottomSheet, Text, Box, Button } from "@/components";
+import { ScreenHeader, StatusDot, EventItem, BottomSheet, Text, Box, Button, Marquee } from "@/components";
 import { ProjectChat } from "@/components/chat/ProjectChat";
 import { useProjectEvents, type ProjectEvent } from "@/hooks/useProjectEvents";
+import { useFundEvents } from "@/hooks/useFundEvents";
 import { loadToken, login, onUnauthorized } from "@/services/auth";
 import { colors, spacing, radius } from "@/theme";
 import type { StatusType } from "@/components/feedback/StatusDot";
@@ -42,6 +43,7 @@ interface GroupedEvent extends ProjectEvent {
 
 export default function PulseScreen() {
   const { events, otherProjects, loading, error, refresh } = useProjectEvents();
+  const { funds, alert } = useFundEvents();
   const [activeProject, setActiveProject] = useState<{
     id: string;
     projectPath: string;
@@ -140,6 +142,35 @@ export default function PulseScreen() {
           </Text>
         </View>
       </View>
+
+      {funds.length > 0 ? (
+        <Box margin="sm" padding="sm" backgroundColor="surface.1" rounded="md">
+          {alert && alert.length > 0 ? (
+            <View style={styles.alertRow}>
+              <StatusDot status="warning" size={8} accessibilityLabel="Trade alert" />
+              <Text variant="captionStrong" color="warning">
+                有基金需要交易（{alert.length}）
+              </Text>
+            </View>
+          ) : null}
+          <Marquee>
+            {funds.map((f) => (
+              <View key={f.code} style={styles.fundItem}>
+                <Text variant="captionStrong" color="ink" numberOfLines={1}>
+                  {f.name}
+                </Text>
+                <Text
+                  variant="caption"
+                  color={f.changePct >= 0 ? "success" : "error"}
+                >
+                  {f.estimatedNav.toFixed(4)} ({f.changePct >= 0 ? "+" : ""}
+                  {f.changePct.toFixed(2)}%)
+                </Text>
+              </View>
+            ))}
+          </Marquee>
+        </Box>
+      ) : null}
 
       <ScrollView
         style={styles.scroll}
@@ -334,5 +365,18 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     color: colors.ink,
     fontSize: 15,
+  },
+  alertRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    paddingBottom: spacing.xs,
+  },
+  fundItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    minWidth: 180,
   },
 });

@@ -28,5 +28,7 @@ export { BottomTabBar } from "./navigation/BottomTabBar";
 export type { BottomTabBarProps, TabConfig } from "./navigation/BottomTabBar";
 export { BottomSheet } from "./navigation/BottomSheet";
 export type { BottomSheetProps } from "./navigation/BottomSheet";
+export { Marquee } from "./navigation/Marquee";
+export type { MarqueeProps } from "./navigation/Marquee";
 export { EventItem } from "./navigation/EventItem";
 export type { EventItemProps } from "./navigation/EventItem";
