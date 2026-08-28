@@ -137,9 +137,10 @@ export function subscribeToOpenCodeEvents(
     controller = new AbortController();
     const auth = tokenHeader();
     if (!auth.Authorization) {
-      // not logged in yet — poll quietly for a token instead of hammering
-      // the BFF with 401 requests every few seconds
-      reconnectTimer = setTimeout(connect, 3000);
+      // not logged in yet — poll quietly for a token (300ms) so the first
+      // connection fires as soon as loadToken() writes the token into memory,
+      // instead of waiting a fixed 3s.
+      reconnectTimer = setTimeout(connect, 300);
       return;
     }
     attempt++;

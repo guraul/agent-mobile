@@ -54,8 +54,9 @@ export function subscribeToFundEvents(
     controller = new AbortController();
     const auth = tokenHeader();
     if (!auth.Authorization) {
-      // 未登录——静默重试，等待 token 就绪
-      reconnectTimer = setTimeout(connect, 3000);
+      // 未登录——短间隔轮询 token 就绪（loadToken 异步写入内存），
+      // 避免固定 3s 等待导致首包延迟（Pulse 跑马灯 vs 项目列表晚 3s）。
+      reconnectTimer = setTimeout(connect, 300);
       return;
     }
     attempt++;
