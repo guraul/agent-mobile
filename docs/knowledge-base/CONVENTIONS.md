@@ -1,6 +1,6 @@
 # CONVENTIONS.md —— 约定与陷阱
 
-> 最后更新：2026-08-25 · commit：`b8a122b`（工作区未提交）+error透传+question事件+对象渲染白屏
+> 最后更新：2026-08-28 · commit：`471aea3`（跑马灯滚动修复 + SSE 提速 + 实时涨跌幅）
 
 ## 代码风格与命名约定
 
@@ -43,6 +43,7 @@
 | **RN TextInput web 垂直居中** | `textAlignVertical` 在 react-native-web 被忽略，单行输入文字会偏上 | `Platform.select({ web: { lineHeight: <高度> } })` + 固定 `height` + `paddingVertical: 0`（ChatPanel input 样式） |
 | **手机端勿复用 agent 活跃 session** | 用户手机打开项目进入的"最近 session"可能是 agent（TUI）正在执行的 busy 会话，发消息后 agent 忙于执行任务不处理，表现为"没反应" | ProjectChat header 提供 **session 切换** + **New session** 弹层（BottomSheet），用户可切到独立会话 |
 | `useNativeDriver` warning（web） | Animated 在 web 无原生驱动，控制台告警 | **非全无害**：见上"BottomSheet web 黑框"——依赖 `useNativeDriver` 驱动 transform 隐藏的组件会失效。opacity 类动画不受影响 |
+| **web Animated transform 动画不生效（跑马灯）** | react-native-web 的 `Animated` 在 `useNativeDriver:true` 下**不更新 DOM transform**——`Animated.loop(translateX)` 跑马灯纹丝不动（与 BottomSheet 黑框同源）。另：若 `onLayout` 放在外层容器（固定屏宽如 430px）上测内容宽度，会误判 `shouldScroll=false` 永不滚动 | ① `useNativeDriver: Platform.OS !== "web"`；② `onLayout` 必须放在**内容**（Animated.View，两份）上，宽度取 `/2`。见 `src/components/navigation/Marquee.tsx`（commit `05311ac`） |
 | **React Compiler 误伤状态更新** | `app.json` 的 `experiments.reactCompiler: true` 会让 React Compiler 错误 memo 组件，导致 `setState(null)` 后再 `setState(obj)` 的重渲染被跳过——表现为"打开详情→关闭→再点无反应"。已在 2026-08-10 禁用。**勿重新开启**，如需启用须回归测试 Pulse 打开/关闭/再打开流程 | 保持 `reactCompiler` 关闭 |
 | `accessible` 布尔透传警告（web） | `accessible={true}` 在 RN Web 会透传为 DOM 非布尔属性，触发 `received true for a non-boolean` 报错 | 勿给 View/组件传 `accessible={true}`（RN 默认即 accessible） |
 | EAS 构建挂起 | 前台跑 `eas build` 会阻塞/超时 | 一律 nohup 后台 + 日志文件 |

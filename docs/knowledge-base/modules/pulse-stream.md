@@ -1,6 +1,6 @@
 # modules/pulse-stream.md —— Pulse 首页（项目导航 + 基金估值）
 
-> 最后更新：2026-08-28 · commit：`8efc53d`（跑马灯基金详情：平时看估值列表，提醒时看 diff）
+> 最后更新：2026-08-28 · commit：`471aea3`（跑马灯滚动修复 + SSE 提速 + 昨日净值）
 
 ## 模块职责
 
@@ -75,9 +75,11 @@ family-finance BFF /api/events/stream（SSE，JWT）
 ```
 
 - **fund-events.ts**：fetch SSE 订阅 `/api/events/stream`，复用 `tokenHeader` JWT；断线指数退避重连（同 opencode-events 模式）；只解析 `fund.estimate` / `fund.trade-alert`。
-- **Marquee.tsx**：内容超宽（>90% 屏宽）时 `Animated.loop` translateX 无缝循环滚动（内容复制两份），否则静止展示。
+- **Marquee.tsx**：内容超宽（>90% 屏宽）时 `Animated.loop` translateX 无缝循环滚动（内容复制两份），否则静止展示。**⚠️ web 滚动坑（2026-08-28）**：① `useNativeDriver` 按平台——web 必须 `false`（RN Web 的 Animated native driver 不更新 DOM transform，与 BottomSheet 黑框同源坑）；② `onLayout` 必须放在 **Animated.View**（内容）上测宽度，放外层容器（430px）会误判 contentWidth 过小导致 `shouldScroll` 恒 false、永不滚动。
 - **FundMarqueeItem.tsx**：与 EventItem 相同视觉的行情条目（MARKET 标签 + 基金名/估值两行跑马灯 + StatusPill）；`hasAlert` 时 StatusPill 为 warning"有基金需要交易(N)"，否则 idle"Watching"；Pressable 可点击（onPress）。
 - **useFundEvents.dismissAlert()（2026-08-27）**：确认处理后清空 alert（needs-you 消失，跑马灯回落 MARKET 分组）。alert 是前端 state，收到 trade-alert 后保持，直到 dismiss 或新事件覆盖。
+- **行情显示（2026-08-28）**：跑马灯 summary 行 + 基金详情 sheet 均显示 `估算值 昨 昨日净值 涨跌幅%`（如 `1.3081 昨 1.3013 +0.52%`），`prevNav` 来自 BFF 事件，便于与估算值对比。
+- **SSE 首连提速（2026-08-28）**：`fund-events.ts`/`opencode-events.ts` 未登录等待 token 从固定 3000ms 改为 **300ms 短轮询**——SSE 订阅 mount 即启动，但 `loadToken()` 异步写内存 token 未完成时首连无 token，原等 3s 重试导致跑马灯比项目列表晚 3s；改后跑马灯 4.2s→1.7s，与项目列表几乎同步。
 - 涨跌颜色：changePct>=0 用 `success`（红涨），否则 `error`（绿跌）——注意中国市场红涨绿跌约定。
 
 ## 状态判定优先级（project-status.ts）
