@@ -37,6 +37,24 @@ function backoffDelay(attempt: number, baseMs = 250, maxMs = 30000): number {
 }
 
 /**
+ * 确认处理交易提醒——通知 BFF 清除该事件，SSE 重连时不再重放。
+ * 避免「确认处理后刷新页面又回到 needs-you」。
+ */
+export async function ackTradeAlert(): Promise<void> {
+  const auth = tokenHeader();
+  if (!auth.Authorization) return;
+  try {
+    await fetch(`${opencodeConfig.baseUrl}/api/events/ack`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...auth },
+      body: JSON.stringify({ type: "fund.trade-alert" }),
+    });
+  } catch {
+    // 网络失败静默——下次仍可能重放，可再次确认
+  }
+}
+
+/**
  * 订阅 family-finance BFF 的通用事件流 `/api/events/stream`。
  * 复用 JWT（tokenHeader），断线指数退避重连。返回解绑函数。
  */

@@ -15,6 +15,7 @@ import { ScreenHeader, StatusDot, EventItem, BottomSheet, Text, Box, Button, Fun
 import { ProjectChat } from "@/components/chat/ProjectChat";
 import { useProjectEvents, type ProjectEvent } from "@/hooks/useProjectEvents";
 import { useFundEvents } from "@/hooks/useFundEvents";
+import { ackTradeAlert } from "@/services/fund-events";
 import { loadToken, login, onUnauthorized } from "@/services/auth";
 import { colors, spacing, radius } from "@/theme";
 import type { StatusType } from "@/components/feedback/StatusDot";
@@ -337,6 +338,9 @@ export default function PulseScreen() {
               variant="primary"
               label="确认处理"
               onPress={() => {
+                // 先清本地（needs-you 立即消失），再通知 BFF 清除重放事件，
+                // 刷新页面后不会再次出现
+                ackTradeAlert();
                 dismissAlert();
                 setFundSheetOpen(false);
               }}
