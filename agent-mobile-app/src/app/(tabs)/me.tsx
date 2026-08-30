@@ -5,7 +5,7 @@ import { ChevronRight } from "lucide-react-native";
 import { colors, spacing, radius } from "@/theme";
 import { Card, Text, Button, Input, SearchInput, BottomSheet, StatusDot, Icon } from "@/components";
 import { opencodeConfig, getBaseUrl } from "@/config/opencode";
-import { getUsername, logout } from "@/services/auth";
+import { getUsername, logout, loadToken } from "@/services/auth";
 import { getRuntimeBaseUrl, setRuntimeBaseUrl, clearRuntimeBaseUrl } from "@/services/bff-config";
 import { probeBffHealth } from "@/services/bff-health";
 import { loadModelPrefs, setModelPref } from "@/services/model-prefs";
@@ -27,6 +27,8 @@ export default function MeScreen() {
   const [query, setQuery] = useState("");
 
   const reload = useCallback(async () => {
+    // 直开/刷新 /me 时无 Pulse 启动流程,先从 AsyncStorage 恢复 token,否则 listAgents/listProviders 401
+    await loadToken();
     setUsername(await getUsername());
     setOnline(await probeBffHealth(getBaseUrl()));
     const runtime = await getRuntimeBaseUrl();
