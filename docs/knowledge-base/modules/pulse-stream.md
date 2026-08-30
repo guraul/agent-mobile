@@ -1,6 +1,6 @@
 # modules/pulse-stream.md —— Pulse 首页（项目导航 + 基金估值）
 
-> 最后更新：2026-08-28 · commit：`471aea3`（跑马灯滚动修复 + SSE 提速 + 昨日净值）
+> 最后更新：2026-08-30 · commit：`d255c48`（启动读 runtimeBaseUrl 覆盖 env——方案 C）
 
 ## 模块职责
 
@@ -79,6 +79,7 @@ family-finance BFF /api/events/stream（SSE，JWT）
 - **FundMarqueeItem.tsx**：与 EventItem 相同视觉的行情条目（MARKET 标签 + 基金名/估值两行跑马灯 + StatusPill）；`hasAlert` 时 StatusPill 为 warning"有基金需要交易(N)"，否则 idle"Watching"；Pressable 可点击（onPress）。
 - **useFundEvents.dismissAlert()（2026-08-27）**：确认处理后清空 alert（needs-you 消失，跑马灯回落 MARKET 分组）。alert 是前端 state，收到 trade-alert 后保持，直到 dismiss 或新事件覆盖。
 - **行情显示（2026-08-28）**：跑马灯 summary 行 + 基金详情 sheet 均显示 `估算值 昨 昨日净值 涨跌幅%`（如 `1.3081 昨 1.3013 +0.52%`），`prevNav` 来自 BFF 事件，便于与估算值对比。
+- **启动时 BFF 地址覆盖（2026-08-30，方案 C）**：启动 effect 先 `getRuntimeBaseUrl()`（AsyncStorage `pulse_bff_url`，Me 页写入）设 `opencodeConfig.runtimeBaseUrl`，**再** `loadToken()`+refresh；所有请求走 `getBaseUrl()`（覆盖优先回退 env）。运行中不热切，改地址重启生效。
 - **SSE 首连提速（2026-08-28）**：`fund-events.ts`/`opencode-events.ts` 未登录等待 token 从固定 3000ms 改为 **300ms 短轮询**——SSE 订阅 mount 即启动，但 `loadToken()` 异步写内存 token 未完成时首连无 token，原等 3s 重试导致跑马灯比项目列表晚 3s；改后跑马灯 4.2s→1.7s，与项目列表几乎同步。
 - 涨跌颜色：changePct>=0 用 `success`（红涨），否则 `error`（绿跌）——注意中国市场红涨绿跌约定。
 

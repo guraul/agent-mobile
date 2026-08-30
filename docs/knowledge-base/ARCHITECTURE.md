@@ -1,6 +1,6 @@
 # ARCHITECTURE.md —— 架构与数据流
 
-> 最后更新：2026-08-13 · commit：`b4d9361`（阶段 2：BFF 中间层 + 打字机 + 动态模型 + 登录）
+> 最后更新：2026-08-30 · commit：`d255c48`（BFF 地址运行时覆盖——方案 C 重启生效）
 
 ## 整体架构
 
@@ -106,7 +106,7 @@ hooks 层（聚合状态）        src/hooks/useProjectEvents.ts
 | 项目/会话/消息/权限 | OpenCode Server（进程内存 + 磁盘） | REST + SSE 流式增量 |
 | 主题 token | `agent-mobile-app/src/theme/*.ts` | TS 常量对象 |
 | 应用配置 | `agent-mobile-app/app.json` / `eas.json` | JSON |
-| 连接参数 | `agent-mobile-app/.env.local`（未提交） | `EXPO_PUBLIC_OPENCODE_URL`（BFF 地址） |
+| 连接参数 | `agent-mobile-app/.env.local`（未提交）+ AsyncStorage `pulse_bff_url`（运行时覆盖，Me 页写入，重启生效） | `EXPO_PUBLIC_OPENCODE_URL` 默认值 + `getBaseUrl()` 统一读取 |
 | 测试数据 | `src/services/*.test.ts` 内联构造 | vitest fixtures |
 
 **运行时持久化**：OpenCode Server 负责会话/消息的持久化。应用重启后 opencode session 仍存在。

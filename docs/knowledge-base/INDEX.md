@@ -1,6 +1,6 @@
 # Agent Mobile 项目知识库 · 索引总览
 
-> 最后更新：2026-08-30 · commit：`Me 页落地`（账号登出/BFF地址运行时切换/按agent配默认model）
+> 最后更新：2026-08-30 · commit：`d255c48`（Me 页落地 + bff-health OPTIONS 探测 + web 静态版恢复）
 > 维护：见 [CONVENTIONS.md](CONVENTIONS.md)「知识库维护约定」
 
 ## 使用说明
@@ -46,7 +46,7 @@
 | 消息增量更新 reducer | services | `agent-mobile-app/src/services/message-reducer.ts` |
 | 消息 step 展开（OpenCodeMessage → DisplayStep） | services | `agent-mobile-app/src/services/message-merging.ts` |
 | 底部 4-tab 导航 | router | `agent-mobile-app/src/app/(tabs)/_layout.tsx` |
-| Talk/Memory/Me 占位页 | router | `agent-mobile-app/src/app/(tabs)/talk.tsx` 等 |
+| Talk/Memory 占位页 | router | `agent-mobile-app/src/app/(tabs)/talk.tsx` 等 |
 | 组件库（primitives/feedback/navigation） | components | `agent-mobile-app/src/components/index.ts` |
 | 设计 token（暗色主题） | theme | `agent-mobile-app/src/theme/index.ts` |
 | Web 静态预览服务（9928，gzip，当前） | ops | `agent-mobile-app/scripts/serve-static.mjs` + `serve-9928.service` |
@@ -104,7 +104,8 @@ agent-mobile/                                  # git 根仓库
         ├── app/_layout.tsx                    # 根 Stack
         ├── app/(tabs)/_layout.tsx             # Tabs（4 tab）
         ├── app/(tabs)/index.tsx              # Pulse 页（项目导航，完整；默认 tab）
-        ├── app/(tabs)/talk|memory|me.tsx      # 占位页
+        ├── app/(tabs)/me.tsx                  # Me 配置页（账号/BFF地址/model偏好）
+        ├── app/(tabs)/talk|memory.tsx          # 占位页
         ├── config/opencode.ts                 # opencode 连接配置（env）
         ├── hooks/useProjectEvents.ts          # 项目事件聚合 hook
         ├── services/                          # ★ opencode REST/SSE/reducer/step展开/状态机

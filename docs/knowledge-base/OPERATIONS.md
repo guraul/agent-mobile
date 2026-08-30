@@ -1,6 +1,6 @@
 # OPERATIONS.md —— 构建与运维
 
-> 最后更新：2026-08-16 · commit：`690853a`（web→APK：9928 切 APK 下载服务 + BFF 地址修正 + cleartext）
+> 最后更新：2026-08-30 · commit：`d255c48`（9928 恢复 web 静态版 serve-9928，Metro/APK 转备用）
 
 ## 环境变量清单
 
@@ -92,7 +92,7 @@ npx serve dist -l 9928                # 或 node scripts/serve-static.mjs（gzip
 
 ## Expo Go 真机预览（备用方案，9928 端口）
 
-**2026-08-15 起**：9928 由 Metro dev server 占用（替代静态 web），手机 Expo Go 直连，**不新开 8081**。**2026-08-16 起 9928 已切换为 APK 下载服务**（见下节），Expo Go 方案保留备用。
+**2026-08-15 起**：9928 由 Metro dev server 占用（替代静态 web），手机 Expo Go 直连，**不新开 8081**。**2026-08-16 起 9928 已切换为 APK 下载服务**（见下节）。**2026-08-30 起 9928 恢复 web 静态版（`serve-9928`，当前方案）**，Expo Go 方案保留备用。
 
 ```bash
 # 启动（systemd 托管，开机自启）

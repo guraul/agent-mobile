@@ -1,6 +1,6 @@
 # CONVENTIONS.md —— 约定与陷阱
 
-> 最后更新：2026-08-28 · commit：`471aea3`（跑马灯滚动修复 + SSE 提速 + 实时涨跌幅）
+> 最后更新：2026-08-30 · commit：`d255c48`（CORS 探测 + 直开路由 token 恢复两条坑）
 
 ## 代码风格与命名约定
 
@@ -59,6 +59,11 @@
 | **SSE 只透传 info.error 不透传文本错误** | 模型调用失败时，错误在 assistant 消息的 **`info.error`**（对象 `{name, data:{message}}`），不在任何 part 里。`applyMessageUpdated` 若只保留 id/role/sessionID/time 会把 error 丢掉 → 实时不显示、要重进才见 | `applyMessageUpdated` 必须透传 `info.error`；`mergeMessages` 对带 error 的消息产出 `error` step |
 | **对象直接渲染 React error #31 → 白屏** | 运行时字段可能是对象（如 `info.error` = NamedError `{name,data}`），若直接塞进 `<Text>`/`<Markdown>`，React 报 "Objects are not valid as a React child"，**整棵组件树崩溃 → 全白屏**（曾表现为"打开聊天 load 一会儿全白"） | 渲染前用 `errorText()` 等安全转字符串；给 `info.error` 之类声明 `unknown` 类型而非 `string` |
 | **question 事件名是 `question.asked` 非 `question.v2.asked`** | opencode server（1.18.22）实际发出 `question.asked`/`question.replied`/`question.rejected`（v1 兼容名），schema 里定义的 `question.v2.*` 未在运行时使用。只监听 v2 名 → 实时弹窗不触发，重进才显示（loadMessages→listQuestions 恢复） | ChatPanel 与 `OpenCodeEvent` 类型同时兼容两种命名 |
+
+## 已知坑（2026-08-30 Me 页新增）
+
+- **`bff-health` 探测必须用 OPTIONS**：BFF 仅对 OPTIONS 回 CORS 头；HEAD → 405 且无 CORS 头，web 静态版（9928）里 fetch 被 CORS 拦 → 永远误判"离线"。
+- **除 Pulse 外可直开/刷新的页面必须先 `loadToken()`**：token 只在 Pulse 启动 effect 恢复到内存 `opencodeConfig.token`，直开 `/me` 不恢复 → authed 请求 401（me.tsx reload 开头已修，新增直开路由照做）。
 
 ## 修改红线
 

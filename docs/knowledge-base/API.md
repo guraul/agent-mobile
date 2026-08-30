@@ -1,6 +1,6 @@
 # API.md —— 接口清单
 
-> 最后更新：2026-08-14 · commit：`108bd36`（补 /agent 端点）
+> 最后更新：2026-08-30 · commit：`d255c48`（补 /api/auth/logout 端点）
 
 ## 结论
 
@@ -15,6 +15,7 @@
 | 端点 | 方法 | 用途 | 认证 |
 |---|---|---|---|
 | `/api/auth/login` | POST | 登录，返回 `{success, token}`（JWT，1 天） | 无（用户名/密码） |
+| `/api/auth/logout` | POST | 登出（BFF 清 `auth_token` cookie；JWT 无服务端吊销，手机端同时清本地 token/username） | Bearer JWT |
 | `/api/opencode/rest/[...path]` | GET/POST/PATCH/DELETE | 转发到 opencode REST（`/project`、`/session`、`/config/providers` 等） | Bearer JWT |
 | `/api/opencode/stream` | GET | SSE 事件流（`message.*`、`delta`、`session.*`、`permission.*`、`question.*`（`question.asked/replied/rejected`，v1 名）、`server.connected`、`stream.error`） | Bearer JWT |
 

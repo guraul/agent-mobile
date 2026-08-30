@@ -1,6 +1,6 @@
 # modules/services.md —— opencode 对接服务层
 
-> 最后更新：2026-08-30 · commit：`Me 页落地`（bff-config/model-prefs/bff-health/getBaseUrl 运行时覆盖）
+> 最后更新：2026-08-30 · commit：`d255c48`（bff-config/model-prefs/bff-health/getBaseUrl 运行时覆盖 + OPTIONS 探测 + loadToken 修复）
 
 ## 模块职责
 

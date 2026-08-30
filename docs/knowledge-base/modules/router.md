@@ -1,6 +1,6 @@
 # modules/router.md —— 路由与应用壳
 
-> 最后更新：2026-08-10 · commit：`022b4a6`
+> 最后更新：2026-08-30 · commit：`d255c48`（Me 页从占位转正式——账号/BFF地址/model偏好）
 
 ## 模块职责
 
@@ -20,7 +20,7 @@ Expo Router 文件路由：根 Stack + 4-tab Tabs，承载全部页面注册。
 | `src/app/(tabs)/index.tsx` | `/`（默认 tab） | Pulse 事件流页（默认 tab，历史名 pulse.tsx） |
 | `src/app/(tabs)/talk.tsx` | `/talk` | 占位页 |
 | `src/app/(tabs)/memory.tsx` | `/memory` | 占位页 |
-| `src/app/(tabs)/me.tsx` | `/me` | 占位页 |
+| `src/app/(tabs)/me.tsx` | `/me` | Me 配置页：连接与账号（在线探测/登出）+ BFF 地址（运行时覆盖）+ model 偏好（BottomSheet 选择）；直开时 reload 开头 `loadToken()` |
 | `src/app/+not-found.tsx` | 404 | expo-router 自动生成（未列，由模板提供） |
 
 ## Tab 配置（(tabs)/_layout.tsx）

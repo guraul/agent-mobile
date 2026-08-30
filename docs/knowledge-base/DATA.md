@@ -1,6 +1,6 @@
 # DATA.md —— 数据查询指南
 
-> 最后更新：2026-08-11 · commit：`072537f`（opencode 集成 + 消息顺序修复）
+> 最后更新：2026-08-30 · commit：`d255c48`（Me 页：BFF 地址/model 偏好/username 本地存储 + token 恢复）
 
 ## 数据实体清单
 
@@ -17,6 +17,18 @@
 | 连接参数 | baseUrl/username/password | `.env.local`（未提交） | `agent-mobile-app/src/config/opencode.ts` |
 
 **应用无本地数据库**：项目/会话/消息数据全部由 OpenCode Server 提供（REST + SSE 流式增量）。
+
+### 客户端本地存储（AsyncStorage，`@react-native-async-storage/async-storage`）
+
+| Key | 写入方 | 读取方 | 内容 |
+|---|---|---|---|
+| `pulse_opencode_token` | `auth.ts setToken/login` | `auth.ts getToken/loadToken` | BFF 签发的 JWT |
+| `pulse_username` | `auth.ts setUsername/login` | `auth.ts getUsername`（Me 页展示） | 登录用户名 |
+| `pulse_bff_url` | `bff-config.ts setRuntimeBaseUrl`（Me 页保存） | `bff-config.ts getRuntimeBaseUrl` → Pulse 启动设 `opencodeConfig.runtimeBaseUrl` | 自定义 BFF 地址（方案 C 重启生效） |
+| `pulse_model_pref_<agent>` | `model-prefs.ts setModelPref`（Me 页选择） | `model-prefs.ts getModelPref/loadModelPrefs`（Me 页 + ChatPanel 默认 pill） | JSON `{providerID, modelID}` |
+
+- 读取一律走 services 封装（`auth.ts`/`bff-config.ts`/`model-prefs.ts`），勿在组件里直接调 AsyncStorage。
+- 除 Pulse 外的页面直开/刷新时，使用 token 的请求前必须先 `loadToken()`（见 services.md 注意事项）。
 
 ## 常见查询场景
 

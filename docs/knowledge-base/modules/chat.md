@@ -1,6 +1,6 @@
 # modules/chat.md —— 聊天（项目对话）
 
-> 最后更新：2026-08-25 · commit：`b8a122b`（工作区未提交）+question 事件类型修正+错误气泡+模型列表过滤
+> 最后更新：2026-08-30 · commit：`d255c48`（ChatPanel 默认 model pill 读 Me 偏好）
 
 ## 模块职责
 
@@ -129,7 +129,9 @@ SSE: BFF /api/opencode/stream（Bearer JWT + ?sessionID= 过滤）
 ### agent / model 切换（动态加载，2026-08-14 重构）
 
 - **机制**：opencode **不支持修改已存在 session 的 agent/model**（`PATCH /session/{id}/update` 只有 title/metadata/permission）；agent/model 只能**按消息指定**（`POST /session/{id}/prompt_async` body 的 `agent` / `model:{providerID,modelID}`）。`ModelRef = { providerID, modelID }`（结构化对象，不是字符串）。
-- **agent pill**（输入区上方左）：显示当前 agent，点击**循环切换** primary agents。primary agents 的 model **动态加载**：mount 时 `listAgents()`（`GET /agent`）过滤 `mode === "primary"`，取其 `model`（遵循服务端 `opencode.json` 配置）；加载中或失败回退 `FALLBACK_AGENTS`（build/plan/design，deepseek）。常量已从 `PRIMARY_AGENTS` 重命名为 `FALLBACK_AGENTS`。
+- **agent pill**（输入区上方左）：显示当前 agent，点击**循环切换** primary agents。primary agents 的 model **动态加载**：mount 时 `listAgents()`（`GET /agent`）过滤 `mode === "primary"`，取其 `model`，再 `loadModelPrefs()` 用 **Me 页偏好覆盖**（优先级：**Me 偏好 > server `agent.model` > FALLBACK_AGENTS**，build/plan/design，deepseek）。
+- **初始 model pill（2026-08-30）**：`getModelPref(curAgent)` 有偏好 → 直接设为当前 model；无偏好才 adopt session model（须匹配 primary agent 列表）。手选 model 不持久化（只影响本次会话）。
+- 常量已从 `PRIMARY_AGENTS` 重命名为 `FALLBACK_AGENTS`。
 - **model pill**（旁边）：点击打开 **BottomSheet 弹出框**选择模型（**阶段 2 起为动态列表**：`listProviders()` 全量模型，失败回退 `FALLBACK_AGENTS` 默认模型；曾用内联下拉，被输入框遮挡且效果差，2026-08-12 改为 BottomSheet）。
 - **model 列表过滤（2026-08-25）**：`loadModels()` 只保留 **modelID 含 `deepseek`（大小写不敏感）** 的模型，且**排除 `openrouter`、`siliconflow-cn`** 两个 provider（避免列表刷屏 + 第三方中转模型混杂）。真实数据源来自 BFF `listProviders()` 转发 opencode `/config/providers`。
 - **model 列表滚动 + provider 前缀（2026-08-25）**：列表包 `ScrollView`（`maxHeight: 400`）可滚动；每项显示 **`{providerID}: {modelID}`**（如 `deepseek: deepseek-v4-flash`、`volcengine-plan: deepseek-v4-flash`）以区分跨 provider 的同名模型；active 高亮按 **providerID + modelID 双匹配**（避免同名模型误高亮）。
