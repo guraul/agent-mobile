@@ -13,6 +13,7 @@ import {
 import { Bell, ChevronDown, ChevronRight } from "lucide-react-native";
 import { ScreenHeader, StatusDot, EventItem, BottomSheet, Text, Box, Button, FundMarqueeItem } from "@/components";
 import { ProjectChat } from "@/components/chat/ProjectChat";
+import { ProjectChatZ } from "@/components/chat/zcode/ProjectChatZ";
 import { useProjectEvents, type ProjectEvent } from "@/hooks/useProjectEvents";
 import { useFundEvents } from "@/hooks/useFundEvents";
 import { ackTradeAlert } from "@/services/fund-events";
@@ -43,6 +44,11 @@ function statusTypeFor(status: ProjectEvent["status"]): StatusType {
 interface GroupedEvent extends ProjectEvent {
   section: "needs-you" | "today";
 }
+
+// ZCode 风格聊天弹框开关（src/components/chat/zcode/）：false 一行回退旧弹框
+// （旧弹框 src/components/chat/ProjectChat.tsx 零改动保留）。详见
+// docs/superpowers/plans/2026-08-30-zcode-chat-sheet.md
+const USE_ZCODE_CHAT_SHEET = true;
 
 export default function PulseScreen() {
   const { events, otherProjects, loading, error, refresh } = useProjectEvents();
@@ -360,12 +366,17 @@ export default function PulseScreen() {
         fullScreen
         testID="project-chat-sheet"
       >
-        {activeProject && (
+        {activeProject && (USE_ZCODE_CHAT_SHEET ? (
+          <ProjectChatZ
+            projectPath={activeProject.projectPath}
+            onBack={() => setActiveProject(null)}
+          />
+        ) : (
           <ProjectChat
             projectPath={activeProject.projectPath}
             onBack={() => setActiveProject(null)}
           />
-        )}
+        ))}
       </BottomSheet>
     </KeyboardAvoidingView>
   );
