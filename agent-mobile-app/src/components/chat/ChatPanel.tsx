@@ -33,6 +33,7 @@ import {
   nextRevealChars,
 } from "../../services/message-reducer";
 import { mergeMessages, type DisplayStep } from "../../services/message-merging";
+import { loadModelPrefs } from "../../services/model-prefs";
 import { MessageBubble } from "./MessageBubble";
 
 const PAGE_SIZE = 50;
@@ -396,15 +397,25 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
     let cancelled = false;
     opencodeClient
       .listAgents()
-      .then((list) => {
+      .then(async (list) => {
         if (cancelled) return;
         const primary = list.filter((a) => a.mode === "primary" && a.model);
         const known = FALLBACK_AGENTS.filter((f) => primary.some((a) => a.name === f.id));
         if (known.length === 0) return;
+        const prefs = await loadModelPrefs();
         setAgents(
           primary
             .filter((a) => FALLBACK_AGENTS.some((f) => f.id === a.name))
-            .map((a) => ({ id: a.name, model: { providerID: a.model!.providerID, modelID: a.model!.modelID } })),
+            .map((a) => {
+              // Me 偏好优先,否则 server agent.model
+              const p = prefs[a.name];
+              return {
+                id: a.name,
+                model: p
+                  ? { providerID: p.providerID, modelID: p.modelID }
+                  : { providerID: a.model!.providerID, modelID: a.model!.modelID },
+              };
+            }),
         );
       })
       .catch(() => {});
@@ -418,22 +429,28 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
     let cancelled = false;
     opencodeClient
       .getSession(sessionID)
-      .then((s) => {
+      .then(async (s) => {
         if (cancelled) return;
         if (s.agent) {
           const idx = agents.findIndex((a) => a.id === s.agent);
           if (idx !== -1) setAgentIdx(idx);
         }
-        // Only adopt the session model when it matches one of the primary
-        // agents' defaults; stale session models (e.g. from before the model
-        // migration) must not pin the chat to an old provider.
-        if (
+        // 初始 model pill:Me 偏好优先,无则 adopt session model(若匹配 primary)
+        const prefs = await loadModelPrefs();
+        const curAgent = s.agent ?? agents[agentIdx]?.id;
+        const pref = curAgent ? prefs[curAgent] : null;
+        if (pref) {
+          setModel({ providerID: pref.providerID, modelID: pref.modelID });
+        } else if (
           s.model?.providerID &&
           s.model?.id &&
           agents.some(
             (a) => a.model.providerID === s.model!.providerID && a.model.modelID === s.model!.id,
           )
         ) {
+          // Only adopt the session model when it matches one of the primary
+          // agents' defaults; stale session models (e.g. from before the model
+          // migration) must not pin the chat to an old provider.
           setModel({ providerID: s.model.providerID, modelID: s.model.id });
         }
       })
