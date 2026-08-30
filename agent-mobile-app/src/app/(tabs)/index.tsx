@@ -17,6 +17,8 @@ import { useProjectEvents, type ProjectEvent } from "@/hooks/useProjectEvents";
 import { useFundEvents } from "@/hooks/useFundEvents";
 import { ackTradeAlert } from "@/services/fund-events";
 import { loadToken, login, onUnauthorized } from "@/services/auth";
+import { getRuntimeBaseUrl } from "@/services/bff-config";
+import { opencodeConfig } from "@/config/opencode";
 import { colors, spacing, radius } from "@/theme";
 import type { StatusType } from "@/components/feedback/StatusDot";
 
@@ -66,12 +68,15 @@ export default function PulseScreen() {
   }, []);
 
   useEffect(() => {
-    loadToken().then((tok) => {
-      setNeedLogin(!tok);
-      // token became available — retry the project list immediately instead
-      // of waiting for the 30s poll (the mount-time fetch ran before the
-      // token was loaded and 401'd).
-      if (tok) refresh();
+    getRuntimeBaseUrl().then((override) => {
+      if (override) opencodeConfig.runtimeBaseUrl = override;
+      loadToken().then((tok) => {
+        setNeedLogin(!tok);
+        // token became available — retry the project list immediately instead
+        // of waiting for the 30s poll (the mount-time fetch ran before the
+        // token was loaded and 401'd).
+        if (tok) refresh();
+      });
     });
     return onUnauthorized(() => setNeedLogin(true));
   }, [refresh]);
