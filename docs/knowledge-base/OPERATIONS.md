@@ -75,9 +75,9 @@ node test/bff-e2e.mjs      # 登录 → 横幅消失 → 打开项目 → 动态
 
 - 构建注入 BFF 地址：`EXPO_PUBLIC_OPENCODE_URL=http://127.0.0.1:19235 pnpm exec expo export --platform web --clear`（**必须 `--clear`**，否则 env 不注入）。
 
-## Web 预览部署（手机浏览器，静态产物）【当前已停用，改用 Expo Go 9928】
+## Web 预览部署（手机浏览器，静态产物）【当前方案，2026-08-30 起恢复】
 
-> 2026-08-15 起 9928 由 Expo Go Metro dev server 占用（见下节），静态 web 方案保留备用。
+> 2026-08-30 起 9928 恢复 web 静态版（`serve-9928`），替代 Expo Go Metro / APK 下载。**BFF CORS 允许列表只放行 9928 的三个 origin**（`106.13.181.13`/`127.0.0.1`/`localhost`，见 family-finance `lib/cors.ts`），静态版换端口浏览器端会全被 CORS 拦。
 
 ```bash
 cd agent-mobile-app
@@ -181,7 +181,7 @@ curl -u opencode:<密码> http://127.0.0.1:4096/global/health
 
 | 端口 | 用途 | 进程 |
 |---|---|---|
-| 9928 | APK 下载服务（当前，内部分发） | `apk-download-9928.service`（python3 http.server） |
+| 9928 | Web 静态预览（当前，serve-9928） | `serve-9928.service`（node serve-static.mjs，gzip） |
 | 19234 | BFF（family-finance 主 checkout next dev） | `next dev -p 19234` |
 | 19235 | BFF（阶段 2 worktree next dev） | `next dev -p 19235` |
 | 4096 | OpenCode Server（AI agent 后端，127.0.0.1） | `opencode serve` |

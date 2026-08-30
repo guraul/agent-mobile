@@ -27,7 +27,7 @@ auth.ts ──Bearer JWT──► 认证（family-finance 用户）       openco
 | `agent-mobile-app/src/config/opencode.ts` | BFF baseUrl + token + runtimeBaseUrl（`getBaseUrl()` = runtime 覆盖优先回退 env） |
 | `agent-mobile-app/src/services/auth.ts` | JWT 登录/登出/username/存取/401 联动（AsyncStorage） |
 | `agent-mobile-app/src/services/bff-config.ts` | BFF 地址运行时覆盖（AsyncStorage key `pulse_bff_url`，方案 C 重启生效） |
-| `agent-mobile-app/src/services/bff-health.ts` | `probeBffHealth(url)`：HEAD `/api/auth/login` 探测 BFF 在线（2xx-4xx 在线，超时默认 3s） |
+| `agent-mobile-app/src/services/bff-health.ts` | `probeBffHealth(url)`：OPTIONS `/api/auth/login` 探测 BFF 在线（2xx-4xx 在线，超时默认 3s） |
 | `agent-mobile-app/src/services/model-prefs.ts` | 按 agent 持久化默认 model（AsyncStorage key `pulse_model_pref_<agent>`） |
 | `agent-mobile-app/src/services/filter-models.ts` | `filterModels(list, query)`：modelID/providerID 子串不分大小写过滤；`ModelPref` 类型 |
 | `agent-mobile-app/src/services/opencode-client.ts` | REST 封装（BFF 前缀 + Bearer + 401 → handleUnauthorized） |
@@ -132,6 +132,7 @@ auth.ts ──Bearer JWT──► 认证（family-finance 用户）       openco
 
 ## 修改本模块的注意事项
 
+- **`probeBffHealth` 必须用 OPTIONS**：BFF 只对 OPTIONS 预检回 CORS 头（`corsOptionsResponse`），HEAD 会 405 且无 CORS 头——web 静态版（9928）浏览器里 fetch 被拦 → 永远误判离线（2026-08-30 踩坑）。且 BFF `lib/cors.ts` 允许列表只含 9928 三个 origin。
 - **消息数组必须保持 chronological**（`listMessages` 真实顺序），任何排序/插入逻辑以 `time.created` 为准。
 - **SSE 事件属性是 `Record<string, unknown>`**：事件处理处需自行 cast（如 `props.info`、`props.part`、delta 的 `properties`），有拼写风险。
 - **BFF 强制覆盖 Authorization 为 opencode Basic**：手机端 JWT 不传 upstream（BFF `lib/opencode.ts` `proxyRequest`）。

@@ -16,7 +16,8 @@ import { existsSync } from 'node:fs';
 
 const ROOT = '/root/project/agent-mobile/agent-mobile-app/dist';
 const PORT = 9930;
-const BASE = `http://127.0.0.1:${PORT}`;
+// E2E_URL 覆盖时不启内置服务器,直接测目标地址(如 http://127.0.0.1:9928)
+const BASE = process.env.E2E_URL || `http://127.0.0.1:${PORT}`;
 const EXECUTABLE = '/root/.cache/ms-playwright/chromium_headless_shell-1228/chrome-headless-shell-linux64/chrome-headless-shell';
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'application/javascript', '.css': 'text/css',
@@ -55,8 +56,8 @@ async function clickTestId(page, testId) {
 
 async function main() {
   if (!existsSync(EXECUTABLE)) throw new Error('未找到 headless chromium');
-  await new Promise((r) => server.listen(PORT, r));
-  console.log(`[e2e] 静态服务: ${BASE}/me.html`);
+  if (!process.env.E2E_URL) await new Promise((r) => server.listen(PORT, r));
+  console.log(`[e2e] 目标: ${BASE}/me`);
 
   const browser = await chromium.launch({ executablePath: EXECUTABLE, headless: true, args: ['--no-sandbox', '--disable-gpu'] });
   const page = await browser.newPage({ viewport: { width: 430, height: 900 } });
@@ -75,14 +76,20 @@ async function main() {
   await waitText(page, 'BFF 地址');
   check('Me 页加载（Card 2 标题可见）', await waitText(page, 'BFF 地址', 10000));
 
-  // Step 1: Card 1 连接与账号（未登录态 + BFF 不可达离线）
+  // Step 1: Card 1 连接与账号（未登录态；在线/离线取决于 origin 是否在 BFF CORS 允许列表）
   check('Card 1 未登录态', await waitText(page, '未登录', 5000));
-  check('Card 1 离线点（BFF 本机不可达）', await waitText(page, '离线', 5000));
+  const expectOnline = BASE.includes(':9928'); // 9928 在 BFF CORS 允许列表,其他端口探测被 CORS 拦 → 离线
+  check(`Card 1 ${expectOnline ? '在线点(BFF CORS 放行)' : '离线点(非 9928 origin,CORS 拦截)'}`,
+    await waitText(page, expectOnline ? '在线' : '离线', 8000));
   check('Card 1 去登录按钮', await page.locator('[data-testid="me-goto-login"]').isVisible().catch(() => false));
 
-  // Step 2: Card 2 BFF 地址默认态
+  // Step 2: Card 2 BFF 地址默认态（等 reload 完成后地址非空,避免后续 fill 被 setAddr 覆盖）
+  await page.waitForFunction(() => {
+    const el = document.querySelector('[data-testid="me-card-bff"] input');
+    return !!el && (el.value || '').length > 0;
+  }, { timeout: 15000 }).catch(() => {});
   const addrText = await page.locator('[data-testid="me-card-bff"]').innerText().catch(() => '');
-  check('Card 2 显示默认地址', addrText.includes('(默认)'), addrText.split('\n').slice(0, 4).join(' | '));
+  check('Card 2 显示默认地址', addrText.includes('106.13.181.13:19234') && addrText.includes('(默认)'), addrText.split('\n').slice(0, 4).join(' | '));
 
   // Step 3: 保存新地址 → 提示重启生效 + AsyncStorage 写入
   const input = page.locator('[data-testid="me-bff-input"] input, [data-testid="me-bff-input"]').first();
@@ -116,7 +123,7 @@ async function main() {
   console.log(`\n[e2e] ${results.length - failed}/${results.length} 通过；console/page 错误 ${errors.length} 条`);
   for (const e of errors.slice(0, 5)) console.log('  ' + e.slice(0, 200));
   await browser.close();
-  server.close();
+  if (!process.env.E2E_URL) server.close();
   process.exit(failed > 0 ? 1 : 0);
 }
 

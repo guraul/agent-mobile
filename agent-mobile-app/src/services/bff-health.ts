@@ -7,8 +7,10 @@ export async function probeBffHealth(
   try {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    // OPTIONS(预检):BFF 返回 204 且带 CORS 头。HEAD 会 405 且无 CORS 头,
+    // web 静态版(9928)里 fetch 被 CORS 拦截 → 永远误判离线。
     const res = await fetchImpl(`${url.replace(/\/$/, "")}/api/auth/login`, {
-      method: "HEAD",
+      method: "OPTIONS",
       signal: ctrl.signal,
     });
     clearTimeout(timer);

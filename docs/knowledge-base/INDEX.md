@@ -49,8 +49,8 @@
 | Talk/Memory/Me 占位页 | router | `agent-mobile-app/src/app/(tabs)/talk.tsx` 等 |
 | 组件库（primitives/feedback/navigation） | components | `agent-mobile-app/src/components/index.ts` |
 | 设计 token（暗色主题） | theme | `agent-mobile-app/src/theme/index.ts` |
-| Web 静态预览服务（9928，gzip，备用） | ops | `agent-mobile-app/scripts/serve-static.mjs` |
-| APK 下载服务（9928，当前） | ops | `test/download/pulse.apk`（python3 http.server） |
+| Web 静态预览服务（9928，gzip，当前） | ops | `agent-mobile-app/scripts/serve-static.mjs` + `serve-9928.service` |
+| APK 下载服务（9928，备用） | ops | `test/download/pulse.apk`（python3 http.server） |
 | E2E 测试（Playwright） | ops | `agent-mobile-app/scripts/e2e/pulse-e2e.mjs` |
 
 ## 技术栈表
@@ -96,7 +96,7 @@ agent-mobile/                                  # git 根仓库
     ├── pnpm-workspace.yaml                    # 包源排除规则（非 workspace）
     ├── .env.local                             # 环境变量（未提交，见 OPERATIONS.md）
     ├── scripts/
-    │   ├── serve-static.mjs                   # 9928 静态服务器（gzip + /→/pulse）
+    │   ├── serve-static.mjs                   # 9928 静态服务器（gzip，Pulse 首页在 /，Me 页 /me）
     │   ├── e2e/pulse-e2e.mjs                  # Playwright E2E（含发消息）
     │   └── reset-project.js                   # create-expo-app 模板残留（可忽略）
     ├── assets/                                # 图标/启动图
@@ -171,5 +171,5 @@ family-finance BFF (106.13.181.13:19234) /api/events/stream
 | 排查 opencode 机制（auto compact 等） | 源码在 `/root/project/opencode-src`（仓库外，含 .git 历史） |
 | 预览 web 版 | `pnpm exec expo export --platform web` + 9928 服务（见 OPERATIONS.md） |
 | 打 APK | `eas build -p android --profile preview`（见 OPERATIONS.md） |
-| 下载/分发 APK | `eas build:download --build-id <id>` → 覆盖 `test/download/pulse.apk` → 9928 服务（见 OPERATIONS.md） |
+| 下载/分发 APK | `eas build:download --build-id <id>` → 覆盖 `test/download/pulse.apk` → `apk-download-9928.service`（备用） |
 | 改应用元信息（包名/名称/主题色） | `agent-mobile-app/app.json` |
