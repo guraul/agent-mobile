@@ -70,4 +70,40 @@ describe("mergeMessages", () => {
       { kind: "error", id: "a1", text: "ProviderAuthError: Invalid API key", createdAt: 2000 },
     ]);
   });
+
+  it("carries reasoning part text onto the reasoning step", () => {
+    const out = mergeMessages([
+      msg("a1", "assistant", [{ type: "reasoning", text: "let me check the docs", id: "p1" }]),
+    ]);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ kind: "reasoning", id: "p1", text: "let me check the docs" });
+  });
+
+  it("summarizes tool input string into inputSummary", () => {
+    const out = mergeMessages([
+      msg("a1", "assistant", [{ type: "tool", tool: "bash", input: "ls -la /root", state: { status: "completed" }, id: "p2" }]),
+    ]);
+    expect(out[0]).toMatchObject({ kind: "tool", tool: "bash", inputSummary: "ls -la /root" });
+  });
+
+  it("summarizes tool input object as collapsed json, truncated at 200 chars", () => {
+    const long = "x".repeat(300);
+    const out = mergeMessages([
+      msg("a1", "assistant", [
+        { type: "tool", tool: "read", input: { path: "/a" }, state: { status: "completed" }, id: "p1" },
+        { type: "tool", tool: "write", input: { content: long }, state: { status: "completed" }, id: "p2" },
+      ]),
+    ]);
+    expect(out[0]).toMatchObject({ inputSummary: '{"path":"/a"}' });
+    expect((out[1] as { inputSummary?: string }).inputSummary?.length).toBe(201);
+    expect((out[1] as { inputSummary?: string }).inputSummary?.endsWith("…")).toBe(true);
+  });
+
+  it("omits inputSummary when tool input is missing", () => {
+    const out = mergeMessages([
+      msg("a1", "assistant", [{ type: "tool", tool: "bash", state: { status: "completed" }, id: "p1" }]),
+    ]);
+    expect(out[0]).toMatchObject({ kind: "tool", tool: "bash" });
+    expect((out[0] as { inputSummary?: string }).inputSummary).toBeUndefined();
+  });
 });
