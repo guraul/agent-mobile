@@ -38,6 +38,7 @@
 | BFF 在线探测 | services | `agent-mobile-app/src/services/bff-health.ts` |
 | model 偏好（按 agent，key `pulse_model_pref_<agent>`） | services | `agent-mobile-app/src/services/model-prefs.ts` + `filter-models.ts` |
 | 项目聊天（最近 session / 新建 session） | chat | `agent-mobile-app/src/components/chat/ProjectChat.tsx` |
+| ZCode 风格聊天弹框（并存，`USE_ZCODE_CHAT_SHEET` 开关） | chat | `agent-mobile-app/src/components/chat/zcode/ProjectChatZ.tsx` |
 | 对话面板（下拉刷新/分页/滚动保持/输入三件套/轮询兜底/agent+model切换/question+permission弹窗） | chat | `agent-mobile-app/src/components/chat/ChatPanel.tsx` |
 | 消息气泡（user/text markdown + 错误气泡 + StepChip 旁白） | chat | `agent-mobile-app/src/components/chat/MessageBubble.tsx` |
 | 过程旁白（思考中/工具调用中） | chat | `agent-mobile-app/src/components/chat/StepChip.tsx` |
@@ -153,6 +154,7 @@ family-finance BFF (106.13.181.13:19234) /api/events/stream
 | 改 Pulse 列表 UI/分组 | `agent-mobile-app/src/app/(tabs)/index.tsx` |
 | 改项目聚合逻辑（轮询/SSE 事件处理） | `agent-mobile-app/src/hooks/useProjectEvents.ts` |
 | 改聊天面板（输入/刷新/分页） | `agent-mobile-app/src/components/chat/ChatPanel.tsx` |
+| 改 ZCode 风格弹框（折叠步骤行/复制/状态行） | `agent-mobile-app/src/components/chat/zcode/`（fork 自 ChatPanel，双维护见 chat.md） |
 | 改消息气泡（样式/工具折叠） | `agent-mobile-app/src/components/chat/MessageBubble.tsx` |
 | 改项目→会话解析 | `agent-mobile-app/src/components/chat/ProjectChat.tsx` |
 | 改 step 展开规则（过滤/顺序） | `agent-mobile-app/src/services/message-merging.ts` |

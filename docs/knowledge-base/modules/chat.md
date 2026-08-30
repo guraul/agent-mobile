@@ -138,6 +138,14 @@ SSE: BFF /api/opencode/stream（Bearer JWT + ?sessionID= 过滤）
 - 初始化：mount 时 `getSession(sessionID)` 读取 session 的 `agent` / `model`（注意 `OpenCodeSession.model` 用 `id` 字段，非 `modelID`）。**仅当 session.model 命中某个 primary agent 的默认 model 时才采纳**——避免迁移前的旧 model 把会话钉在旧 provider。
 - 发送：`sendMessageAsync` body 带 `agent: agents[agentIdx].id` + `model`。
 
+## ZCode 风格弹框（2026-08-30，与旧弹框并存）
+
+- **开关**：`src/app/(tabs)/index.tsx` 的 `USE_ZCODE_CHAT_SHEET`（true=新弹框，false 一行回退旧弹框；旧组件零改动保留）。
+- **组件树**（`src/components/chat/zcode/`，全部 fork 自旧组件）：`ProjectChatZ`（header 会话标题+项目名副标题+IconButton）→ `ChatPanelZ`（ListFooter 状态行「运行中…/已停止」、圆角输入栏、pills 带 Bot/Cpu 图标）→ `MessageBubbleZ`（气泡下复制 expo-clipboard + HH:mm 时间戳）→ `StepRow`（思考/工具可折叠行：icon+label+inputSummary 摘要，展开显 reasoning 正文/命令摘要）。
+- **fork 双维护**：ChatPanelZ/ProjectChatZ 复制自 ChatPanel/ProjectChat，上游 SSE/reducer/typewriter 修复需手动同步（两文件头有 fork 声明）。
+- **数据层**：`mergeMessages` 增量透传 `reasoning.text` 与 `tool.inputSummary`（input 压缩单行、200 字符截断）——旧组件不读新字段，行为零影响。
+- 验收脚本：`test/zcode-sheet-e2e.mjs`（8 项，含剪贴板真实验证）。
+
 ## 修改本模块的注意事项
 
 - **勿改 reducer 插入语义为固定端插入**：必须按时间戳定位，否则乱序（有单测覆盖：`order-sim.test.ts`）。
