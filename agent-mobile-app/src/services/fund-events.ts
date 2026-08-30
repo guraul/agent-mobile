@@ -1,4 +1,4 @@
-import { opencodeConfig } from "../config/opencode";
+import { getBaseUrl } from "../config/opencode";
 import { tokenHeader } from "./auth";
 
 export interface FundEstimateItem {
@@ -44,7 +44,7 @@ export async function ackTradeAlert(): Promise<void> {
   const auth = tokenHeader();
   if (!auth.Authorization) return;
   try {
-    await fetch(`${opencodeConfig.baseUrl}/api/events/ack`, {
+    await fetch(`${getBaseUrl()}/api/events/ack`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...auth },
       body: JSON.stringify({ type: "fund.trade-alert" }),
@@ -79,7 +79,7 @@ export function subscribeToFundEvents(
     }
     attempt++;
     try {
-      const res = await fetch(`${opencodeConfig.baseUrl}/api/events/stream`, {
+      const res = await fetch(`${getBaseUrl()}/api/events/stream`, {
         headers: { ...auth, Accept: "text/event-stream" },
         signal: controller.signal,
       });

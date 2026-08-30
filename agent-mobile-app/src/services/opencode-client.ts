@@ -1,4 +1,4 @@
-import { opencodeConfig } from "../config/opencode";
+import { getBaseUrl } from "../config/opencode";
 import { tokenHeader, handleUnauthorized, login as loginToBff } from "./auth";
 
 export interface OpenCodeProject {
@@ -80,7 +80,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     ...(options.headers as Record<string, string> | undefined),
   };
 
-  const res = await fetch(`${opencodeConfig.baseUrl}/api/opencode/rest${path}`, {
+  const res = await fetch(`${getBaseUrl()}/api/opencode/rest${path}`, {
     ...options,
     headers,
   });

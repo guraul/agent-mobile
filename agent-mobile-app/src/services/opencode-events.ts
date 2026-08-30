@@ -1,4 +1,4 @@
-import { opencodeConfig } from "../config/opencode";
+import { getBaseUrl } from "../config/opencode";
 import { tokenHeader, handleUnauthorized } from "./auth";
 import type { QuestionInfo, QuestionRequest, PermissionRequest } from "./opencode-client";
 
@@ -146,7 +146,7 @@ export function subscribeToOpenCodeEvents(
     attempt++;
     try {
       const qs = sessionID ? `?sessionID=${encodeURIComponent(sessionID)}` : "";
-      const res = await fetch(`${opencodeConfig.baseUrl}/api/opencode/stream${qs}`, {
+      const res = await fetch(`${getBaseUrl()}/api/opencode/stream${qs}`, {
         headers: { ...auth, Accept: "text/event-stream" },
         signal: controller.signal,
       });
