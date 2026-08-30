@@ -1,6 +1,6 @@
 # modules/services.md —— opencode 对接服务层
 
-> 最后更新：2026-08-25 · commit：`b8a122b`（工作区未提交）+error透传+question事件类型
+> 最后更新：2026-08-30 · commit：`Me 页落地`（bff-config/model-prefs/bff-health/getBaseUrl 运行时覆盖）
 
 ## 模块职责
 
@@ -24,8 +24,12 @@ auth.ts ──Bearer JWT──► 认证（family-finance 用户）       openco
 
 | 文件路径 | 职责 |
 |---|---|
-| `agent-mobile-app/src/config/opencode.ts` | BFF baseUrl + token（`{ baseUrl, token }`，无凭证） |
-| `agent-mobile-app/src/services/auth.ts` | JWT 登录/存取/401 联动（AsyncStorage） |
+| `agent-mobile-app/src/config/opencode.ts` | BFF baseUrl + token + runtimeBaseUrl（`getBaseUrl()` = runtime 覆盖优先回退 env） |
+| `agent-mobile-app/src/services/auth.ts` | JWT 登录/登出/username/存取/401 联动（AsyncStorage） |
+| `agent-mobile-app/src/services/bff-config.ts` | BFF 地址运行时覆盖（AsyncStorage key `pulse_bff_url`，方案 C 重启生效） |
+| `agent-mobile-app/src/services/bff-health.ts` | `probeBffHealth(url)`：HEAD `/api/auth/login` 探测 BFF 在线（2xx-4xx 在线，超时默认 3s） |
+| `agent-mobile-app/src/services/model-prefs.ts` | 按 agent 持久化默认 model（AsyncStorage key `pulse_model_pref_<agent>`） |
+| `agent-mobile-app/src/services/filter-models.ts` | `filterModels(list, query)`：modelID/providerID 子串不分大小写过滤；`ModelPref` 类型 |
 | `agent-mobile-app/src/services/opencode-client.ts` | REST 封装（BFF 前缀 + Bearer + 401 → handleUnauthorized） |
 | `agent-mobile-app/src/services/opencode-events.ts` | BFF stream 订阅（delta 事件 + sessionID 过滤 + 退避重连） |
 | `agent-mobile-app/src/services/message-reducer.ts` | `applyMessageUpdated/applyPartUpdated/applyMessageRemoved/applyPartDelta` 增量 patch |
@@ -72,10 +76,26 @@ auth.ts ──Bearer JWT──► 认证（family-finance 用户）       openco
 | `getToken()` | 读 AsyncStorage 的 JWT |
 | `setToken(token\|null)` | 写/清 token（同步更新 `opencodeConfig.token`） |
 | `loadToken()` | 启动时恢复 token 到内存 |
-| `login(username,password)` | POST BFF `/api/auth/login`，成功存 token 返回 |
+| `login(username,password)` | POST BFF `/api/auth/login`（走 `getBaseUrl()`），成功存 token **和 username**（key `pulse_username`）返回 |
+| `getUsername()/setUsername()/clearUsername()` | 用户名持久化（Me 页展示，不做 BFF `/api/auth/me`） |
+| `logout()` | POST BFF `/api/auth/logout`（失败仍清本地）+ 清 token/username |
 | `tokenHeader()` | `{ Authorization: Bearer <token> }`（无 token 时 `{}`） |
 | `onUnauthorized(cb)` | 注册 401 回调，返回解绑函数 |
-| `handleUnauthorized()` | 清 token + 触发回调 |
+| `handleUnauthorized()` | 清 token + 清 username + 触发回调 |
+
+### bff-config.ts + getBaseUrl（2026-08-30，Me 页）
+
+- **方案 C（重启生效）**：Me 页改地址只写 AsyncStorage（`pulse_bff_url`），**Pulse 启动 useEffect 先 `getRuntimeBaseUrl()` 设 `opencodeConfig.runtimeBaseUrl` 再 `loadToken()`**，运行中不热切。
+- **所有 fetch 一律走 `getBaseUrl()`**（runtime 覆盖优先，回退 env `EXPO_PUBLIC_OPENCODE_URL`）：`opencode-client.ts` / `opencode-events.ts` / `fund-events.ts`（2 处）/ `auth.ts`（login/logout）。**新增请求点勿直接读 `opencodeConfig.baseUrl`**。
+
+### model-prefs.ts（Me 页 model 偏好）
+
+| 导出 | 说明 |
+|---|---|
+| `getModelPref(agent)` / `setModelPref(agent, pref)` | 单 agent 读写（`{providerID, modelID}`，JSON 存 `pulse_model_pref_<agent>`） |
+| `loadModelPrefs()` | 扫 AsyncStorage 全量 key 返回 `Record<agent, ModelPref>` |
+
+- **消费方 ChatPanel**：`listAgents` 后 `loadModelPrefs()` 覆盖 agent 默认 model；初始 pill 优先级 **Me 偏好 > server `agent.model` > FALLBACK_AGENTS**。手选 model 不持久化。
 
 ### opencode-events.ts
 

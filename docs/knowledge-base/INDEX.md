@@ -1,6 +1,6 @@
 # Agent Mobile 项目知识库 · 索引总览
 
-> 最后更新：2026-08-27 · commit：`ddcd3ae`（Pulse 接入基金事件流：跑马灯估值 + 交易提醒）
+> 最后更新：2026-08-30 · commit：`Me 页落地`（账号登出/BFF地址运行时切换/按agent配默认model）
 > 维护：见 [CONVENTIONS.md](CONVENTIONS.md)「知识库维护约定」
 
 ## 使用说明
@@ -23,7 +23,7 @@
 ## 项目定位
 
 **Agent Mobile** — AI 编码 agent（OpenCode 等）的移动端遥控器。"Mission Control for AI agents"。
-当前形态：Expo（SDK 57）应用，Pulse 首页展示真实 opencode 项目状态（running / needs-you 分组），点击项目进入真实对话（流式回复 + 工具调用折叠）；其余 3 个 tab 为占位页。
+当前形态：Expo（SDK 57）应用，Pulse 首页展示真实 opencode 项目状态（running / needs-you 分组），点击项目进入真实对话（流式回复 + 工具调用折叠）；Me tab 为配置页（账号登出 / BFF 地址运行时切换 / 按 agent 配默认 model）；Talk/Memory 为占位页。
 
 ## 核心功能清单
 
@@ -33,6 +33,10 @@
 | 项目状态聚合（running/needs-you/idle + 不活跃项目 otherProjects + SSE 实时） | pulse-stream | `agent-mobile-app/src/hooks/useProjectEvents.ts` |
 | 基金事件订阅（fund.estimate 估值 + fund.trade-alert 交易提醒） | pulse-stream | `agent-mobile-app/src/hooks/useFundEvents.ts` + `services/fund-events.ts` |
 | 项目状态判定纯函数 | services | `agent-mobile-app/src/services/project-status.ts` |
+| Me 页（连接与账号 / BFF 地址 / model 偏好三 Card + model 选择 BottomSheet） | router | `agent-mobile-app/src/app/(tabs)/me.tsx` |
+| BFF 地址运行时覆盖（方案 C 重启生效，key `pulse_bff_url`） | services | `agent-mobile-app/src/services/bff-config.ts` + `config/opencode.ts getBaseUrl()` |
+| BFF 在线探测 | services | `agent-mobile-app/src/services/bff-health.ts` |
+| model 偏好（按 agent，key `pulse_model_pref_<agent>`） | services | `agent-mobile-app/src/services/model-prefs.ts` + `filter-models.ts` |
 | 项目聊天（最近 session / 新建 session） | chat | `agent-mobile-app/src/components/chat/ProjectChat.tsx` |
 | 对话面板（下拉刷新/分页/滚动保持/输入三件套/轮询兜底/agent+model切换/question+permission弹窗） | chat | `agent-mobile-app/src/components/chat/ChatPanel.tsx` |
 | 消息气泡（user/text markdown + 错误气泡 + StepChip 旁白） | chat | `agent-mobile-app/src/components/chat/MessageBubble.tsx` |
@@ -155,6 +159,8 @@ family-finance BFF (106.13.181.13:19234) /api/events/stream
 | 新增 opencode 端点封装 | `agent-mobile-app/src/services/opencode-client.ts` |
 | 改 SSE 订阅/重连 | `agent-mobile-app/src/services/opencode-events.ts` |
 | 改基金事件订阅/跑马灯/交易提醒 | `agent-mobile-app/src/services/fund-events.ts` + `hooks/useFundEvents.ts` + `components/navigation/Marquee.tsx` |
+| 改 BFF 地址（运行时切换，重启生效） | `agent-mobile-app/src/services/bff-config.ts`，消费方一律走 `config/opencode.ts getBaseUrl()` |
+| 改 model 偏好 / Me 页 | `agent-mobile-app/src/app/(tabs)/me.tsx` + `services/model-prefs.ts`；ChatPanel 默认 pill 优先级 Me 偏好 > server agent.model > FALLBACK_AGENTS |
 | 改后端地址/账号 | `agent-mobile-app/.env.local`（EXPO_PUBLIC_OPENCODE_*） |
 | 新增 tab / 页面 | `agent-mobile-app/src/app/(tabs)/_layout.tsx` + 新建路由文件 |
 | 改颜色 | `agent-mobile-app/src/theme/colors.ts` |
