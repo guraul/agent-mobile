@@ -133,6 +133,7 @@ auth.ts ──Bearer JWT──► 认证（family-finance 用户）       openco
 ## 修改本模块的注意事项
 
 - **`probeBffHealth` 必须用 OPTIONS**：BFF 只对 OPTIONS 预检回 CORS 头（`corsOptionsResponse`），HEAD 会 405 且无 CORS 头——web 静态版（9928）浏览器里 fetch 被拦 → 永远误判离线（2026-08-30 踩坑）。且 BFF `lib/cors.ts` 允许列表只含 9928 三个 origin。
+- **除 Pulse 外的页面直开/刷新必须自行 `loadToken()`**：token 恢复逻辑只在 Pulse（index.tsx）启动 effect 里，`opencodeConfig.token` 是内存态——Me 页（me.tsx reload 开头）已修，今后新增直开路由照做，否则 authed 请求裸奔 401。
 - **消息数组必须保持 chronological**（`listMessages` 真实顺序），任何排序/插入逻辑以 `time.created` 为准。
 - **SSE 事件属性是 `Record<string, unknown>`**：事件处理处需自行 cast（如 `props.info`、`props.part`、delta 的 `properties`），有拼写风险。
 - **BFF 强制覆盖 Authorization 为 opencode Basic**：手机端 JWT 不传 upstream（BFF `lib/opencode.ts` `proxyRequest`）。
