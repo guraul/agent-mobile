@@ -49,6 +49,7 @@
 7. **9928 当前为 web 静态版**（systemd 单元 `serve-9928`，2026-08-30 起恢复，替代 Metro/APK 下载）：部署 = `pnpm exec expo export --platform web --clear`（`--clear` 必须，否则 env 不注入）→ `systemctl restart serve-9928`（gzipCache 会缓存旧 bundle，不重启则改动"没生效"）。若切回 Expo Go Metro（`expo-metro-9928`），改代码热重载无需重建。**BFF CORS 允许列表只放行 9928 的三个 origin**（见 `family-finance lib/cors.ts`），静态版换端口会全被 CORS 拦。
 8. **临时测试脚本 / 截图 / 日志统一放仓库根 `test/` 目录**，勿散落 /tmp。
 9. **勿把仓库根 `src/`（设计期）与 `agent-mobile-app/src/`（运行态）混为一谈**，改错位置 = 改到不运行的东西。
+10. **图片/PDF 一律走 vision-reader 子代理，主模型禁止直接 `read` 图片或 PDF 文件路径**：主模型 `deepseek-v4-flash`（volcengine-plan）不支持图片输入，直接 `read` 会把图片带进请求历史，服务端每次返回 `Model do not support image input`，导致对话卡死在重复报错。读图时只把文件路径交给 vision-reader（`task` + `subagent_type: "vision-reader"`），主模型请求里绝不携带图片附件。
 
 ## BROWSER AUTOMATION (Playwright)
 

@@ -853,7 +853,7 @@ export function ChatPanelZ({ sessionID }: ChatPanelProps) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   list: { flex: 1 },
-  listContent: { padding: spacing.md, paddingBottom: spacing.lg },
+  listContent: { padding: spacing.md, paddingBottom: 30 },
   agentRow: {
     flexDirection: "row",
     alignItems: "center",

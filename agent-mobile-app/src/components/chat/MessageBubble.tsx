@@ -9,7 +9,7 @@ import { StepChip } from "./StepChip";
 const userMarkdown = {
   body: { color: colors.onAccent, fontSize: 15, lineHeight: 22 },
   code_inline: { color: colors.onAccent, backgroundColor: "rgba(255,255,255,0.2)", padding: 0, lineHeight: 22 },
-  paragraph: { marginVertical: 4 },
+  paragraph: { marginVertical: 0 },
 };
 
 const aiMarkdown = {
@@ -33,7 +33,7 @@ export const MessageBubble = React.memo(function MessageBubble({ step }: { step:
   if (step.kind === "user") {
     return (
       <Box marginBottom="sm" style={{ alignItems: "flex-end" }}>
-        <Box padding="sm" rounded="md" style={{ maxWidth: "92%", backgroundColor: colors.accent.default, borderBottomRightRadius: radius.xs }}>
+        <Box paddingHorizontal="xs" paddingVertical="xxs" rounded="md" style={{ minWidth: 40, maxWidth: "92%", backgroundColor: colors.accent.default, borderBottomRightRadius: radius.xs }}>
           <Markdown style={userMarkdown}>{step.text}</Markdown>
         </Box>
       </Box>

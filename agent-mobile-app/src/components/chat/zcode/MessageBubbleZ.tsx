@@ -11,7 +11,7 @@ import { StepRow } from "./StepRow";
 const userMarkdown = {
   body: { color: colors.onAccent, fontSize: 15, lineHeight: 22 },
   code_inline: { color: colors.onAccent, backgroundColor: "rgba(255,255,255,0.2)", padding: 0, lineHeight: 22 },
-  paragraph: { marginVertical: 4 },
+  paragraph: { marginVertical: 0 },
 };
 
 const aiMarkdown = {
@@ -40,12 +40,12 @@ function Actions({ text, createdAt, align }: { text: string; createdAt: number; 
   };
   const time = new Date(createdAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
   return (
-    <View style={[s.actions, align === "right" && s.actionsRight]}>
-      <Pressable onPress={copy} accessibilityLabel="复制消息" style={s.actionBtn} hitSlop={6}>
-        <Icon icon={copied ? Check : Copy} size="xs" color={copied ? "success" : "muted"} />
-      </Pressable>
-      <Text variant="caption" color="muted">{time}</Text>
-    </View>
+      <View style={[s.actions, align === "right" ? s.actionsRight : s.actionsLeft]}>
+        <Pressable onPress={copy} accessibilityLabel="复制消息" style={s.actionBtn} hitSlop={6}>
+          <Icon icon={copied ? Check : Copy} size="xs" color={copied ? "success" : "muted"} />
+        </Pressable>
+        <Text variant="caption" color="muted">{time}</Text>
+      </View>
   );
 }
 
@@ -57,7 +57,7 @@ export const MessageBubbleZ = React.memo(function MessageBubbleZ({ step }: { ste
   if (step.kind === "user") {
     return (
       <Box marginBottom="xs" style={{ alignItems: "flex-end" }}>
-        <Box padding="sm" rounded="md" style={{ maxWidth: "92%", backgroundColor: colors.accent.default, borderBottomRightRadius: radius.xs }}>
+        <Box paddingHorizontal="xs" paddingVertical="xxs" rounded="md" style={{ minWidth: 40, maxWidth: "92%", backgroundColor: colors.accent.default, borderBottomRightRadius: radius.xs }}>
           <Markdown style={userMarkdown}>{step.text}</Markdown>
         </Box>
         <Actions text={step.text} createdAt={step.createdAt} align="right" />
@@ -94,7 +94,10 @@ export const MessageBubbleZ = React.memo(function MessageBubbleZ({ step }: { ste
 });
 
 const s = StyleSheet.create({
-  actions: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.xxs, paddingHorizontal: spacing.xs },
-  actionsRight: { justifyContent: "flex-end" },
+  actions: { flexDirection: "row", alignItems: "center", gap: spacing.xs, marginTop: spacing.xxs, paddingHorizontal: 0 },
+  // 用户气泡（右对齐）：复制+时间整体贴气泡右边缘，跟气泡本体对齐
+  actionsRight: { alignSelf: "flex-end" },
+  // AI 气泡（左对齐）：贴气泡左边缘
+  actionsLeft: { alignSelf: "flex-start" },
   actionBtn: { padding: 2 },
 });
