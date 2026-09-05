@@ -71,6 +71,10 @@ export function determineProjectStatus(
     statusLabel = hasRetry ? "Retrying" : "Running";
     summary = "Agent is working on this project.";
   } else if (knownIdle) {
+    // TODO(Phase 3): knownIdle → needs-you 是 idle 误判为 Attention 的残留路径
+    //（PM §16.1：interactive session idle 只是 runtime 状态，永不成为 Attention）。
+    // Phase 1 已在 BFF 侧关闭其新增路径（opencode tap 白名单不含 session.idle，
+    // 不产生任何 Event/Attention）；本派生分支随 Phase 3 Pulse 读 attention store 一并删除。
     status = "needs-you";
     statusLabel = "Needs you";
     summary = "Agent is waiting for your input.";
