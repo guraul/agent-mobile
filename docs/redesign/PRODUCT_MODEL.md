@@ -6,14 +6,14 @@ Agent Mobile / Pulse is a persistent, Jarvis-like AI companion.
 
 Its purpose is not to provide a collection of independent AI tools. Instead, it provides one continuous AI relationship that can:
 
-- understand what the user is currently working on
-- remember relevant information about the user and their work
-- accept responsibilities from the user
-- perform work asynchronously through different capabilities
-- monitor ongoing work
-- return to the user when something requires attention
-- continue unfinished discussions
-- help the user think, decide, and delegate
+* understand what the user is currently working on
+* remember relevant information about the user and their work
+* accept responsibilities from the user
+* perform work asynchronously through different capabilities
+* monitor ongoing work
+* return to the user when something requires attention
+* continue unfinished discussions
+* help the user think, decide, and delegate
 
 The current implementation uses OpenCode as the underlying Agent Runtime.
 
@@ -21,10 +21,10 @@ OpenCode is an implementation choice, not the product identity.
 
 The runtime may eventually be replaced by:
 
-- Pi
-- DSH
-- another agent runtime
-- a custom Agent implementation
+* Pi
+* DSH
+* another agent runtime
+* a custom Agent implementation
 
 The user should continue to experience the same companion regardless of the underlying runtime.
 
@@ -42,12 +42,12 @@ Voice is a future interaction channel and may initially be represented as a plac
 
 The product has four primary user-facing surfaces:
 
-| Surface | Meaning |
-|---|---|
-| Pulse | **I noticed.** |
-| Talk | **Let's think.** |
-| Memory | **I remember.** |
-| Me | **I understand how we work together.** |
+| Surface | Meaning                                |
+| ------- | -------------------------------------- |
+| Pulse   | **I noticed.**                         |
+| Talk    | **Let's think.**                       |
+| Memory  | **I remember.**                        |
+| Me      | **I understand how we work together.** |
 
 These are not four separate assistants.
 
@@ -63,29 +63,41 @@ The current system can be understood as:
 
 ```text
                     Agent Mobile
+
                          │
                          ▼
-                 Agent Session
+                  Agent Session
                          │
-          ┌──────────────┼──────────────┐
-          ▼              ▼              ▼
-   Knowledge Base      Memory      Assignments
-          │              │              │
-          └──────────────┴──────┬───────┘
-                                ▼
-                         Agent Runtime
-                            OpenCode
+                         ▼
+                  Agent Runtime
+                         │
+                      OpenCode
+```
+
+Supporting context and responsibilities surround the Agent Session:
+
+```text
+                  Agent Session
+                       │
+          ┌────────────┼────────────┐
+          ▼            ▼            ▼
+   Knowledge Base    Memory    Assignments
+          │            │            │
+          └────────────┴────────────┘
+                       │
+                       ▼
+                Current Context
 ```
 
 OpenCode currently provides:
 
-- LLM interaction
-- agent execution
-- conversation session
-- tool execution
-- streaming
-- coding actions
-- project/session context
+* LLM interaction
+* agent execution
+* conversation session
+* tool execution
+* streaming
+* coding actions
+* project/session context
 
 Agent Mobile should build product semantics around the Agent Session rather than around OpenCode-specific implementation details.
 
@@ -97,29 +109,34 @@ Agent Mobile should build product semantics around the Agent Session rather than
 
 > **An Agent Session is a bounded conversational workspace in which the user and Agent work on a current intent or topic.**
 
-It contains:
+An Agent Session represents the current conversational/work state.
 
-- current conversation
-- current objective or topic
-- relevant working context
-- relevant Knowledge Base information
-- relevant Memory
-- related domain context
-- Assignments created during the conversation
+It may be associated with:
+
+* current conversation
+* current objective or topic
+* working context
+* relevant Knowledge Base information
+* relevant Memory
+* relevant domain context
+* Assignments created during the conversation
+
+Knowledge Base and Memory are context sources for a Session. They are not part of the Session's permanent conversation state.
 
 The Agent Session is where current thinking and decision-making happen.
 
-It is not the long-term memory store.
+It is not:
 
-It is not the Knowledge Base.
-
-It is not an Assignment.
-
-It is not an Attention Item.
+* the long-term memory store
+* the Knowledge Base
+* an Assignment
+* an Event
+* an Attention Item
+* an Open Thread
 
 ---
 
-## 4.1 Session and OpenCode
+## 4.1 Agent Session and OpenCode Session
 
 Currently:
 
@@ -129,39 +146,137 @@ Agent Session
 OpenCode Session
 ```
 
-OpenCode Session is therefore the current runtime representation of an Agent Session.
+An OpenCode Session is therefore the current runtime representation of an Agent Session.
+
+For the current MVP:
+
+> **One Agent Session is backed by one OpenCode Session.**
 
 The product must avoid depending on OpenCode-specific concepts so that the runtime can later be replaced.
 
+Conceptually:
+
+```text
+Agent Session
+      │
+      ├── OpenCode Session
+      ├── Pi Session
+      ├── DSH Session
+      └── Custom Runtime Session
+```
+
+The product-level Session concept remains stable even when the underlying runtime changes.
+
 ---
 
-## 4.2 Session is bounded
+## 4.2 Session Lifecycle: Create, Resume, Reconstruct
+
+An Agent Session can be handled in three different ways.
+
+### Create
+
+A new Agent Session is created when the user starts a new conversation or when a new conversation is required.
+
+```text
+Create
+  ↓
+New Agent Session
+  ↓
+New runtime session
+```
+
+For the current implementation:
+
+```text
+Create
+  ↓
+New Agent Session
+  ↓
+New OpenCode Session
+```
+
+### Resume
+
+An existing Agent Session is resumed when the user continues work that already has an existing Session.
+
+```text
+Resume
+  ↓
+Existing Agent Session
+  ↓
+Existing OpenCode Session
+  ↓
+Existing conversation/context
+```
+
+Resume should preserve the existing Session context rather than reconstructing it from Knowledge Base and Memory.
+
+### Reconstruct
+
+A new Agent Session may occasionally need to be created from the context of an older Session.
+
+```text
+Old Agent Session
+      ↓
+Relevant context extraction
+      ↓
+Knowledge Base
+      +
+Memory
+      +
+necessary summary
+      ↓
+New Agent Session
+      ↓
+New OpenCode Session
+```
+
+This is not a Resume.
+
+It creates a new Session that inherits relevant knowledge from the previous context.
+
+### Core rule
+
+> **Default behavior is Resume when an existing Agent Session is available. Reconstruct is only used when a new Session is intentionally required or the original Session can no longer be used.**
+
+---
+
+## 4.3 Session is bounded
 
 A Session should not be treated as an infinite global conversation.
 
-The product should prefer:
+When a new Session is created or a Session needs additional context, the product should prefer:
 
 ```text
 Current Session
+
 +
+
 Relevant Knowledge Base
+
 +
+
 Relevant Memory
+
 +
+
 Relevant Domain Context
 ```
 
 rather than loading unlimited historical conversation.
 
-The long-term continuity of the companion comes primarily from:
+For an existing OpenCode Session, the existing Session context should be reused whenever possible.
 
-- Memory
-- Knowledge Base
-- Open Threads
-- Assignments
-- relevant historical context
+The long-term continuity of the companion comes from:
 
-not from sending the entire conversation history to the LLM indefinitely.
+* Memory
+* Knowledge Base
+* Open Threads
+* Assignments
+* persistent domain state
+* relevant historical context
+
+not from requiring every past conversation to remain in the active LLM context forever.
 
 ---
 
@@ -171,13 +286,13 @@ The Knowledge Base represents persistent knowledge about the user's world.
 
 Examples include:
 
-- project documentation
-- architecture
-- product knowledge
-- technical documentation
-- research
-- previously recorded ideas
-- structured and unstructured knowledge
+* project documentation
+* architecture
+* product knowledge
+* technical documentation
+* research
+* previously recorded ideas
+* structured and unstructured knowledge
 
 The current Knowledge Base is implemented using an llm-wiki-based skill.
 
@@ -193,9 +308,11 @@ Knowledge Base Skill
 Relevant Knowledge
 ```
 
-The complete Knowledge Base should not automatically become session context.
+The complete Knowledge Base should not automatically become Session context.
 
 The Agent should retrieve relevant information as required.
+
+The Knowledge Base may also contain Raw Ideas that are worth preserving but do not currently require action or continuation.
 
 ---
 
@@ -203,12 +320,12 @@ The Agent should retrieve relevant information as required.
 
 Memory represents persistent understanding about:
 
-- the user
-- user preferences
-- working style
-- prior decisions
-- relationship-level understanding
-- useful information about current projects or work
+* the user
+* user preferences
+* working style
+* prior decisions
+* relationship-level understanding
+* useful information about current projects or work
 
 The current implementation uses an OpenCode plugin that silently records relevant information to persistent storage.
 
@@ -228,11 +345,11 @@ Current Context
 
 Memory is not:
 
-- the complete conversation history
-- every user statement
-- every temporary fact
-- every idea
-- every unfinished conversation
+* the complete conversation history
+* every user statement
+* every temporary fact
+* every idea
+* every unfinished conversation
 
 Memory must remain selective.
 
@@ -248,25 +365,60 @@ An Agent Session may use several context sources:
        ┌───────────────┼───────────────┐
        ▼               ▼               ▼
 Current Session   Knowledge Base     Memory
-       │               │               │
-       └───────────────┴───────────────┘
+                       │
+                       ▼
+                Relevant Domain Context
                        │
                        ▼
                 Current Context
 ```
 
-For a contextual conversation, an additional domain context may be attached.
+For an existing runtime Session, the existing Session context should normally be preserved.
+
+Additional context may be retrieved when required.
 
 Example:
 
 ```text
 Project 2
+
 OpenCode Session 123
+
 Attention: Review Project 2
+
 Relevant KB
+
 Relevant Memory
+
        ↓
+
 Agent Session Context
+```
+
+For a domain that does not have an existing Agent Session, a new Session may instead be created with relevant domain context.
+
+Example:
+
+```text
+Market Event
+
+Fund X matched monitoring rule
+
+        ↓
+
+New Agent Session
+
+        +
+
+Market context
+
+        +
+
+Relevant KB
+
+        +
+
+Relevant Memory
 ```
 
 The goal is not to construct a universal context.
@@ -285,14 +437,14 @@ The user proactively starts a new conversation.
 
 Every new Direct Talk starts a new Agent Session.
 
-Example:
+For the current implementation:
 
 ```text
 User opens Talk
       ↓
 New Agent Session
       ↓
-"I have an idea for a new market rule."
+New OpenCode Session
 ```
 
 The Agent initially does not need to know the final domain.
@@ -305,42 +457,133 @@ Example:
 
 ```text
 Direct Talk
+
       ↓
+
 Discuss
+
       ↓
+
 Understand intent
+
       ↓
+
 Confirm
+
       ↓
+
 Assignment → Market
 ```
+
+Direct Talk should not automatically preload all Projects, Market information, Attention Items, Memory, or Knowledge Base content.
+
+Relevant context should be retrieved based on the conversation.
 
 ---
 
 ## 8.2 Contextual Talk
 
-The user enters Talk from a specific Pulse Attention Item.
+Contextual Talk occurs when the user chooses to engage with a specific Pulse Attention Item or another existing context.
 
-In this case, the conversation should use the Session associated with that context rather than starting an unrelated generic conversation.
+The key rule is:
+
+> **If the Attention is associated with an existing Agent Session, Contextual Talk resumes that Session. If no Agent Session exists, Contextual Talk creates a new Session using the relevant domain context.**
+
+### Existing Agent Session
 
 Example:
 
 ```text
 Pulse
-"I've finished Project 2."
+
+"Project 2 is ready."
+
        ↓
+
 [Let's talk]
+
        ↓
-Talk
+
+Existing Agent Session
+
        ↓
-Project 2 Agent Session
+
+Existing OpenCode Session
+
        ↓
-OpenCode Session
+
+Resume
 ```
 
-The Talk experience should therefore start from the existing relevant context.
+The original conversation and runtime context are preserved.
 
-The user should not need to explain again which Project, Fund, Email, or other object they were responding to.
+The user should not need to explain the project again.
+
+### No existing Agent Session
+
+Some capabilities may generate Events and Attention without an Agent Session.
+
+For example, the current Market monitoring system is a deterministic scheduler/rule engine.
+
+```text
+Market Scheduler
+
+      ↓
+
+Rule matched
+
+      ↓
+
+Event
+
+      ↓
+
+Attention
+
+      ↓
+
+[Let's talk]
+
+      ↓
+
+New Agent Session
+
+      ↓
+
+New OpenCode Session
+
+      +
+
+Market context
+
+      +
+
+Relevant KB
+
+      +
+
+Relevant Memory
+```
+
+This is **Create**, not Resume.
+
+The new Session is contextualized by the Event/Attention that caused the conversation.
+
+### Core rule
+
+```text
+Existing Agent Session
+        ↓
+      Resume
+
+No Agent Session
+        ↓
+       Create
+        ↓
+Relevant context
+```
+
+This distinction is important because not every capability is itself an Agent Runtime.
 
 ---
 
@@ -350,23 +593,23 @@ Talk is the bidirectional conversational surface of an Agent Session.
 
 Its purpose is to:
 
-- discuss
-- investigate
-- clarify
-- challenge assumptions
-- make decisions
-- confirm intentions
-- create Assignments
-- continue unfinished discussions
+* discuss
+* investigate
+* clarify
+* challenge assumptions
+* make decisions
+* confirm intentions
+* create Assignments
+* continue unfinished discussions
 
 Talk is not:
 
-- a generic ChatGPT replacement
-- a capability directory
-- a dashboard
-- a notification center
-- a second unrelated chat system
-- a requirement for every Pulse item
+* a generic ChatGPT replacement
+* a capability directory
+* a dashboard
+* a notification center
+* a second unrelated chat system
+* a requirement for every Pulse item
 
 ### Important rule
 
@@ -376,15 +619,23 @@ In the current Chat-first implementation:
 
 ```text
 Pulse
+
    ↓
+
 User explicitly chooses to engage
+
    ↓
+
 Talk
+
    ↓
+
 Input becomes available
 ```
 
 There should not be a permanent generic chat input on Pulse simply to simulate future voice functionality.
+
+Talk is an interaction surface. It does not itself determine whether the underlying Session is new or existing.
 
 ---
 
@@ -400,13 +651,17 @@ Examples:
 
 ```text
 "Continue Project 2 tonight."
+
         ↓
+
 Assignment → OpenCode
 ```
 
 ```text
 "Monitor Fund X every day at 14:50."
+
         ↓
+
 Assignment → Market
 ```
 
@@ -414,16 +669,17 @@ Assignment represents delegated responsibility.
 
 It is not the same as:
 
-- a chat message
-- an Event
-- an Attention Item
-- an ordinary instruction
-- a Knowledge Base entry
-- a Memory
+* a chat message
+* an Event
+* an Attention Item
+* an ordinary instruction
+* a Knowledge Base entry
+* a Memory
+* an Agent Session
 
 ---
 
-## 10.1 One-shot and ongoing Assignments
+# 11. One-shot and Ongoing Assignments
 
 Assignment supports both:
 
@@ -437,8 +693,11 @@ Example:
 
 ```text
 Assignment
+
 → OpenCode
+
 → execute once
+
 → completed
 ```
 
@@ -452,16 +711,21 @@ Example:
 
 ```text
 Assignment
+
 → Market
+
 → daily schedule
+
 → remains active
 ```
 
 The distinction is a property of the Assignment, not two different concepts.
 
+An ongoing Assignment may execute repeatedly without producing an Attention Item every time.
+
 ---
 
-# 11. Assignment Authorization
+# 12. Assignment Authorization
 
 The Agent's autonomy comes from the Assignment.
 
@@ -469,13 +733,13 @@ The Agent's autonomy comes from the Assignment.
 
 An Assignment should conceptually define:
 
-- responsibility
-- target
-- allowed action
-- execution conditions
-- schedule, when applicable
-- constraints
-- expected result
+* responsibility
+* target
+* allowed action
+* execution conditions
+* schedule, when applicable
+* constraints
+* expected result
 
 Examples:
 
@@ -483,14 +747,17 @@ Examples:
 
 ```text
 Assignment:
+
 Continue Project 2
 
 Allowed:
+
 - inspect code
 - modify code
 - run tests
 
 Requires confirmation:
+
 - high-risk production deployment
 ```
 
@@ -498,14 +765,17 @@ Requires confirmation:
 
 ```text
 Assignment:
+
 Monitor Fund X
 
 Allowed:
+
 - obtain market data
 - evaluate rules
 - notify user
 
 Requires confirmation:
+
 - execute financial transaction
 ```
 
@@ -513,15 +783,18 @@ Requires confirmation:
 
 ```text
 Assignment:
+
 Organize important emails
 
 Allowed:
+
 - read
 - classify
 - summarize
 - draft
 
 Requires confirmation:
+
 - send
 - delete
 ```
@@ -530,7 +803,7 @@ The Agent must not interpret an Assignment as unlimited authority over the assoc
 
 ---
 
-# 12. Assignment and User Instructions
+# 13. Assignment and User Instructions
 
 Not every instruction creates an Assignment.
 
@@ -554,14 +827,14 @@ The distinguishing characteristic is:
 
 ---
 
-# 13. Agent Autonomy Boundary
+# 14. Agent Autonomy Boundary
 
 The Agent should have autonomy based on:
 
-- explicit authorization
-- action risk
-- reversibility
-- external impact
+* explicit authorization
+* action risk
+* reversibility
+* external impact
 
 Conceptually:
 
@@ -585,7 +858,7 @@ If an Assignment becomes unsafe, ambiguous, or inconsistent with its original sc
 
 ---
 
-# 14. Event
+# 15. Event
 
 An Event represents a fact about something that happened.
 
@@ -593,15 +866,19 @@ Examples:
 
 ```text
 OpenCode:
+
 Project 2 session completed.
 
 Market:
+
 Fund X matched rule R03.
 
 Email:
+
 Important email received.
 
 Planning:
+
 Schedule conflict detected.
 ```
 
@@ -611,7 +888,7 @@ An Event answers:
 
 An Event is not necessarily something the user needs to see.
 
-Examples:
+For example:
 
 ```text
 OpenCode session started
@@ -619,9 +896,17 @@ OpenCode session started
 
 may be an Event without becoming an Attention Item.
 
+An Event may originate from:
+
+* an Agent Runtime
+* a deterministic scheduler
+* a rule engine
+* an external integration
+* an Agent observation
+
 ---
 
-# 15. Attention Item
+# 16. Attention Item
 
 ## Definition
 
@@ -643,15 +928,21 @@ Examples:
 
 ```text
 Project 2 completed
+
         ↓
+
 Attention:
+
 Review Project 2
 ```
 
 ```text
 Market rule triggered
+
         ↓
+
 Attention:
+
 Review Fund X
 ```
 
@@ -661,7 +952,7 @@ It must represent something that currently deserves user attention.
 
 ---
 
-# 16. Attention Item Lifecycle
+# 17. Attention Item Lifecycle
 
 An Attention Item remains active while it is waiting for the user.
 
@@ -669,9 +960,13 @@ Conceptually:
 
 ```text
 OPEN
+
   ↓
+
 IN PROGRESS
+
   ↓
+
 RESOLVED
 ```
 
@@ -693,7 +988,7 @@ A user opening Pulse does not automatically resolve an Attention Item.
 
 ---
 
-# 17. Attention Item Lifetime
+# 18. Attention Item Lifetime
 
 Attention Items have their own lifetime, separate from the lifetime of the underlying domain object.
 
@@ -705,6 +1000,7 @@ Example:
 
 ```text
 Market:
+
 Fund X triggered today's rule.
 ```
 
@@ -712,7 +1008,9 @@ After the valid time window:
 
 ```text
 Attention
+
 → expired
+
 → removed
 ```
 
@@ -726,10 +1024,15 @@ Example:
 
 ```text
 Project 2
+
   ↓
+
 Session completed
+
   ↓
+
 Attention:
+
 Review Project 2
 ```
 
@@ -749,7 +1052,7 @@ The system should not keep every historical Attention Item permanently active.
 
 ---
 
-# 18. Event → Attention
+# 19. Event → Attention
 
 An Event can generate an Attention Item through deterministic rules or intelligent observation.
 
@@ -757,9 +1060,13 @@ An Event can generate an Attention Item through deterministic rules or intellige
 
 ```text
 OpenCode Event
+
       ↓
+
 Rule
+
       ↓
+
 Attention
 ```
 
@@ -767,9 +1074,13 @@ Example:
 
 ```text
 session.completed
+
       ↓
+
 Review required
+
       ↓
+
 Attention
 ```
 
@@ -777,11 +1088,17 @@ Attention
 
 ```text
 Multiple Events
+
       ↓
+
 Agent / pattern detection
+
       ↓
+
 Observation
+
       ↓
+
 Attention
 ```
 
@@ -797,7 +1114,7 @@ The architecture must allow both approaches.
 
 ---
 
-# 19. Pulse
+# 20. Pulse
 
 Pulse is the proactive surface through which the Agent communicates current Attention.
 
@@ -815,9 +1132,13 @@ rather than:
 
 > "Here is a notification dashboard."
 
+Pulse may also communicate useful information that does not require action.
+
+However, user-facing Pulse content should be presented through the Agent's voice rather than as a raw event stream.
+
 ---
 
-## 19.1 Multiple Attention Items
+# 21. Multiple Attention Items
 
 Multiple Attention Items can exist simultaneously.
 
@@ -839,7 +1160,7 @@ Pulse provides their conversational presentation.
 
 ---
 
-# 20. Pulse Interaction Levels
+# 22. Pulse Interaction Levels
 
 ### L1 — Statement
 
@@ -851,8 +1172,6 @@ Example:
 
 No full Talk conversation is required.
 
----
-
 ### L2 — Proposal
 
 The Agent presents a simple action or decision.
@@ -863,12 +1182,11 @@ Example:
 
 ```text
 [Review]
+
 [Ignore]
 ```
 
 The user can often handle the matter without entering Talk.
-
----
 
 ### L3 — Invitation
 
@@ -886,7 +1204,7 @@ Only after the user chooses to engage does the application enter full Talk inter
 
 ---
 
-# 21. Pulse and Chat Input
+# 23. Pulse and Chat Input
 
 In the current Chat-first MVP:
 
@@ -900,11 +1218,17 @@ A two-way conversation begins when the user explicitly engages:
 
 ```text
 Pulse
+
   ↓
+
 [Let's talk]
+
   ↓
+
 Talk
+
   ↓
+
 Input
 ```
 
@@ -912,9 +1236,13 @@ This structure also leaves room for future voice interaction:
 
 ```text
 Pulse
+
   ↓
+
 User speaks
+
   ↓
+
 Talk conversation
 ```
 
@@ -922,19 +1250,21 @@ Chat is therefore a temporary interaction mechanism, not the final definition of
 
 ---
 
-# 22. Open Thread
+# 24. Open Thread
 
 An Open Thread represents:
 
 > **a conversation or topic that remains meaningfully unfinished and is worth continuing later.**
 
-It is not an Event.
+It is not:
 
-It is not a Memory.
+* an Event
+* a Memory
+* an Assignment
+* an Attention Item
+* a new Agent Session
 
-It is not an Assignment.
-
-It points back to an existing Agent Session.
+An Open Thread points back to an existing Agent Session.
 
 Example:
 
@@ -942,6 +1272,7 @@ Example:
 Today:
 
 Agent Session
+
 "Discuss Pulse market attention design."
 
 Conversation stops before conclusion.
@@ -949,6 +1280,7 @@ Conversation stops before conclusion.
         ↓
 
 Open Thread
+
 "Continue discussion about market attention design."
 ```
 
@@ -956,22 +1288,79 @@ Later:
 
 ```text
 Open Thread
+
       ↓
+
 Attention
+
       ↓
+
 Pulse
+
 "We left something unfinished yesterday."
+
       ↓
+
 [Continue]
+
       ↓
+
 Original Agent Session
+
+      ↓
+
+Resume existing OpenCode Session
 ```
 
-The goal is continuity without keeping every conversation permanently active.
+The goal is continuity without creating a second conversation for the same unfinished topic.
 
 ---
 
-# 23. When to Create an Open Thread
+# 25. Open Thread Recall
+
+The default behavior for an Open Thread is **Resume**, not Create.
+
+```text
+Open Thread
+      ↓
+Agent Session reference
+      ↓
+Existing Agent Session
+      ↓
+Existing OpenCode Session
+      ↓
+Resume
+```
+
+The original Session context should be reused.
+
+The system should not reconstruct the conversation from Wiki and Memory when the original Session is still available.
+
+Only when the original Session cannot or should not be resumed should the system use Reconstruct:
+
+```text
+Open Thread
+      ↓
+Original Session unavailable / new Session required
+      ↓
+Relevant context
+      +
+Knowledge Base
+      +
+Memory
+      +
+necessary summary
+      ↓
+New Agent Session
+      ↓
+New OpenCode Session
+```
+
+This distinction prevents Open Thread from becoming an indirect mechanism for creating unrelated conversations.
+
+---
+
+# 26. When to Create an Open Thread
 
 Not every unfinished conversation deserves an Open Thread.
 
@@ -997,7 +1386,7 @@ However, it may still be worth preserving as a Raw Idea in the Knowledge Base.
 
 ---
 
-# 24. Raw Idea
+# 27. Raw Idea
 
 A Raw Idea is a potentially useful idea discovered during conversation that does not currently require action or continuation.
 
@@ -1011,20 +1400,26 @@ Conceptually:
 
 ```text
 Conversation
+
     ↓
+
 Potentially valuable idea
+
     ↓
+
 Raw Idea
+
     ↓
+
 LLM Wiki
 ```
 
 A Raw Idea should not automatically create:
 
-- an Attention Item
-- an Open Thread
-- an Assignment
-- a Memory
+* an Attention Item
+* an Open Thread
+* an Assignment
+* a Memory
 
 The purpose is preservation and future retrieval.
 
@@ -1038,17 +1433,17 @@ The idea can then become active again through a new Agent Session.
 
 ---
 
-# 25. Memory vs Open Thread vs Raw Idea
+# 28. Memory vs Open Thread vs Raw Idea
 
 These concepts must remain separate.
 
-| Concept | Meaning |
-|---|---|
-| Memory | Long-term understanding about the user, work, or relationship |
-| Open Thread | A meaningful unfinished conversation worth continuing |
-| Raw Idea | A useful idea worth preserving but not currently actionable |
-| Assignment | A responsibility the Agent has accepted |
-| Attention Item | A current matter waiting for the user |
+| Concept        | Meaning                                                       |
+| -------------- | ------------------------------------------------------------- |
+| Memory         | Long-term understanding about the user, work, or relationship |
+| Open Thread    | A meaningful unfinished conversation worth continuing         |
+| Raw Idea       | A useful idea worth preserving but not currently actionable   |
+| Assignment     | A responsibility the Agent has accepted                       |
+| Attention Item | A current matter waiting for the user                         |
 
 Examples:
 
@@ -1074,7 +1469,7 @@ Examples:
 
 ---
 
-# 26. Decision and Outcome
+# 29. Decision and Outcome
 
 A conversation may produce an outcome.
 
@@ -1082,11 +1477,17 @@ Possible conceptual outcomes include:
 
 ```text
 Information
+
 Decision
+
 Action
+
 Assignment
+
 Open Thread
+
 Raw Idea
+
 No persistent outcome
 ```
 
@@ -1096,12 +1497,15 @@ For example:
 
 ```text
 User:
+
 "Keep monitoring Fund X."
 
         ↓
 
 Decision
+
         ↓
+
 Assignment
 ```
 
@@ -1109,6 +1513,7 @@ Or:
 
 ```text
 User:
+
 "Let's revisit this idea next week."
 
         ↓
@@ -1120,6 +1525,7 @@ Or:
 
 ```text
 User:
+
 "Maybe someday we should build this."
 
         ↓
@@ -1129,50 +1535,91 @@ Raw Idea
 
 ---
 
-# 27. End-to-End Product Loop
+# 30. End-to-End Product Loop
 
 The core lifecycle is:
 
 ```text
                     User
+
                       │
+
                       ▼
+
                  Agent Session
+
                       │
+
              conversation / decision
+
                       │
+
           ┌───────────┼────────────┐
+
           ▼           ▼            ▼
+
       Assignment   Open Thread   Raw Idea
+
           │            │            │
+
           ▼            ▼            ▼
+
    Background Work   Continue     LLM Wiki
+
           │
+
           ▼
+
         Event
+
           │
+
           ▼
+
       Attention
+
           │
+
           ▼
+
         Pulse
+
           │
+
        user chooses
+
           │
+
           ▼
+
         Talk
+
           │
-          ▼
-   Related Agent Session
+
+          ├───────────────┐
+          │               │
+          ▼               ▼
+ Existing Session      No Session
+          │               │
+          ▼               ▼
+       Resume           Create
+          │               │
+          ▼               ▼
+ Existing Runtime    New Runtime
+ Session             Session
 ```
 
 Separately:
 
 ```text
 Agent Session
+
       ↓
+
 Relevant Memory / Knowledge Base
+
       ↓
+
 Current Context
 ```
 
@@ -1180,12 +1627,13 @@ This allows the product to maintain continuity without requiring unlimited conve
 
 ---
 
-# 28. Example: OpenCode
+# 31. Example: OpenCode
 
 ### User starts work
 
 ```text
 User
+
 "Continue Project 2 tonight."
 ```
 
@@ -1193,7 +1641,9 @@ Agent Session:
 
 ```text
 Understand
+
 → Confirm
+
 → Assignment
 ```
 
@@ -1212,8 +1662,11 @@ Later:
 
 ```text
 OpenCode
+
 → session completed
+
 → Event
+
 → Attention Item
 ```
 
@@ -1225,6 +1678,7 @@ The user may see:
 
 ```text
 [Review]
+
 [Let's talk]
 ```
 
@@ -1232,17 +1686,19 @@ If the user chooses Talk:
 
 ```text
 Talk
-→ Project 2 Agent Session
-→ relevant OpenCode context
-→ relevant KB
-→ relevant Memory
+
+→ existing Project 2 Agent Session
+
+→ existing OpenCode Session
+
+→ Resume
 ```
 
 The user can continue the conversation without re-explaining the project.
 
 ---
 
-# 29. Example: Market
+# 32. Example: Market
 
 ### User creates monitoring responsibility
 
@@ -1254,9 +1710,13 @@ After clarification and confirmation:
 
 ```text
 Assignment
+
 Target: Market
+
 Type: Ongoing
+
 Schedule: Daily 14:50
+
 Rule: Drop > 5%
 ```
 
@@ -1266,9 +1726,13 @@ At 14:50:
 
 ```text
 Rule evaluation
+
       ↓
+
 No match
+
       ↓
+
 No Attention
 ```
 
@@ -1276,11 +1740,17 @@ or:
 
 ```text
 Rule evaluation
+
       ↓
+
 Match
+
       ↓
+
 Event
+
       ↓
+
 Attention Item
 ```
 
@@ -1292,17 +1762,53 @@ The user may:
 
 ```text
 [Review]
+
 [Ignore]
+
 [Let's talk]
 ```
 
-The day's Attention Item may expire later.
+If the user chooses Talk, there may be no existing Agent Session because the monitoring itself is performed by the deterministic Market system.
 
-The monitoring Assignment remains active.
+Therefore:
+
+```text
+Market Attention
+
+      ↓
+
+[Let's talk]
+
+      ↓
+
+Create New Agent Session
+
+      ↓
+
+New OpenCode Session
+
+      +
+
+Market context
+
+      +
+
+Relevant Knowledge Base
+
+      +
+
+Relevant Memory
+```
+
+The new Session is about the Market Attention, but it is not a continuation of a previous Market monitoring Session.
+
+The monitoring Assignment remains independent and active.
+
+The day's Attention Item may expire later.
 
 ---
 
-# 30. Example: Unfinished Idea
+# 33. Example: Unfinished Idea
 
 Direct Talk:
 
@@ -1322,6 +1828,7 @@ But the Agent may preserve:
 
 ```text
 Raw Idea
+
 → LLM Wiki
 ```
 
@@ -1335,7 +1842,7 @@ A new Agent Session can then be started around it.
 
 ---
 
-# 31. Agent Runtime Abstraction
+# 34. Agent Runtime Abstraction
 
 The current product uses OpenCode as the Agent Runtime.
 
@@ -1345,13 +1852,21 @@ Conceptually:
 
 ```text
                     Agent Session
+
                           │
+
                           ▼
+
                     Agent Runtime
+
                           │
+
              ┌────────────┼────────────┐
+
              ▼            ▼            ▼
+
           OpenCode        Pi          DSH
+
                                       ...
 ```
 
@@ -1359,106 +1874,126 @@ The runtime is responsible for implementing agent-level execution.
 
 Agent Mobile is responsible for:
 
-- user interaction
-- Pulse
-- Talk
-- Attention
-- Assignment
-- relationship experience
-- integration with Knowledge Base and Memory
-- presenting asynchronous outcomes
+* user interaction
+* Pulse
+* Talk
+* Attention
+* Assignment
+* relationship experience
+* integration with Knowledge Base and Memory
+* presenting asynchronous outcomes
 
 This separation should allow future runtime replacement without redesigning the core user experience.
 
 ---
 
-# 32. Product Principles
+# 35. Product Principles
 
-1. **One companion.**  
+1. **One companion.**
    The product represents one persistent AI relationship, even when multiple capabilities exist behind it.
 
-2. **Agent Session is the current workspace.**  
-   It contains current conversational context, not permanent history.
+2. **Agent Session is the current workspace.**
+   It contains current conversational/work state, not permanent history.
 
-3. **OpenCode is a runtime, not the product identity.**
+3. **The current Agent Session is backed by an OpenCode Session.**
 
-4. **Knowledge Base provides persistent world/project knowledge.**
+4. **OpenCode is a runtime, not the product identity.**
 
-5. **Memory provides persistent user and relationship understanding.**
+5. **Knowledge Base provides persistent world/project knowledge.**
 
-6. **Assignment represents delegated responsibility.**
+6. **Memory provides persistent user and relationship understanding.**
 
-7. **Assignment may be one-shot or ongoing.**
+7. **Knowledge Base and Memory are context sources, not replacements for an existing Session.**
 
-8. **Agent autonomy is bounded by Assignment authorization.**
+8. **Assignment represents delegated responsibility.**
 
-9. **Event represents what happened.**
+9. **Assignment may be one-shot or ongoing.**
 
-10. **Attention represents what is currently waiting for the user.**
+10. **Agent autonomy is bounded by Assignment authorization.**
 
-11. **Attention is time-bounded where appropriate.**
+11. **Event represents what happened.**
 
-12. **Pulse presents current Attention, not raw system events.**
+12. **Attention represents what is currently waiting for the user.**
 
-13. **Pulse is not a generic chat input surface in the current Chat-first MVP.**
+13. **Attention is time-bounded where appropriate.**
 
-14. **Talk is the two-way interaction surface of an Agent Session.**
+14. **Pulse presents current Attention, not raw system events.**
 
-15. **Direct Talk creates a new Agent Session.**
+15. **Pulse is not a generic chat input surface in the current Chat-first MVP.**
 
-16. **Contextual Talk uses the relevant existing Session when entered from Pulse.**
+16. **Talk is the two-way interaction surface of an Agent Session.**
 
-17. **Not every Event requires an Attention Item.**
+17. **Direct Talk creates a new Agent Session.**
 
-18. **Not every conversation requires an Open Thread.**
+18. **Contextual Talk resumes the relevant existing Session when one exists.**
 
-19. **Not every idea requires an Assignment.**
+19. **Contextual Talk creates a new Session when no relevant Agent Session exists.**
 
-20. **Not everything belongs in Memory.**
+20. **Resume preserves the existing Session and its runtime context.**
 
-21. **Useful but inactive ideas may be stored as Raw Ideas in the Knowledge Base.**
+21. **Reconstruct creates a new Session using relevant context from Knowledge Base, Memory, and necessary summaries.**
 
-22. **The Agent should remain quiet when nothing needs the user's attention.**
+22. **Open Thread points to an existing Agent Session and normally uses Resume.**
 
-23. **The product should optimize for continuity of understanding, not unlimited conversation history.**
+23. **Not every Event requires an Attention Item.**
 
-24. **UI should remain subordinate to the Agent's voice and behavior.**
+24. **Not every conversation requires an Open Thread.**
+
+25. **Not every idea requires an Assignment.**
+
+26. **Not everything belongs in Memory.**
+
+27. **Useful but inactive ideas may be stored as Raw Ideas in the Knowledge Base.**
+
+28. **The Agent should remain quiet when nothing needs the user's attention.**
+
+29. **The product should optimize for continuity of understanding, not unlimited conversation history.**
+
+30. **UI should remain subordinate to the Agent's voice and behavior.**
 
 ---
 
-# 33. Current MVP Boundary
+# 36. Current MVP Boundary
 
 The current MVP should prove the following loop:
 
 ```text
 User
+
 → Agent Session
+
 → Assignment
+
 → asynchronous work
+
 → Event
+
 → Attention
+
 → Pulse
+
 → user engagement
+
 → Talk
 ```
 
 The MVP may use:
 
-- OpenCode as the Agent Runtime
-- existing Knowledge Base skill
-- existing Memory plugin
-- existing OpenCode Project / Session implementation
-- existing Market scheduler and rule engine
+* OpenCode as the Agent Runtime
+* existing Knowledge Base skill
+* existing Memory plugin
+* existing OpenCode Project / Session implementation
+* existing Market scheduler and rule engine
 
 The MVP does not require:
 
-- multiple agent runtimes
-- a universal context engine
-- a universal notification center
-- multiple domain-specific chat products
-- unlimited conversation history
-- a separate Assignment management screen
-- complex autonomy configuration UI
+* multiple agent runtimes
+* a universal context engine
+* a universal notification center
+* multiple domain-specific chat products
+* unlimited conversation history
+* a separate Assignment management screen
+* complex autonomy configuration UI
 
 The primary goal is to demonstrate that the user can interact with one persistent AI companion that can:
 
