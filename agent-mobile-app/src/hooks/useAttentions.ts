@@ -8,6 +8,7 @@ import {
 import {
   fetchAttentions,
   dismissAttention as dismissAttentionApi,
+  engageAttention as engageAttentionApi,
   subscribeToAttentionEvents,
 } from "@/services/attention/client";
 import { tokenHeader } from "@/services/auth";
@@ -21,6 +22,8 @@ export interface UseAttentionsResult {
   refresh: () => void;
   /** 用户显式退出（PM §17 DISMISSED）；item 随 attention.updated SSE 消失 */
   dismiss: (id: string) => void;
+  /** 显式 engage（记录交互 + 回填 session 引用）；engage ≠ handled */
+  engage: (id: string, sessionId: string) => void;
 }
 
 /**
@@ -76,6 +79,12 @@ export function useAttentions(): UseAttentionsResult {
     };
   }, [refresh]);
 
+  const engage = useCallback((id: string, sessionId: string) => {
+    engageAttentionApi(id, sessionId).catch((e) =>
+      setError(e instanceof Error ? e.message : String(e)),
+    );
+  }, []);
+
   const dismiss = useCallback((id: string) => {
     // 乐观不移除：等 BFF 权威迁移后的 attention.updated SSE 自然移除
     dismissAttentionApi(id).catch((e) =>
@@ -83,5 +92,5 @@ export function useAttentions(): UseAttentionsResult {
     );
   }, []);
 
-  return { open: openPulseItems(items), connected, loading, error, refresh, dismiss };
+  return { open: openPulseItems(items), connected, loading, error, refresh, dismiss, engage };
 }

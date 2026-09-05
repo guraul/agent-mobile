@@ -38,6 +38,9 @@ import {
 } from "../../../services/message-reducer";
 import { mergeMessages, type DisplayStep } from "../../../services/message-merging";
 import { loadModelPrefs } from "../../../services/model-prefs";
+import { buildAttentionContext } from "../../../services/attention/context";
+import { handleAttention } from "../../../services/attention/client";
+import type { EngagedAttentionRef } from "../../../services/attention/store";
 import { MessageBubbleZ } from "./MessageBubbleZ";
 
 const PAGE_SIZE = 50;
@@ -67,9 +70,13 @@ const FALLBACK_AGENTS = [
 
 interface ChatPanelProps {
   sessionID: string;
+  /** Phase 4：从 Attention 进入时携带——上下文卡 + 显式 Mark handled 入口 */
+  attention?: EngagedAttentionRef;
+  /** market 类 Create 流程：挂载后自动发送一条 Attention 上下文消息（用户显式 engage 的结果） */
+  autoSendContext?: boolean;
 }
 
-export function ChatPanelZ({ sessionID }: ChatPanelProps) {
+export function ChatPanelZ({ sessionID, attention, autoSendContext = false }: ChatPanelProps) {
   const [messages, setMessages] = useState<OpenCodeMessage[]>([]);
   const [display, setDisplay] = useState<DisplayStep[]>([]);
   const [input, setInput] = useState("");
@@ -78,6 +85,8 @@ export function ChatPanelZ({ sessionID }: ChatPanelProps) {
   const [sending, setSending] = useState(false);
   // ZCode 风格状态行：中止后显示「已停止」，新消息发送时清除
   const [abortedAt, setAbortedAt] = useState<number | null>(null);
+  // Phase 4：conversation handling —— 用户显式「标记已处理」（绝不由 idle/关闭/完成自动触发）
+  const [markingHandled, setMarkingHandled] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // agent pill cycles PRIMARY_AGENTS; model pill picks from AGENT_MODELS.
   // both are applied per-message via prompt_async (agent/model cannot be
@@ -492,6 +501,43 @@ export function ChatPanelZ({ sessionID }: ChatPanelProps) {
     loadModels();
   }, [loadModels]);
 
+  // Attention → Talk 上下文注入：Create 流程中把最小上下文作为首条用户消息发出
+  //（PM §8.2：新 Session 由 Event/Attention 上下文化）。仅用户显式 engage 后执行一次。
+  const contextSentRef = useRef(false);
+  useEffect(() => {
+    if (!autoSendContext || !attention || contextSentRef.current) return;
+    if (loading) return;
+    contextSentRef.current = true;
+    const ctx = buildAttentionContext({
+      id: attention.id, domain: "market", title: attention.title, summary: attention.summary,
+      subjectKind: "fund", subjectId: attention.subjectId, creationReasonRef: "market.target-nav-threshold",
+      sessionId: sessionID, createdAt: Date.now(), state: attention.state,
+    });
+    opencodeClient
+      .sendMessageAsync(sessionID, {
+        parts: [{ type: "text", text: ctx.messageText }],
+        agent: agents[agentIdx].id,
+        model,
+      })
+      .then(() => stickToBottom.current = true)
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSendContext, attention, loading]);
+
+  const markHandled = async () => {
+    if (!attention) return;
+    setMarkingHandled(true);
+    try {
+      // artifact 先有（本会话即 handling 会话），再调 handle；不打到 Agent/不猜 artifact
+      const { transitioned } = await handleAttention(attention.id, `handling:${sessionID}`);
+      if (!transitioned) Alert.alert("已处理过", "该 Attention 已不在 OPEN 状态。");
+    } catch (e) {
+      Alert.alert("标记失败", e instanceof Error ? e.message : String(e));
+    } finally {
+      setMarkingHandled(false);
+    }
+  };
+
   const send = async () => {
     const text = input.trim();
     if (!text || sending) return;
@@ -650,6 +696,14 @@ export function ChatPanelZ({ sessionID }: ChatPanelProps) {
         data={display}
         extraData={revealChars}
         keyExtractor={(s) => s.id}
+        ListHeaderComponent={
+          attention ? (
+            <Box padding="sm" backgroundColor="surface.1" rounded="md" marginBottom="sm">
+              <Text variant="captionStrong" color="accent">📌 处理中：{attention.title}</Text>
+              <Text variant="caption" color="muted">{attention.summary}</Text>
+            </Box>
+          ) : null
+        }
         renderItem={({ item, index }) => {
           const prev = display[index - 1];
           const isTurnStart = !prev || prev.kind === "user" || item.kind === "user";
@@ -678,6 +732,18 @@ export function ChatPanelZ({ sessionID }: ChatPanelProps) {
           <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.muted} />
         }
       />
+
+      {attention ? (
+        <View style={styles.markHandledRow}>
+          <Button
+            variant="secondary"
+            label={markingHandled ? "标记中…" : "标记已处理"}
+            onPress={markHandled}
+            disabled={markingHandled}
+            testID="attention-mark-handled"
+          />
+        </View>
+      ) : null}
 
       <View style={styles.agentRow}>
         <Pressable
@@ -943,6 +1009,11 @@ const styles = StyleSheet.create({
       web: { lineHeight: 44 },
       default: {},
     }),
+  },
+  markHandledRow: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.xs,
+    backgroundColor: colors.canvas,
   },
   statusRow: {
     flexDirection: "row",

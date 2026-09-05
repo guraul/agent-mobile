@@ -8,11 +8,18 @@ import { Text, Box, Button, IconButton } from "../../index";
 import { colors, spacing, radius } from "../../../theme";
 import { opencodeClient, type OpenCodeSession } from "../../../services/opencode-client";
 import { ChatPanelZ } from "./ChatPanelZ";
+import type { EngagedAttentionRef } from "../../../services/attention/store";
 import { BottomSheet } from "../../navigation/BottomSheet";
 
 interface ProjectChatProps {
   projectPath: string;
   onBack: () => void;
+  /** Phase 4：从 Attention 进入时携带（上下文卡 + Mark handled 入口） */
+  attention?: EngagedAttentionRef;
+  /** Attention 引用的既有 session —— 精确 Resume（PM §8.2/§16.4），优先于"最近会话" */
+  initialSessionId?: string | null;
+  /** market 类 Create 流程：新会话挂载后自动发送 Attention 上下文消息 */
+  autoSendContext?: boolean;
 }
 
 function byRecent(a: OpenCodeSession, b: OpenCodeSession): number {
@@ -27,7 +34,7 @@ function sessionLabel(s: OpenCodeSession): string {
  * Direct chat entry for a project: opens the most recently active session,
  * or an empty chat composer when no session exists yet.
  */
-export function ProjectChatZ({ projectPath, onBack }: ProjectChatProps) {
+export function ProjectChatZ({ projectPath, onBack, attention, initialSessionId, autoSendContext }: ProjectChatProps) {
   const [session, setSession] = useState<OpenCodeSession | null>(null);
   const [sessions, setSessions] = useState<OpenCodeSession[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -49,15 +56,24 @@ export function ProjectChatZ({ projectPath, onBack }: ProjectChatProps) {
     try {
       setError(null);
       const list = await opencodeClient.listSessions(projectPath);
-      const mostRecent = list.length ? [...list].sort(byRecent)[0] : null;
+      const sorted = [...list].sort(byRecent);
+      // Attention Resume：优先恢复 Attention 引用的那个 session（同一会话、同一上下文）。
+      // Create 流程刚建的 session 可能还没出现在 listSessions（竞态）→ 构造占位对象，
+      // 不回退到"最近会话"（那会把上下文发进无关会话）；
+      // 仅当完全无 initialSessionId 时才用最近会话。Reconstruct 属 PM §4.2，Phase 4 不自动做。
+      const preferred = initialSessionId
+        ? sorted.find((x) => x.id === initialSessionId)
+          ?? { id: initialSessionId, title: attention?.title, directory: projectPath, time: { created: Date.now(), updated: Date.now() } }
+        : null;
+      const mostRecent = preferred ?? (sorted.length ? sorted[0] : null);
       setSession(mostRecent);
-      setSessions([...list].sort(byRecent));
+      setSessions(sorted);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setReady(true);
     }
-  }, [projectPath]);
+  }, [projectPath, initialSessionId]);
 
   useEffect(() => {
     resolve();
@@ -112,7 +128,7 @@ export function ProjectChatZ({ projectPath, onBack }: ProjectChatProps) {
         </Box>
       ) : session ? (
         <View style={styles.flex}>
-          <ChatPanelZ key={session.id} sessionID={session.id} />
+          <ChatPanelZ key={session.id} sessionID={session.id} attention={attention} autoSendContext={autoSendContext} />
         </View>
       ) : (
         <Box padding="lg" style={styles.center}>

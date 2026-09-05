@@ -53,10 +53,14 @@ const USE_ZCODE_CHAT_SHEET = true;
 export default function PulseScreen() {
   const { events, otherProjects, loading, error, refresh } = useProjectEvents();
   const { funds } = useFundEvents();
-  const { open: openAttentions, dismiss: dismissAttention } = useAttentions();
+  const { open: openAttentions, dismiss: dismissAttention, engage: engageAttention } = useAttentions();
   const [activeProject, setActiveProject] = useState<{
     id: string;
     projectPath: string;
+    /** Phase 4：从 Attention engage 进入时携带（ChatPanelZ 上下文卡 + Mark handled） */
+    attention?: PulseAttentionItem;
+    /** market Create 流程：新会话挂载后自动发送 Attention 上下文消息 */
+    autoSendContext?: boolean;
   } | null>(null);
   const [otherOpen, setOtherOpen] = useState(false);
   const [fundSheetOpen, setFundSheetOpen] = useState(false);
@@ -88,24 +92,46 @@ export default function PulseScreen() {
     return onUnauthorized(() => setNeedLogin(true));
   }, [refresh]);
 
-  // Attention 点击路由（PM §16.4）：permission 类有 session → 进既有项目会话
-  //（现有 Talk path）；market 类 → 行情信息面。查看本身绝不改变 Attention state。
+  // market Attention 的 Talk 工作区（finance 域仓库；PM §8.2 Create + 域上下文）
+  const MARKET_TALK_DIRECTORY = "/root/project/family-finance";
+
+  // Attention 点击路由（PM §16.4，Phase 4）：
+  //   有 session → Resume 该 session（engage 记录交互，不改变 lifecycle）
+  //   无 session → 用户显式 engage → Create 新会话（market 域工作区）+ 上下文注入
+  // Attention 本身绝不自动创建 Session——创建只发生在用户点击之后。
   const onAttentionPress = async (a: PulseAttentionItem) => {
-    if (a.domain === "market") {
-      setFundSheetOpen(true);
-      return;
-    }
     if (a.sessionId) {
+      // Resume：优先恢复 Attention 引用的 session
       try {
         const session = await opencodeClient.getSession(a.sessionId);
         const dir = session.directory || "";
         if (dir) {
-          setActiveProject({ id: a.id, projectPath: dir });
+          engageAttention(a.id, a.sessionId);
+          setActiveProject({ id: a.id, projectPath: dir, attention: a });
           return;
         }
-      } catch { /* session 已删 → 落到提示 */ }
+      } catch { /* session 已删 → 走 Create（Reconstruct 留 PM §4.2 条件） */ }
     }
-    Alert.alert("该事项的会话已不可用", "Handling routing will arrive in a later phase.");
+    if (a.domain === "market") {
+      // Create：market 类无 session → 新会话 + engage 回填 + 上下文自动注入
+      try {
+        const created = await opencodeClient.createSession({
+          directory: MARKET_TALK_DIRECTORY,
+          title: `处理：${a.title}`.slice(0, 80),
+        });
+        engageAttention(a.id, created.id); // 引用回填（session_id NULL → 新 id）；state 仍 OPEN
+        setActiveProject({
+          id: a.id,
+          projectPath: MARKET_TALK_DIRECTORY,
+          attention: { ...a, sessionId: created.id },
+          autoSendContext: true,
+        });
+      } catch (e) {
+        Alert.alert("无法创建处理会话", e instanceof Error ? e.message : String(e));
+      }
+      return;
+    }
+    Alert.alert("该事项的会话已不可用", "原会话已删除，暂不能自动重建（Reconstruct 需满足 PM §4.2）。");
   };
 
   const doLogin = async () => {
@@ -390,6 +416,20 @@ export default function PulseScreen() {
           <ProjectChatZ
             projectPath={activeProject.projectPath}
             onBack={() => setActiveProject(null)}
+            attention={
+              activeProject.attention
+                ? {
+                    id: activeProject.attention.id,
+                    title: activeProject.attention.title,
+                    summary: activeProject.attention.summary,
+                    subjectId: activeProject.attention.subjectId,
+                    state: activeProject.attention.state,
+                    sessionId: activeProject.attention.sessionId,
+                  }
+                : undefined
+            }
+            initialSessionId={activeProject.attention?.sessionId ?? null}
+            autoSendContext={activeProject.autoSendContext}
           />
         ) : (
           <ProjectChat

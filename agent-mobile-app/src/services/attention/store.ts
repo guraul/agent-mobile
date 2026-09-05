@@ -42,9 +42,21 @@ export interface PulseAttentionItem {
   summary: string;
   subjectKind: string;
   subjectId: string;
+  creationReasonRef: string;
   sessionId: string | null;
   createdAt: number;
   state: AttentionState;
+}
+
+/** 传入 Talk 的 Attention 引用（ChatPanelZ 据此渲染上下文卡 + Mark handled） */
+export interface EngagedAttentionRef {
+  id: string;
+  title: string;
+  summary: string;
+  subjectId: string;
+  state: AttentionState;
+  /** 创建时已知的 session（permission 类）；market 类为新建 session */
+  sessionId: string | null;
 }
 
 export function toPulseAttentionItem(item: AttentionItem): PulseAttentionItem {
@@ -55,6 +67,7 @@ export function toPulseAttentionItem(item: AttentionItem): PulseAttentionItem {
     summary: item.summary,
     subjectKind: item.subjectKind,
     subjectId: item.subjectId,
+    creationReasonRef: item.creationReasonRef,
     sessionId: item.sessionId,
     createdAt: item.createdAt,
     state: item.state,

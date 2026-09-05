@@ -119,3 +119,38 @@ export function subscribeToAttentionEvents(opts: {
     },
   };
 }
+
+/** 显式 engage（PM §16.4）：记录交互 + 回填 session 引用（仅当为空）。engage ≠ handled。 */
+export async function engageAttention(id: string, sessionId: string): Promise<void> {
+  const res = await fetch(`${getBaseUrl()}/api/product/attention/${id}/engage`, {
+    method: "POST",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({ sessionId }),
+  });
+  if (res.status === 401) {
+    await handleUnauthorized();
+    throw new Error("unauthorized");
+  }
+  if (!res.ok) throw new Error(`engage failed: ${res.status}`);
+}
+
+/**
+ * 显式 handling（PM §17）：artifact 先产生，再调用 handle。
+ * conversation 类 artifactRef 约定 = `handling:<sessionId>`（BFF 侧产生/审计）。
+ * 返回 transitioned=false 表示目标已终态（拒绝重复迁移）。
+ */
+export async function handleAttention(id: string, artifactRef: string): Promise<{ transitioned: boolean }> {
+  const res = await fetch(`${getBaseUrl()}/api/product/attention/${id}/handle`, {
+    method: "POST",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({ artifactRef, actor: "user" }),
+  });
+  if (res.status === 401) {
+    await handleUnauthorized();
+    throw new Error("unauthorized");
+  }
+  if (res.status === 409) return { transitioned: false };
+  if (!res.ok) throw new Error(`handle failed: ${res.status}`);
+  const body = (await res.json()) as { transitioned?: boolean };
+  return { transitioned: body.transitioned ?? true };
+}
