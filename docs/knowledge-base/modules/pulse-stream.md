@@ -1,6 +1,17 @@
 # modules/pulse-stream.md —— Pulse 首页（项目导航 + 基金估值）
 
-> 最后更新：2026-08-30 · commit：`d255c48`（启动读 runtimeBaseUrl 覆盖 env——方案 C）
+> 最后更新：2026-09-05 · Phase 3：Pulse needs-you 改由 Attention store 驱动，knownIdle/pendingPermissions→needs-you 已删除
+
+## Phase 3：Pulse ← Attention（2026-09-05）
+
+- **Needs you 分组唯一来源** = `useAttentions()`（`services/attention/store.ts` + `client.ts`）：
+  REST snapshot（`GET /api/product/attention`）+ product SSE（`/api/product/stream`，attention.created/updated）+ 重连对账。
+- **已删除的错误语义路径**：`project-status.ts` 的 `knownIdle→needs-you` 与 `pendingPermissions→needs-you`
+  （PM §16.1：idle/pending 是 runtime 状态）；`ProjectStatus` 收窄为 `running|idle`。
+- **legacy 退役（mobile 侧）**：`fund-events.ts` 不再消费 `fund.trade-alert`、删除 `ackTradeAlert`；
+  `/api/events/stream` 仅剩 fund.estimate（L1 行情跑马灯）。BFF shim 保留至确认无外部 consumer。
+- **点击路由**：permission Attention → GET session → 项目会话（现有 Talk path）；market Attention → 行情 sheet + Ignore（dismiss）。
+- 查看不改 state：viewed/opened 只写 interaction（PM §17）。
 
 ## 模块职责
 

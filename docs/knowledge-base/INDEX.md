@@ -39,6 +39,7 @@
 | model 偏好（按 agent，key `pulse_model_pref_<agent>`） | services | `agent-mobile-app/src/services/model-prefs.ts` + `filter-models.ts` |
 | 项目聊天（最近 session / 新建 session） | chat | `agent-mobile-app/src/components/chat/ProjectChat.tsx` |
 | ZCode 风格聊天弹框（并存，`USE_ZCODE_CHAT_SHEET` 开关） | chat | `agent-mobile-app/src/components/chat/zcode/ProjectChatZ.tsx` |
+| Attention store（Pulse actionable 唯一来源，Phase 3） | services | `agent-mobile-app/src/services/attention/` + `hooks/useAttentions.ts` |
 | 对话面板（下拉刷新/分页/滚动保持/输入三件套/轮询兜底/agent+model切换/question+permission弹窗） | chat | `agent-mobile-app/src/components/chat/ChatPanel.tsx` |
 | 消息气泡（user/text markdown + 错误气泡 + StepChip 旁白） | chat | `agent-mobile-app/src/components/chat/MessageBubble.tsx` |
 | 过程旁白（思考中/工具调用中） | chat | `agent-mobile-app/src/components/chat/StepChip.tsx` |

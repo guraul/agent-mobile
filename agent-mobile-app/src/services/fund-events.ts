@@ -1,5 +1,11 @@
 import { getBaseUrl } from "../config/opencode";
-import { tokenHeader } from "./auth";
+import { tokenHeader, handleUnauthorized } from "./auth";
+
+// 基金事件订阅（BFF /api/events/stream）。
+// Phase 3 起本模块只消费 fund.estimate（L1 行情数据面，跑马灯呈现）——
+// fund.trade-alert 已迁移为 Attention（/api/product/stream + useAttentions），
+// 旧 ackTradeAlert（/api/events/ack）退役。/api/events/stream 本身由 BFF
+// 保留为过渡 shim，待确认无外部 consumer 后退役（Phase 3 cleanup 记录）。
 
 export interface FundEstimateItem {
   code: string;
@@ -9,58 +15,31 @@ export interface FundEstimateItem {
   changePct: number;
 }
 
-export interface FundTradeAlertItem {
-  code: string;
-  name: string;
-  estimatedNav: number;
-  targetNav: number;
-  diff: number;
-}
+export type FundStreamEvent =
+  | { type: "fund.estimate"; data: { funds: FundEstimateItem[] } }
+  | { type: string; data: unknown };
 
-export interface FundEventMap {
-  "fund.estimate": { funds: FundEstimateItem[] };
-  "fund.trade-alert": { funds: FundTradeAlertItem[] };
-  "server.heartbeat": Record<string, never>;
-}
-
-export type FundEventType = keyof FundEventMap;
-
-export interface FundEvent<T extends FundEventType = FundEventType> {
-  type: T;
+export interface FundEstimateEvent {
+  type: "fund.estimate";
   ts: number;
-  data: FundEventMap[T];
+  data: { funds: FundEstimateItem[] };
 }
 
-/** 指数退避延迟（与 opencode-events 一致） */
+type Listener = (event: FundEstimateEvent) => void;
+type ErrorListener = (err: unknown) => void;
+
 function backoffDelay(attempt: number, baseMs = 250, maxMs = 30000): number {
-  return Math.min(baseMs * 2 ** (attempt - 1), maxMs);
+  return Math.min(baseMs * 2 ** attempt, maxMs);
 }
 
 /**
- * 确认处理交易提醒——通知 BFF 清除该事件，SSE 重连时不再重放。
- * 避免「确认处理后刷新页面又回到 needs-you」。
- */
-export async function ackTradeAlert(): Promise<void> {
-  const auth = tokenHeader();
-  if (!auth.Authorization) return;
-  try {
-    await fetch(`${getBaseUrl()}/api/events/ack`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...auth },
-      body: JSON.stringify({ type: "fund.trade-alert" }),
-    });
-  } catch {
-    // 网络失败静默——下次仍可能重放，可再次确认
-  }
-}
-
-/**
- * 订阅 family-finance BFF 的通用事件流 `/api/events/stream`。
- * 复用 JWT（tokenHeader），断线指数退避重连。返回解绑函数。
+ * 订阅 BFF /api/events/stream（SSE）。
+ * - 未登录：300ms 短轮询等 token（与 attention client 同模式）
+ * - 断线：指数退避重连
  */
 export function subscribeToFundEvents(
-  onEvent: (event: FundEvent) => void,
-  onError?: (err: unknown) => void,
+  onEvent: Listener,
+  onError?: ErrorListener,
 ): () => void {
   let cancelled = false;
   let controller: AbortController | null = null;
@@ -72,8 +51,6 @@ export function subscribeToFundEvents(
     controller = new AbortController();
     const auth = tokenHeader();
     if (!auth.Authorization) {
-      // 未登录——短间隔轮询 token 就绪（loadToken 异步写入内存），
-      // 避免固定 3s 等待导致首包延迟（Pulse 跑马灯 vs 项目列表晚 3s）。
       reconnectTimer = setTimeout(connect, 300);
       return;
     }
@@ -84,50 +61,53 @@ export function subscribeToFundEvents(
         signal: controller.signal,
       });
       if (res.status === 401) {
-        // token 失效——停止重连，等待登录（Pulse 顶部横幅）
+        await handleUnauthorized();
         return;
       }
-      if (!res.ok || !res.body) {
-        throw new Error(`events stream ${res.status}`);
-      }
+      if (!res.ok || !res.body) throw new Error(`event stream ${res.status}`);
       attempt = 0;
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
-      let buffer = "";
+      let buf = "";
       while (!cancelled) {
         const { done, value } = await reader.read();
         if (done) break;
-        buffer += decoder.decode(value, { stream: true });
+        buf += decoder.decode(value, { stream: true });
         let idx;
-        while ((idx = buffer.indexOf("\n\n")) !== -1) {
-          const chunk = buffer.slice(0, idx);
-          buffer = buffer.slice(idx + 2);
+        while ((idx = buf.indexOf("\n\n")) !== -1) {
+          const chunk = buf.slice(0, idx);
+          buf = buf.slice(idx + 2);
           const dataLine = chunk.split("\n").find((l) => l.startsWith("data:"));
           if (!dataLine) continue;
           try {
-            const payload = JSON.parse(dataLine.slice(5).trim());
-            const type = payload?.type;
-            if (type === "fund.estimate" || type === "fund.trade-alert") {
-              onEvent(payload as FundEvent);
+            const event = JSON.parse(dataLine.slice(5).trim()) as FundStreamEvent & { ts?: number };
+            if (event.type === "fund.estimate") {
+              onEvent({
+                type: "fund.estimate",
+                ts: event.ts ?? Date.now(),
+                data: event.data as { funds: FundEstimateItem[] },
+              });
             }
-          } catch {
-            // 跳过无法解析的事件
-          }
+            // 其他类型（legacy trade-alert 等）不再消费——actionable 由 Attention 承载
+          } catch { /* 非 JSON 行 */ }
         }
       }
+      if (!cancelled) throw new Error("stream closed");
     } catch (err) {
-      if (!cancelled && onError) onError(err);
+      if (cancelled) return;
+      onError?.(err);
+      const delay = backoffDelay(attempt);
+      reconnectTimer = setTimeout(connect, delay);
     } finally {
-      if (!cancelled) {
-        reconnectTimer = setTimeout(connect, backoffDelay(attempt));
-      }
+      controller = null;
     }
   }
 
   connect();
+
   return () => {
     cancelled = true;
-    if (controller) controller.abort();
     if (reconnectTimer) clearTimeout(reconnectTimer);
+    controller?.abort();
   };
 }

@@ -10,14 +10,16 @@ import {
   Alert,
   type ViewStyle,
 } from "react-native";
-import { Bell, ChevronDown, ChevronRight } from "lucide-react-native";
+import { Bell, ChevronDown, ChevronRight, X } from "lucide-react-native";
 import { ScreenHeader, StatusDot, EventItem, BottomSheet, Text, Box, Button, FundMarqueeItem } from "@/components";
 import { ProjectChat } from "@/components/chat/ProjectChat";
 import { ProjectChatZ } from "@/components/chat/zcode/ProjectChatZ";
 import { useProjectEvents, type ProjectEvent } from "@/hooks/useProjectEvents";
 import { useFundEvents } from "@/hooks/useFundEvents";
-import { ackTradeAlert } from "@/services/fund-events";
 import { loadToken, login, onUnauthorized } from "@/services/auth";
+import { useAttentions } from "@/hooks/useAttentions";
+import type { PulseAttentionItem } from "@/services/attention/store";
+import { opencodeClient } from "@/services/opencode-client";
 import { getRuntimeBaseUrl } from "@/services/bff-config";
 import { opencodeConfig } from "@/config/opencode";
 import { colors, spacing, radius } from "@/theme";
@@ -31,18 +33,16 @@ function getGreeting(): string {
 }
 
 function statusTypeFor(status: ProjectEvent["status"]): StatusType {
-  switch (status) {
-    case "running":
-      return "running";
-    case "needs-you":
-      return "warning";
-    default:
-      return "idle";
-  }
+  return status === "running" ? "running" : "idle";
+}
+
+// Attention 域 → 呈现状态色（presentation only，不代表新的 lifecycle）
+function statusTypeForAttention(domain: PulseAttentionItem["domain"]): StatusType {
+  return domain === "market" ? "warning" : "running";
 }
 
 interface GroupedEvent extends ProjectEvent {
-  section: "needs-you" | "today";
+  section: "today";
 }
 
 // ZCode 风格聊天弹框开关（src/components/chat/zcode/）：false 一行回退旧弹框
@@ -52,7 +52,8 @@ const USE_ZCODE_CHAT_SHEET = true;
 
 export default function PulseScreen() {
   const { events, otherProjects, loading, error, refresh } = useProjectEvents();
-  const { funds, alert, dismissAlert } = useFundEvents();
+  const { funds } = useFundEvents();
+  const { open: openAttentions, dismiss: dismissAttention } = useAttentions();
   const [activeProject, setActiveProject] = useState<{
     id: string;
     projectPath: string;
@@ -87,6 +88,26 @@ export default function PulseScreen() {
     return onUnauthorized(() => setNeedLogin(true));
   }, [refresh]);
 
+  // Attention 点击路由（PM §16.4）：permission 类有 session → 进既有项目会话
+  //（现有 Talk path）；market 类 → 行情信息面。查看本身绝不改变 Attention state。
+  const onAttentionPress = async (a: PulseAttentionItem) => {
+    if (a.domain === "market") {
+      setFundSheetOpen(true);
+      return;
+    }
+    if (a.sessionId) {
+      try {
+        const session = await opencodeClient.getSession(a.sessionId);
+        const dir = session.directory || "";
+        if (dir) {
+          setActiveProject({ id: a.id, projectPath: dir });
+          return;
+        }
+      } catch { /* session 已删 → 落到提示 */ }
+    }
+    Alert.alert("该事项的会话已不可用", "Handling routing will arrive in a later phase.");
+  };
+
   const doLogin = async () => {
     try {
       setLoginError(null);
@@ -99,29 +120,27 @@ export default function PulseScreen() {
     }
   };
 
-  const needsYou: GroupedEvent[] = events
-    .filter((e) => e.status === "needs-you")
-    .map((e) => ({ ...e, section: "needs-you" as const }));
   const today: GroupedEvent[] = events
     .filter((e) => e.status === "running")
     .map((e) => ({ ...e, section: "today" as const }));
 
   type GroupItem =
     | { kind: "project"; event: GroupedEvent }
-    | { kind: "market"; hasAlert: boolean };
+    | { kind: "attention"; attention: PulseAttentionItem }
+    | { kind: "market" };
 
-  // 跑马灯：有 trade-alert 时升级到 Needs you（第一项）；否则作为独立 MARKET 分组放 Today 之后
-  const hasTradeAlert = alert !== null && alert.length > 0;
-  const needsYouItems: GroupItem[] = hasTradeAlert
-    ? [{ kind: "market", hasAlert: true }, ...needsYou.map((event): GroupItem => ({ kind: "project", event }))]
-    : needsYou.map((event): GroupItem => ({ kind: "project", event }));
+  // Needs you 分组 = Attention store 的 open items（authoritative，PM §16/§17）。
+  // 项目 running/idle 是中性信息性呈现；fund.estimate 是 L1 行情（MARKET 分组）。
+  const needsYouItems: GroupItem[] = openAttentions.map(
+    (attention): GroupItem => ({ kind: "attention", attention }),
+  );
   const todayItems: GroupItem[] = today.map((event): GroupItem => ({ kind: "project", event }));
 
   const groups: { label: string; items: GroupItem[] }[] = [
-    { label: "Needs you", items: needsYouItems },
+    ...(needsYouItems.length > 0 ? [{ label: "Needs you", items: needsYouItems }] : []),
     { label: "Today", items: todayItems },
-    ...(funds.length > 0 && !hasTradeAlert
-      ? [{ label: "Market", items: [{ kind: "market" as const, hasAlert: false }] }]
+    ...(funds.length > 0
+      ? [{ label: "Market", items: [{ kind: "market" as const }] }]
       : []),
   ].filter((g) => g.items.length > 0);
 
@@ -203,7 +222,13 @@ export default function PulseScreen() {
             <View style={styles.list}>
               {group.items.map((item, index, arr) => (
                 <View
-                  key={item.kind === "market" ? "market" : `project-${item.event.id}`}
+                  key={
+                    item.kind === "market"
+                      ? "market"
+                      : item.kind === "attention"
+                        ? `attention-${item.attention.id}`
+                        : `project-${item.event.id}`
+                  }
                   style={
                     index === arr.length - 1 ? styles.lastItemWrap : undefined
                   }
@@ -211,12 +236,37 @@ export default function PulseScreen() {
                   {item.kind === "market" ? (
                     <FundMarqueeItem
                       funds={funds}
-                      hasAlert={item.hasAlert}
                       onPress={() => setFundSheetOpen(true)}
                     />
+                  ) : item.kind === "attention" ? (
+                    <View style={styles.attentionRow}>
+                      <View style={styles.attentionMain}>
+                        <EventItem
+                          type="ACTION"
+                          title={item.attention.title}
+                          summary={item.attention.summary}
+                          status={statusTypeForAttention(item.attention.domain)}
+                          statusLabel={item.attention.domain === "market" ? "Market" : "Needs you"}
+                          onPress={() => onAttentionPress(item.attention)}
+                          testID={`attention-${item.attention.id}`}
+                        />
+                      </View>
+                      {item.attention.domain === "market" ? (
+                        // L2 [Ignore]：显式 dismiss（PM §17）；permission 类进入 Talk 处理
+                        <Pressable
+                          onPress={() => dismissAttention(item.attention.id)}
+                          accessibilityRole="button"
+                          accessibilityLabel="Ignore attention item"
+                          style={styles.attentionDismiss}
+                          testID={`attention-dismiss-${item.attention.id}`}
+                        >
+                          <X size={16} color={colors.muted} strokeWidth={2} />
+                        </Pressable>
+                      ) : null}
+                    </View>
                   ) : (
                     <EventItem
-                      type={item.event.status === "needs-you" ? "ACTION" : "PROJECT"}
+                      type="PROJECT"
                       title={item.event.name}
                       summary={item.event.summary}
                       status={statusTypeFor(item.event.status)}
@@ -310,25 +360,8 @@ export default function PulseScreen() {
 
       <BottomSheet visible={fundSheetOpen} onClose={() => setFundSheetOpen(false)} testID="fund-sheet">
         <Box padding="md" gap="sm">
-          <Text variant="body" color="ink">
-            {hasTradeAlert ? "有基金需要交易" : "基金行情"}
-          </Text>
-          {hasTradeAlert && alert
-            ? alert.map((f) => (
-                <View
-                  key={f.code}
-                  style={styles.fundRow}
-                >
-                  <Text variant="captionStrong" color="ink">{f.name}</Text>
-                  <Text variant="caption" color="muted">
-                    估净 {f.estimatedNav.toFixed(4)} · 目标 {f.targetNav.toFixed(4)}
-                  </Text>
-                  <Text variant="captionStrong" color="warning">
-                    超出 {(f.diff * 100).toFixed(2)}%
-                  </Text>
-                </View>
-              ))
-            : funds.map((f) => (
+          <Text variant="body" color="ink">基金行情</Text>
+          {funds.map((f) => (
                 <View
                   key={f.code}
                   style={styles.fundRow}
@@ -344,19 +377,6 @@ export default function PulseScreen() {
                   </Text>
                 </View>
               ))}
-          {hasTradeAlert ? (
-            <Button
-              variant="primary"
-              label="确认处理"
-              onPress={() => {
-                // 先清本地（needs-you 立即消失），再通知 BFF 清除重放事件，
-                // 刷新页面后不会再次出现
-                ackTradeAlert();
-                dismissAlert();
-                setFundSheetOpen(false);
-              }}
-            />
-          ) : null}
         </Box>
       </BottomSheet>
 
@@ -383,6 +403,15 @@ export default function PulseScreen() {
 }
 
 const styles = StyleSheet.create({
+  attentionRow: { flexDirection: "row", alignItems: "stretch", gap: spacing.xs },
+  attentionMain: { flex: 1 },
+  attentionDismiss: {
+    width: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 8,
+    backgroundColor: colors.surface[1],
+  },
   container: {
     flex: 1,
     backgroundColor: colors.canvas,

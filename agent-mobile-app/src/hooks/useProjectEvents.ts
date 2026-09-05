@@ -24,13 +24,11 @@ export interface UseProjectEventsResult {
 }
 
 /**
- * Aggregate opencode projects into Pulse "project events", each carrying a
- * live status (running / needs-you / idle) driven by /session/status plus the
- * SSE event stream (session.status, permission.updated, permission.replied).
+ * Aggregate opencode projects into Pulse **informational** project cards
+ * (running / idle), driven by /session/status + the opencode SSE stream.
  *
- * Note: opencode's /session/status only reports sessions that are currently
- * active (busy / retry). A session that exists but is not in that map is idle —
- * i.e. the agent has stopped and is waiting for your input.
+ * 「需要处理」不再由此派生（Phase 3 起 pending permission / idle 一律不产生
+ * needs-you）——actionable 内容唯一来自 Attention store（useAttentions）。
  */
 export function useProjectEvents(): UseProjectEventsResult {
   const [events, setEvents] = useState<ProjectEvent[]>([]);
@@ -41,13 +39,11 @@ export function useProjectEvents(): UseProjectEventsResult {
   const projectsRef = useRef<ProjectSource[]>([]);
   const sessionsRef = useRef<OpenCodeSession[]>([]);
   const sessionStatusRef = useRef<Record<string, "busy" | "retry" | "idle">>({});
-  const pendingRef = useRef<Set<string>>(new Set());
 
   const recompute = useCallback(() => {
     const projects = projectsRef.current;
     const sessions = sessionsRef.current;
     const sessionStatus = sessionStatusRef.current;
-    const pending = pendingRef.current;
 
     const sessionsByProject = new Map<string, OpenCodeSession[]>();
     for (const s of sessions) {
@@ -74,18 +70,11 @@ export function useProjectEvents(): UseProjectEventsResult {
         }
       }
 
+      void now;
       return determineProjectStatus(
         { id: proj.id, projectPath: proj.worktree, updated: proj.updated },
         projSessions.map((s) => ({ id: s.id, updated: s.time?.updated ?? 0 })),
-        {
-          sessionStatus: statusForProject,
-          pendingPermissions: pending,
-          sessionUpdated: Object.fromEntries(
-            projSessions.map((s) => [s.id, s.time?.updated ?? 0]),
-          ),
-          projectUpdated: proj.updated,
-        },
-        now,
+        { sessionStatus: statusForProject },
       );
     });
 
@@ -159,26 +148,6 @@ export function useProjectEvents(): UseProjectEventsResult {
         const st = p.status === "busy" || p.status === "retry" ? p.status : "idle";
         sessionStatusRef.current = { ...sessionStatusRef.current, [p.sessionID]: st };
         recompute();
-        break;
-      }
-      case "permission.updated": {
-        const p = event.properties as { sessionID: string; permissionID?: string };
-        if (p.sessionID) {
-          const next = new Set(pendingRef.current);
-          next.add(p.sessionID);
-          pendingRef.current = next;
-          recompute();
-        }
-        break;
-      }
-      case "permission.replied": {
-        const p = event.properties as { sessionID: string; permissionID?: string };
-        if (p.sessionID) {
-          const next = new Set(pendingRef.current);
-          next.delete(p.sessionID);
-          pendingRef.current = next;
-          recompute();
-        }
         break;
       }
       case "session.updated": {
