@@ -40,8 +40,8 @@
 | 会话最近一条消息时间 | REST `/session/{id}` | `getSession(id).time.updated`（状态判定的活跃度基准，勿用 project.time.updated） |
 | 某会话最近 50 条消息 | REST `/session/{id}/message?limit=50` | `opencodeClient.listMessages(id, {limit:50})`；返回 **chronological（旧在前）** |
 | 消息是否包含工具调用 | SSE / REST parts | `msg.parts` 中 `type==="tool"`（tool/state.status/input） |
-| 某项目聚合状态 | 计算 | `determineProjectStatus()`（见 project-status.ts，优先级：pending 权限 → busy/retry → idle） |
-| 状态有哪些取值 | `project-status.ts` | `ProjectStatus = "running" \| "needs-you" \| "idle"` |
+| 某项目聚合状态 | 计算 | `determineProjectStatus()`（见 project-status.ts，running/idle 中性判定） |
+| 状态有哪些取值 | `project-status.ts` | `ProjectStatus = "running" \| "idle"`（Phase 3 起：needs-you 只来自 Attention store，见 services/attention/） |
 | 颜色值 | `agent-mobile-app/src/theme/colors.ts` | `colors.*` |
 | 应用包名/名称 | `agent-mobile-app/app.json` | `expo.name` / `expo.android.package` |
 | 构建 profile | `agent-mobile-app/eas.json` | `build.preview/production` |
@@ -63,3 +63,5 @@ session CRUD               OpenCode Server                useProjectEvents / Pro
 - 直接 curl 验证数据：`curl -u opencode:$PASS http://127.0.0.1:4096/session/ses_xxx/message?limit=5`（Basic auth）。
 - SSE 事件流验证：`curl -N -u opencode:$PASS http://127.0.0.1:4096/global/event`（注意 `sync` 内部帧会被客户端过滤）。
 - 消息顺序问题排查：先 curl 确认 API 返回顺序（**chronological**），再检查 reducer 插入与 mergeMessages 是否保持了该顺序。
+
+> Phase 1-6 追加：产品层持久化在 BFF SQLite（product_events / attention_items / assignments / assignment_proposals，见 family-finance 知识库 DATA.md）；Memory 投影来自 `~/.opencode`（memx canonical）；KB 检索来自 llm-wiki vault。手机端数据源：`services/attention/`、`services/assignment/`、`services/memory/`。

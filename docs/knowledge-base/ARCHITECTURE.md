@@ -81,7 +81,7 @@ hooks 层（聚合状态）        src/hooks/useProjectEvents.ts
 | 字段 | 类型 | 说明 |
 |---|---|---|
 | id / projectPath / name | string | 项目标识、路径、显示名 |
-| status | `"running" \| "needs-you" \| "idle"` | 聚合状态（判定优先级：pending 权限 → busy/retry → 已知 idle → 兜底 idle） |
+| status | `"running" \| "idle"` | 中性聚合状态（Phase 3 起 runtime 状态永不产生 needs-you；needs-you 只来自 Attention store） |
 | statusLabel / summary | string | 状态文案与摘要 |
 | updated | number | 最近活动时间（session.time.updated 取最大） |
 | sessionIDs | string[] | 该项目全部会话 |
@@ -118,7 +118,7 @@ hooks 层（聚合状态）        src/hooks/useProjectEvents.ts
 ```
 REST /project + /session?directory= + /session/status   （30s 轮询 + server.connected 时全量刷新）
   ↓ useProjectEvents（ref 缓存 + recompute 纯函数）
-  ↓ determineProjectStatus（needs-you/running/idle）
+  ↓ determineProjectStatus（running/idle，中性）→ Needs you 分组由 useAttentions（/api/product/attention）驱动
   ↓ pulse.tsx 分组渲染（Needs you / Today），点击 → BottomSheet(fullScreen) → ProjectChat
 SSE session.status / permission.* / session.updated / session.created / session.deleted → 增量 recompute
 ```

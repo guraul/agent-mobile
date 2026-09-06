@@ -1,6 +1,7 @@
 # IMPLEMENTATION_MODEL.md —— Product Model → Implementation Architecture (v1)
 
 > 状态：v1 草案（实现映射文档）
+> **Phase 7 现状标注**：本文 §1 As-Is 盘点、§12 phase 表与 P0/P1/P2 清单为 **v1 历史快照**。Phase 1-6 已实现：Event/Attention 持久化、deterministic pipeline、Pulse 改造、Talk routing/handlingRef、Assignment runtime（Phase 5/5.5 hardening）、Memory/KB 产品面（Phase 6）。语义唯一来源仍是 PRODUCT_MODEL.md；runtime 决策见 PHASE5_IMPLEMENTATION.md 与 docs/redesign/BACKLOG.md。
 > 语义唯一来源：`docs/redesign/PRODUCT_MODEL.md`（已冻结；下文以 **PM §n** 引用）
 > 代码基线：agent-mobile @ `0af5829` · family-finance @ `2c38301` · opencode-memx @ `100681b` · llm-wiki / llm-wiki-mcp 现版
 > 本文不重定义产品语义；所有语义裁决以 PRODUCT_MODEL 为准。实现与产品冲突时，记为 **implementation gap**，不改产品模型。

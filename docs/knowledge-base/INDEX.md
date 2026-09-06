@@ -23,14 +23,14 @@
 ## 项目定位
 
 **Agent Mobile** — AI 编码 agent（OpenCode 等）的移动端遥控器。"Mission Control for AI agents"。
-当前形态：Expo（SDK 57）应用，Pulse 首页展示真实 opencode 项目状态（running / needs-you 分组），点击项目进入真实对话（流式回复 + 工具调用折叠）；Me tab 为配置页（账号登出 / BFF 地址运行时切换 / 按 agent 配默认 model）；Talk/Memory 为占位页。
+当前形态：Expo（SDK 57）应用，Pulse 首页展示项目状态（running/idle 中性分组）+ Attention 驱动的 Needs you 分组，点击项目进入真实对话（流式回复 + 工具调用折叠）；Me tab 为配置页（账号登出 / BFF 地址运行时切换 / 按 agent 配默认 model）；Talk 为占位页（Memory 自 Phase 6 起为真实数据）。
 
 ## 核心功能清单
 
 | 功能 | 所属模块 | 入口文件 |
 |---|---|---|
 | Pulse 首页（项目导航 + 状态分组 + 其他项目折叠栏 + 基金估值跑马灯 + 全屏聊天 sheet） | pulse-stream | `agent-mobile-app/src/app/(tabs)/index.tsx` |
-| 项目状态聚合（running/needs-you/idle + 不活跃项目 otherProjects + SSE 实时） | pulse-stream | `agent-mobile-app/src/hooks/useProjectEvents.ts` |
+| 项目状态聚合（running/idle + 不活跃项目 otherProjects + SSE 实时） | pulse-stream | `agent-mobile-app/src/hooks/useProjectEvents.ts` |
 | 基金事件订阅（fund.estimate 估值 + fund.trade-alert 交易提醒） | pulse-stream | `agent-mobile-app/src/hooks/useFundEvents.ts` + `services/fund-events.ts` |
 | 项目状态判定纯函数 | services | `agent-mobile-app/src/services/project-status.ts` |
 | Me 页（连接与账号 / BFF 地址 / model 偏好三 Card + model 选择 BottomSheet） | router | `agent-mobile-app/src/app/(tabs)/me.tsx` |

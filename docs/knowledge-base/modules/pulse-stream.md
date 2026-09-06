@@ -1,5 +1,7 @@
 # modules/pulse-stream.md —— Pulse 首页（项目导航 + 基金估值）
 
+> ⚠️ **Phase 3-7 更新**：needs-you 现在只来自 Attention store（`services/attention/`，/api/product/attention + /api/product/stream）；`fund.trade-alert` SSE 语义与 `/api/events/ack` 已退役（Phase 7 移除派生与 ack 路由）；fund.estimate 仍是 L1 行情数据面；活跃聊天为 `ProjectChatZ`（ZCode fork）。下文部分段落描述 Phase 3 之前行为，已用 ~~删除线~~ 或保留作历史参考——以本标注与 `services/attention/` 源码为准。
+
 > 最后更新：2026-09-05 · Phase 3：Pulse needs-you 改由 Attention store 驱动，knownIdle/pendingPermissions→needs-you 已删除
 
 ## Phase 3：Pulse ← Attention（2026-09-05）

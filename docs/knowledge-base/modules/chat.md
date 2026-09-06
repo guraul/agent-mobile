@@ -159,3 +159,10 @@ SSE: BFF /api/opencode/stream（Bearer JWT + ?sessionID= 过滤）
 - **勿只监听 `question.v2.asked`**：opencode 实际发 `question.asked`（v1 兼容名），两端命名都要同时兼容，否则实时弹窗不触发。
 - 单测：`message-merging.test.ts`（含 error step 字符串/对象 case）、`message-reducer.test.ts`（含 SSE 透传 error case）、`order-sim.test.ts`（模拟完整 SSE 链路）。
 - E2E：`scripts/e2e/pulse-e2e.mjs` 覆盖打开项目 → 发消息 → 顺序校验；`test/steps-verify*.mjs` 验证旁白渲染；`test/agent-pill-verify.mjs` 验证 agent 循环 + prompt 参数；`test/model-sheet-verify.mjs` 验证模型弹出框；`test/bff-e2e.mjs` 验证登录 + 打字机 + 动态模型（阶段 2）；`test/diag/*.mjs` 各种诊断/隔离验证脚本。
+
+
+## Phase 4 追加：Attention → Talk
+
+- 从 Attention 进入时 `ProjectChatZ` 携带 `attention` ref：顶部上下文卡（`buildAttentionContext`）+ 显式 Mark handled 按钮（`handleAttention` → POST handle，artifact=`handling:<sessionID>`）。
+- market 类无 session → Create 新会话（MARKET_TALK_DIRECTORY）+ `engageAttention` 回填 + `autoSendContext` 自动注入上下文；Resume 语义见 PM §8.2/§16.4。
+- Phase 5：`send()` 前拦截斜杠命令（/assign /confirm /reject /revoke /assignments，见 services/assignment/client.ts），命令不发给 Agent。

@@ -142,3 +142,13 @@ auth.ts ──Bearer JWT──► 认证（family-finance 用户）       openco
 - **所有纯函数改动必须同步单测**：`*.test.ts` 与源码同目录（vitest `include` 匹配 `src`）。
 - **手机端不再持有 opencode 凭证**：只有 BFF 侧 `.env.local` 有 `OPENCODE_USERNAME/PASSWORD`。
 - 端点新增/修改后更新 `docs/knowledge-base/API.md`。
+
+
+## Phase 4-6 追加 services（当前活跃）
+
+| service | 职责 | canonical |
+|---|---|---|
+| `services/attention/{store,client,context}.ts` | Attention store（needs-you 唯一来源）/ REST+SSE client / engage 上下文 | BFF attention_items |
+| `services/assignment/client.ts` | /assign /confirm /reject /revoke 命令解析 + proposals API | BFF assignments（matrix 把关） |
+| `services/memory/client.ts` | Memory 投影 + Forget + KB search（Memory tab） | memx 文件 / llm-wiki vault |
+| `services/project-status.ts` | running/idle 中性判定（Phase 3 起 needs-you 移除，见文件头注释） | 运行时计算 |

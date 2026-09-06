@@ -11,14 +11,17 @@ A design-first project: the visual identity, component system, and screens for a
 ## Repository Layout
 
 ```
-├── src/                      React/TSX source
+├── agent-mobile-app/         当前活跃应用（Expo SDK 57：Pulse/Talk/Memory/Me + BFF services）
+│   ├── src/                  app source（screens/services/hooks/components）
+│   └── dist/                 web 静态构建产物（serve-9928）
+├── src/                      React/TSX source（设计期遗留，非运行态）
 │   ├── components/           UI primitives & components
 │   ├── screens/              App screens (Agents, Activity, Settings, ...)
 │   └── theme/                Design tokens (colors, typography, spacing, ...)
 ├── showcase/                 Static HTML preview of the final UI
 │   └── README.md             Showcase usage & structure
 └── docs/
-    └── knowledge_base/       Design specs & review docs
+    ├── knowledge-base/       知识库（路由见 AGENTS.md）       Design specs & review docs
         ├── DESIGN.md         Full design system spec (tokens, components, screens)
         ├── DESIGN_DIRECTION.md  Design direction (why & how)
         ├── VISION_REVIEW.md  Product vision review
