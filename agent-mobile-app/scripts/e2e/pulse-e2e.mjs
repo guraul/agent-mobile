@@ -13,10 +13,57 @@
 import pw from '/root/.claude/skills/playwright-skill/node_modules/playwright-core/index.js';
 const { chromium } = pw;
 
-const E2E_URL = process.env.E2E_URL || 'http://127.0.0.1:9928/pulse';
+const E2E_URL = process.env.E2E_URL || 'http://127.0.0.1:9928/'; // Pulse 首页 = /（708dc7b 起路由不再是 /pulse）
 const NO_SEND = !!process.env.E2E_NO_SEND;
+const BFF_URL = process.env.EXPO_PUBLIC_OPENCODE_URL || 'http://106.13.181.13:19234';
 
-import { existsSync } from 'node:fs';
+// 登录前置：attention/项目 API 需要 JWT（Phase 1 起）。凭据从 BFF 本地 .env.local
+// 读取（dev 默认管理员）或 E2E_USER/E2E_PASS 覆盖——脚本不携带任何凭据。
+import { existsSync, readFileSync } from 'node:fs';
+
+function loadDevCreds() {
+  if (process.env.E2E_USER && process.env.E2E_PASS) {
+    return { user: process.env.E2E_USER, pass: process.env.E2E_PASS };
+  }
+  const envPaths = [
+    '/root/project/family-finance/packages/web/.env.local',
+    '/root/project/family-finance/.env.local',
+  ];
+  for (const p of envPaths) {
+    if (!existsSync(p)) continue;
+    try {
+      const env = readFileSync(p, 'utf8');
+      const user = env.match(/^ADMIN_USERNAME=(.*)$/m)?.[1]?.trim();
+      const pass = env.match(/^ADMIN_PASSWORD=(.*)$/m)?.[1]?.trim();
+      if (user && pass) return { user, pass };
+    } catch { /* fallthrough */ }
+  }
+  return null;
+}
+
+/** 登录 BFF 并把 token 注入浏览器 localStorage（AsyncStorage web 载体），返回 null 表示跳过注入 */
+async function obtainToken() {
+  const creds = loadDevCreds();
+  if (!creds) {
+    console.log('[e2e] 未找到登录凭据（E2E_USER/E2E_PASS 或 BFF .env.local），跳过 token 注入');
+    return null;
+  }
+  try {
+    const res = await fetch(`${BFF_URL}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: creds.user, password: creds.pass }),
+    });
+    if (!res.ok) throw new Error(`login ${res.status}`);
+    const token = (await res.json()).token;
+    if (!token) throw new Error('no token in login response');
+    console.log(`[e2e] 已登录 BFF（${creds.user}），token 注入 localStorage`);
+    return token;
+  } catch (e) {
+    console.log(`[e2e] BFF 登录失败（${e.message}），继续无登录尝试`);
+    return null;
+  }
+}
 
 const EXECUTABLE_CANDIDATES = [
   '/root/.cache/ms-playwright/chromium_headless_shell-1228/chrome-headless-shell-linux64/chrome-headless-shell',
@@ -42,6 +89,16 @@ async function main() {
     args: ['--no-sandbox', '--disable-gpu'],
   });
   const page = await browser.newPage({ viewport: { width: 430, height: 900 } });
+  const token = await obtainToken();
+  if (token) {
+    // AsyncStorage(web) 直接以 key 写 localStorage；在应用脚本前注入避免 401 竞态
+    await page.addInitScript((tok) => {
+      try {
+        window.localStorage.setItem('pulse_opencode_token', tok);
+        window.localStorage.setItem('pulse_username', 'e2e');
+      } catch { /* ignore */ }
+    }, token);
+  }
   const errors = [];
   page.on('console', (m) => { if (m.type() === 'error') errors.push('[console] ' + m.text()); });
   page.on('pageerror', (e) => errors.push('[pageerror] ' + e.message));
@@ -64,17 +121,23 @@ async function main() {
   const groupToday = await page.locator('text=TODAY').first().isVisible().catch(() => false);
   check('项目分组显示 (Needs you / Today)', groupNeedsYou || groupToday, `needsYou=${groupNeedsYou} today=${groupToday}`);
 
-  // 取第一个可见的项目事件条目（分组标题下方的项目卡片）
-  const projectEventItem = page.locator('[data-testid^="project-"]').first();
-  const projectVisible = await projectEventItem.isVisible().catch(() => false);
-  check('项目事件条目可见', projectVisible);
+  // 取第一个可见的脉冲条目：Phase 3 起 Needs you 主体是 attention 卡
+  //（attention-att_* ；排除 dismiss 按钮），其次才是 Today 分组的 project-* 行。
+  // 注意不能直接用 [data-testid^="project-"]——project-chat-sheet-scrim 会被误命中。
+  let pulseItem = page.locator('[data-testid^="attention-att_"]').first();
+  let itemVisible = await pulseItem.isVisible().catch(() => false);
+  if (!itemVisible) {
+    pulseItem = page.locator('[data-testid^="project-"]').first();
+    itemVisible = await pulseItem.isVisible().catch(() => false);
+  }
+  check('项目事件条目可见', itemVisible);
 
-  // Step 2: 点击项目 → 直接进入对话
+  // Step 2: 点击条目 → 进入对话（attention market 行会 Create 会话，耗时含网络）
   let hasTextarea = false;
   let chatRendered = false;
-  if (projectVisible) {
-    await projectEventItem.dispatchEvent('click', { bubbles: true });
-    await page.waitForTimeout(8000);
+  if (itemVisible) {
+    await pulseItem.dispatchEvent('click', { bubbles: true });
+    await page.waitForTimeout(15000);
     const sheetVisible = await page.locator('[data-testid="project-chat-sheet"]').first().isVisible().catch(() => false);
     hasTextarea = (await page.locator('textarea').count()) > 0;
     chatRendered = hasTextarea;

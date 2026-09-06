@@ -40,6 +40,7 @@ import { mergeMessages, type DisplayStep } from "../../../services/message-mergi
 import { loadModelPrefs } from "../../../services/model-prefs";
 import { buildAttentionContext } from "../../../services/attention/context";
 import { handleAttention } from "../../../services/attention/client";
+import { parseAssignmentCommand, executeAssignmentCommand } from "../../../services/assignment/client";
 import type { EngagedAttentionRef } from "../../../services/attention/store";
 import { MessageBubbleZ } from "./MessageBubbleZ";
 
@@ -542,6 +543,22 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false }: Ch
     const text = input.trim();
     if (!text || sending) return;
     setInput("");
+    // Assignment 命令（Phase 5 最小 Talk 接入）：结构化指令不发给 Agent——
+    // /assign → proposal（market 需 /confirm 激活）；/confirm /reject /revoke /assignments → 生命周期动作。
+    // 激活语义在 BFF confirmation matrix 把关；这里只做命令路由与结果反馈。
+    const assignmentCommand = parseAssignmentCommand(text);
+    if (assignmentCommand) {
+      setSending(true);
+      try {
+        const feedback = await executeAssignmentCommand(assignmentCommand, sessionID);
+        Alert.alert("Assignment", feedback);
+      } catch (e) {
+        Alert.alert("命令失败", e instanceof Error ? e.message : String(e));
+      } finally {
+        setSending(false);
+      }
+      return;
+    }
     setSending(true);
     setAbortedAt(null);
     setError(null);
