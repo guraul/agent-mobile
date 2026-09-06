@@ -83,3 +83,9 @@
 | 其他 | GET | 404 |
 
 鉴权：无（内网/公网直开）。端口 9928。**登录态由 BFF JWT 管理**（`pulse_opencode_token` localStorage）。
+## Assignment（Phase 5，手机端最小接入）
+
+`src/services/assignment/client.ts`：proposal/confirm/reject/revoke/list REST 封装 + 斜杠命令解析（纯函数，有测试）。
+ChatPanelZ `send()` 前拦截：`/assign fund <code> above-target|above <v>|below <v> [at HH:MM]`（market，恒需确认）、
+`/assign remind <text> at HH:MM`（one-shot personal，低风险直接激活）、`/confirm /reject /revoke <prp_|asg_ id>`、`/assignments`。
+命令不发给 Agent；执行结果经 `Alert.alert` 反馈。E2E：`pnpm e2e[:nosend]`（登录前置已内建）。
