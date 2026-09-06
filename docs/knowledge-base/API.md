@@ -89,3 +89,8 @@
 ChatPanelZ `send()` 前拦截：`/assign fund <code> above-target|above <v>|below <v> [at HH:MM]`（market，恒需确认）、
 `/assign remind <text> at HH:MM`（one-shot personal，低风险直接激活）、`/confirm /reject /revoke <prp_|asg_ id>`、`/assignments`。
 命令不发给 Agent；执行结果经 `Alert.alert` 反馈。E2E：`pnpm e2e[:nosend]`（登录前置已内建）。
+
+## Memory / KB（Phase 6）
+
+`src/services/memory/client.ts`：Memory 投影（`fetchMemories`）+ Forget（`forgetMemory`，作用于 memx canonical）+ KB 检索（`searchKb`）+ 分组纯函数（`buildMemoryGroups`，User / Projects 分组）。
+Memory tab（`(tabs)/memory.tsx`）：KB 搜索卡片 + User/Projects 分组列表 + Forget（确认后 DELETE）；直开页面先 `loadToken()`（同 Me tab）。KB 无独立 tab（PM §36：无独立管理面），入口在 Memory tab。
