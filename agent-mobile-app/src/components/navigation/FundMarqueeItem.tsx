@@ -9,7 +9,6 @@ import type { FundEstimateItem } from "../../services/fund-events";
 
 export interface FundMarqueeItemProps {
   funds: FundEstimateItem[];
-  hasAlert?: boolean;
   onPress?: () => void;
 }
 
@@ -17,10 +16,11 @@ export interface FundMarqueeItemProps {
  * 基金行情条目——UI 与 EventItem（项目列）完全一致：
  * 同 surface.1 背景、边框、padding、gap；type 标签 + title/summary 两行 + StatusPill。
  * title 行为基金名跑马灯滚动，summary 行为估值 + 涨跌幅跑马灯滚动。
- * hasAlert 时 StatusPill 变 warning"有基金需要交易"，否则 idle"Watching"。
+ * StatusPill 恒 idle"Watching"——这是 L1 行情数据面（无 obligation）；
+ * needs-you 语义在 Attention store（Phase 3 起 trade-alert 已迁走，Phase 7 移除 hasAlert）。
  * 可点击（onPress，与 EventItem 同 pressed 反馈）。
  */
-export function FundMarqueeItem({ funds, hasAlert = false, onPress }: FundMarqueeItemProps) {
+export function FundMarqueeItem({ funds, onPress }: FundMarqueeItemProps) {
   const containerStyle: ViewStyle = {
     backgroundColor: colors.surface[1],
     borderBottomWidth: 1,
@@ -37,7 +37,7 @@ export function FundMarqueeItem({ funds, hasAlert = false, onPress }: FundMarque
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={hasAlert ? "有基金需要交易" : "基金行情"}
+      accessibilityLabel="基金行情"
       style={({ pressed }) => [
         containerStyle,
         pressed && { backgroundColor: colors.surface[2] },
@@ -72,10 +72,7 @@ export function FundMarqueeItem({ funds, hasAlert = false, onPress }: FundMarque
         </Marquee>
       </Box>
       <Box style={{ flexDirection: "row", justifyContent: "flex-end", alignSelf: "stretch" }}>
-        <StatusPill
-          status={hasAlert ? "warning" : "idle"}
-          label={hasAlert ? `有基金需要交易(${funds.length})` : "Watching"}
-        />
+        <StatusPill status="idle" label="Watching" />
       </Box>
     </Pressable>
   );
