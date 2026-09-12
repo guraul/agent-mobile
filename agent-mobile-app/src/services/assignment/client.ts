@@ -26,7 +26,35 @@ export interface AssignmentRecord {
   revokedAt: number | null;
   authorizationRef: string;
   triggerDefinition: TriggerDefinitionLike;
-  provenance: Record<string, unknown>;
+  provenance: Record<string, unknown> & {
+    pendingCompensation?: { occurrenceAt: number; detectedAt: number };
+  };
+}
+
+/** Phase 9：authorization 投影（BFF `GET /assignments/:id` 返回的只读字段） */
+export interface AssignmentAuthorization {
+  proposalId: string | null;
+  instructionRef: string | null;
+  createdBy: string | null;
+  via: string | null;
+}
+
+export interface AssignmentDetail {
+  item: AssignmentRecord;
+  authorization: AssignmentAuthorization;
+}
+
+/** Phase 9：execution history 投影（BFF `GET /assignments/:id/history`） */
+export interface AssignmentHistoryItem {
+  id: string;
+  type: string;
+  occurredAt: number;
+  label: string;
+  status: "success" | "failed" | "missed" | "neutral";
+  attempt?: number;
+  executionId?: string;
+  reason?: string;
+  retried?: boolean;
 }
 
 export interface ProposalRecord {
@@ -36,6 +64,18 @@ export interface ProposalRecord {
   domain: "market" | "personal";
   status: "proposed" | "confirmed" | "rejected" | "cancelled" | "expired";
   resolution: { assignmentId?: string; via?: string; reason?: string } | null;
+}
+
+/** Phase 13：BFF assignment_proposals 行的完整形状（ProposalRecord 是其子集，保留兼容） */
+export interface ProposalRow extends ProposalRecord {
+  triggerDefinition: TriggerDefinitionLike;
+  actionScope: Record<string, unknown> | null;
+  createdAt: number;
+  resolvedAt: number | null;
+  sessionId: string | null;
+  instructionRef: string | null;
+  expiresAt: number | null;
+  provenance: { createdBy: string; [k: string]: unknown };
 }
 
 export interface ProposeResponse {
@@ -98,6 +138,18 @@ export async function rejectProposal(proposalId: string): Promise<ProposalRecord
   return body.proposal!;
 }
 
+/** Phase 13：proposal 快照（Suggestion 数据源，PHASE13_DESIGN §4.3）。status 缺省 = 全部。 */
+export async function fetchProposals(status?: ProposalRecord["status"]): Promise<ProposalRow[]> {
+  const qs = status ? `?status=${encodeURIComponent(status)}` : "";
+  const res = await fetch(`${getBaseUrl()}/api/product/assignment-proposals${qs}`, {
+    headers: authHeaders(),
+  });
+  await throwIfUnauth(res);
+  if (!res.ok) throw new Error(`proposal list failed: ${res.status}`);
+  const body = (await res.json()) as { items: ProposalRow[] };
+  return body.items ?? [];
+}
+
 export async function revokeAssignment(id: string): Promise<{ transitioned: boolean; item: AssignmentRecord }> {
   const res = await fetch(`${getBaseUrl()}/api/product/assignments/${id}/revoke`, {
     method: "POST",
@@ -110,12 +162,63 @@ export async function revokeAssignment(id: string): Promise<{ transitioned: bool
   return { transitioned: body.transitioned ?? false, item: body.item! };
 }
 
+/** P8 repair：对失败的执行发起同 executionId 新 attempt（显式用户动作）。 */
+export async function repairAssignment(id: string): Promise<{ completed?: boolean; failed?: boolean; attempt?: number; error?: string }> {
+  const res = await fetch(`${getBaseUrl()}/api/product/assignments/${id}/repair`, {
+    method: "POST",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  await throwIfUnauth(res);
+  const body = (await res.json()) as { failed?: boolean; attempt?: number; error?: string; completed?: boolean; errorDetail?: string };
+  if (!res.ok) throw new Error(body.error ?? `repair failed: ${res.status}`);
+  return { completed: body.completed, failed: body.failed, attempt: body.attempt, error: body.error };
+}
+
+/** P8 compensate：missed one-shot 补偿决定（用户显式动作；≠ Assignment activation）。 */
+export async function compensateAssignment(
+  id: string,
+  action: "run-now" | "skip",
+): Promise<{ action: "run-now" | "skip"; assignment?: AssignmentRecord | null; result?: { failed?: boolean; completed?: boolean; attempt?: number; error?: string } }> {
+  const res = await fetch(`${getBaseUrl()}/api/product/assignments/${id}/compensate`, {
+    method: "POST",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({ action }),
+  });
+  await throwIfUnauth(res);
+  const body = (await res.json()) as {
+    action?: "run-now" | "skip";
+    assignment?: AssignmentRecord | null;
+    result?: { failed?: boolean; completed?: boolean; attempt?: number; error?: string };
+    error?: string;
+  };
+  if (!res.ok) throw new Error(body.error ?? `compensate failed: ${res.status}`);
+  return { action: body.action ?? action, assignment: body.assignment, result: body.result };
+}
+
 export async function fetchAssignments(state?: "active" | "revoked" | "completed"): Promise<AssignmentRecord[]> {
   const qs = state ? `?state=${state}` : "";
   const res = await fetch(`${getBaseUrl()}/api/product/assignments${qs}`, { headers: authHeaders() });
   await throwIfUnauth(res);
   if (!res.ok) throw new Error(`assignments failed: ${res.status}`);
   const body = (await res.json()) as { items: AssignmentRecord[] };
+  return body.items ?? [];
+}
+
+/** Phase 9：assignment 详情（含 authorization 投影；只读） */
+export async function fetchAssignmentDetail(id: string): Promise<AssignmentDetail> {
+  const res = await fetch(`${getBaseUrl()}/api/product/assignments/${id}`, { headers: authHeaders() });
+  await throwIfUnauth(res);
+  if (!res.ok) throw new Error(`assignment detail failed: ${res.status}`);
+  return (await res.json()) as AssignmentDetail;
+}
+
+/** Phase 9：assignment 执行历史投影（只读；不暴露原始事件 payload） */
+export async function fetchAssignmentHistory(id: string): Promise<AssignmentHistoryItem[]> {
+  const res = await fetch(`${getBaseUrl()}/api/product/assignments/${id}/history`, { headers: authHeaders() });
+  await throwIfUnauth(res);
+  if (!res.ok) throw new Error(`assignment history failed: ${res.status}`);
+  const body = (await res.json()) as { items: AssignmentHistoryItem[] };
   return body.items ?? [];
 }
 
@@ -127,6 +230,8 @@ export type AssignmentCommand =
   | { kind: "confirm"; id: string }
   | { kind: "reject"; id: string }
   | { kind: "revoke"; id: string }
+  | { kind: "repair"; id: string }
+  | { kind: "compensate"; id: string; action: "run-now" | "skip" }
   | { kind: "list" };
 
 const TIME_RE = /^(?:at\s+)?(\d{1,2}):(\d{2})$/;
@@ -148,10 +253,15 @@ export function parseAssignmentCommand(raw: string): AssignmentCommand | null {
   const args = rest.join(" ");
 
   if (cmd === "/assignments" && !args) return { kind: "list" };
-  if ((cmd === "/confirm" || cmd === "/reject" || cmd === "/revoke") && args) {
+  if ((cmd === "/confirm" || cmd === "/reject" || cmd === "/revoke" || cmd === "/repair") && args) {
     const id = args.trim();
     if (!/^(prp|asg)_[0-9A-HJKMNP-TV-Z]+$/i.test(id)) return null;
-    return { kind: cmd.slice(1) as "confirm" | "reject" | "revoke", id };
+    return { kind: cmd.slice(1) as "confirm" | "reject" | "revoke" | "repair", id };
+  }
+  if ((cmd === "/run-now" || cmd === "/skip") && args) {
+    const id = args.trim();
+    if (!/^asg_[0-9A-HJKMNP-TV-Z]+$/i.test(id)) return null;
+    return { kind: "compensate", id, action: cmd === "/run-now" ? "run-now" : "skip" };
   }
   if (cmd !== "/assign" || !args) return null;
 
@@ -238,11 +348,33 @@ export async function executeAssignmentCommand(command: AssignmentCommand, sessi
         ? `✓ 已撤销：${item.id}\n未来触发已停止；已有提醒保持不变。`
         : `该 Assignment 已不在 active 状态（当前：${item.state}），无需重复撤销。`;
     }
+    case "repair": {
+      const r = await repairAssignment(command.id);
+      return r.failed
+        ? `重试仍失败（attempt ${r.attempt}）：${r.error}\n可稍后再 /repair ${command.id}。`
+        : `✓ 重试成功（attempt ${r.attempt}）——责任已履行。`;
+    }
+    case "compensate": {
+      const c = await compensateAssignment(command.id, command.action);
+      if (command.action === "skip") {
+        return c.assignment?.state === "revoked"
+          ? `✓ 已放弃该一次性责任（revoked）——不再执行，也不会补跑。`
+          : `已记录跳过决定（Assignment 状态：${c.assignment?.state ?? "未知"}）。`;
+      }
+      if (c.result?.failed) {
+        return `补偿执行仍失败（attempt ${c.result.attempt}）：${c.result.error}\n可稍后再 /repair ${command.id} 重试。`;
+      }
+      return `✓ 已补偿执行（attempt ${c.result?.attempt ?? 1}）——责任已履行。`;
+    }
     case "list": {
       const items = await fetchAssignments("active");
       if (items.length === 0) return "当前没有生效中的 Assignment。";
       return `生效中的 Assignment（${items.length}）：\n` + items
-        .map((a) => `· ${a.id} [${a.domain}/${a.mode}] ${a.responsibility}`)
+        .map((a) => {
+          const pc = a.provenance.pendingCompensation;
+          const tag = pc ? ` ⚠️ 补偿待决（${new Date(pc.occurrenceAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })} 错过）——/run-now ${a.id} 立即执行，或 /skip ${a.id} 放弃` : "";
+          return `· ${a.id} [${a.domain}/${a.mode}] ${a.responsibility}${tag}`;
+        })
         .join("\n");
     }
   }

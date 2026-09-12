@@ -42,13 +42,21 @@ describe("parseAssignmentCommand", () => {
     expect(parseAssignmentCommand("/assign remind 忘了写时间")).toBeNull();
   });
 
-  it("confirm / reject / revoke 需要 prp_/asg_ 前缀 id", () => {
+  it("confirm / reject / revoke / repair 需要 asg_/prp_ 前缀 id", () => {
     expect(parseAssignmentCommand("/confirm prp_01M1TV52G1BER4A5")).toEqual({ kind: "confirm", id: "prp_01M1TV52G1BER4A5" });
     expect(parseAssignmentCommand("/reject prp_xxx1")).toEqual({ kind: "reject", id: "prp_xxx1" });
     expect(parseAssignmentCommand("/revoke asg_01M1TV52JCB1RF16")).toEqual({ kind: "revoke", id: "asg_01M1TV52JCB1RF16" });
+    expect(parseAssignmentCommand("/repair asg_01M1TV52JCB1RF16")).toEqual({ kind: "repair", id: "asg_01M1TV52JCB1RF16" });
     // 非法 id：不误吞普通消息
     expect(parseAssignmentCommand("/confirm 12345")).toBeNull();
     expect(parseAssignmentCommand("/confirm")).toBeNull();
+  });
+
+  it("run-now / skip 补偿决定（missed one-shot；只接受 asg_ id）", () => {
+    expect(parseAssignmentCommand("/run-now asg_01M1TV52JCB1RF16")).toEqual({ kind: "compensate", id: "asg_01M1TV52JCB1RF16", action: "run-now" });
+    expect(parseAssignmentCommand("/skip asg_01M1TV52JCB1RF16")).toEqual({ kind: "compensate", id: "asg_01M1TV52JCB1RF16", action: "skip" });
+    expect(parseAssignmentCommand("/run-now prp_01M1TV52G1BER4A5")).toBeNull();
+    expect(parseAssignmentCommand("/run-now")).toBeNull();
   });
 
   it("list 命令", () => {
@@ -71,7 +79,7 @@ describe("timeToCron", () => {
 
 describe("command shape coverage", () => {
   it("所有命令 kind 有对应执行分支（类型完整性哨兵）", () => {
-    const kinds: Array<AssignmentCommand["kind"]> = ["fund", "remind", "confirm", "reject", "revoke", "list"];
-    expect(new Set(kinds).size).toBe(6);
+    const kinds: Array<AssignmentCommand["kind"]> = ["fund", "remind", "confirm", "reject", "revoke", "repair", "compensate", "list"];
+    expect(new Set(kinds).size).toBe(8);
   });
 });

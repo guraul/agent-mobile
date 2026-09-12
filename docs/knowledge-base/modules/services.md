@@ -86,7 +86,7 @@ auth.ts ──Bearer JWT──► 认证（family-finance 用户）       openco
 ### bff-config.ts + getBaseUrl（2026-08-30，Me 页）
 
 - **方案 C（重启生效）**：Me 页改地址只写 AsyncStorage（`pulse_bff_url`），**Pulse 启动 useEffect 先 `getRuntimeBaseUrl()` 设 `opencodeConfig.runtimeBaseUrl` 再 `loadToken()`**，运行中不热切。
-- **所有 fetch 一律走 `getBaseUrl()`**（runtime 覆盖优先，回退 env `EXPO_PUBLIC_OPENCODE_URL`）：`opencode-client.ts` / `opencode-events.ts` / `fund-events.ts`（2 处）/ `auth.ts`（login/logout）。**新增请求点勿直接读 `opencodeConfig.baseUrl`**。
+- **所有 fetch 一律走 `getBaseUrl()`**（runtime 覆盖优先，回退 env `EXPO_PUBLIC_OPENCODE_URL`）：`opencode-client.ts` / `opencode-events.ts` / `l1.ts`（`/api/product/l1`）/ `auth.ts`（login/logout）。**新增请求点勿直接读 `opencodeConfig.baseUrl`**。
 
 ### model-prefs.ts（Me 页 model 偏好）
 

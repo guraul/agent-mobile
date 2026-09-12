@@ -1,6 +1,6 @@
 # Agent Mobile 项目知识库 · 索引总览
 
-> 最后更新：2026-08-30 · commit：`d255c48`（Me 页落地 + bff-health OPTIONS 探测 + web 静态版恢复）
+> 最后更新：2026-09-12 · MVP mainline closed（Phase 13 + MVP Acceptance 完成，状态见 `docs/redesign/MVP_ACCEPTANCE.md`）
 > 维护：见 [CONVENTIONS.md](CONVENTIONS.md)「知识库维护约定」
 
 ## 使用说明
@@ -19,19 +19,23 @@
 | 有没有对外接口 | API.md |
 | 构建/部署/预览/测试 | OPERATIONS.md |
 | 改代码前的红线与坑 | CONVENTIONS.md |
+| **产品语义（冻结基线）** | `docs/redesign/PRODUCT_MODEL.md` |
+| **最终架构 / canonical / authority / 恢复语义** | `docs/redesign/FINAL_ARCHITECTURE.md` |
+| **MVP 验收结论与 known gaps** | `docs/redesign/MVP_ACCEPTANCE.md` |
+| **Phase 9–13 设计与实现记录** | `docs/redesign/PHASE{9,10,11,12,13}_*.md` |
 
 ## 项目定位
 
-**Agent Mobile** — AI 编码 agent（OpenCode 等）的移动端遥控器。"Mission Control for AI agents"。
-当前形态：Expo（SDK 57）应用，Pulse 首页展示项目状态（running/idle 中性分组）+ Attention 驱动的 Needs you 分组，点击项目进入真实对话（流式回复 + 工具调用折叠）；Me tab 为配置页（账号登出 / BFF 地址运行时切换 / 按 agent 配默认 model）；Talk 为占位页（Memory 自 Phase 6 起为真实数据）。
+**Agent Mobile / Pulse** — 持久 AI 伴侣（persistent, Jarvis-like companion），当前 Agent Runtime 为 OpenCode（实现选择，非产品身份，PM §1/§34）。
+当前形态（MVP mainline）：Expo（SDK 57）应用；Pulse 首页五分组 = Needs you（Attention）/ Suggested（Assignment Proposal 的 L2 呈现）/ Noticed（observation L1）/ Today（项目 running）/ Market（行情 L1）；Talk = 真实会话（经 Pulse 项目/Attention 卡进入 ChatPanelZ，含 /assign /confirm 斜杠命令；Talk tab 本身为占位）；Memory tab = 真实数据 + Responsibilities（Assignment 管理面）+ KB 检索；Me tab 为配置页。产品语义唯一来源 `docs/redesign/PRODUCT_MODEL.md`（冻结）。
 
 ## 核心功能清单
 
 | 功能 | 所属模块 | 入口文件 |
 |---|---|---|
-| Pulse 首页（项目导航 + 状态分组 + 其他项目折叠栏 + 基金估值跑马灯 + 全屏聊天 sheet） | pulse-stream | `agent-mobile-app/src/app/(tabs)/index.tsx` |
+| Pulse 首页（五分组：Needs you / Suggested / Noticed / Today / Market + 其他项目折叠栏 + 全屏聊天 sheet） | pulse-stream | `agent-mobile-app/src/app/(tabs)/index.tsx` |
 | 项目状态聚合（running/idle + 不活跃项目 otherProjects + SSE 实时） | pulse-stream | `agent-mobile-app/src/hooks/useProjectEvents.ts` |
-| 基金事件订阅（fund.estimate 估值 + fund.trade-alert 交易提醒） | pulse-stream | `agent-mobile-app/src/hooks/useFundEvents.ts` + `services/fund-events.ts` |
+| 基金行情订阅（L1 presentation：`/api/product/l1` + `/api/product/l1/stream`，行情跑马灯） | pulse-stream | `agent-mobile-app/src/hooks/useL1.ts` + `services/l1.ts` |
 | 项目状态判定纯函数 | services | `agent-mobile-app/src/services/project-status.ts` |
 | Me 页（连接与账号 / BFF 地址 / model 偏好三 Card + model 选择 BottomSheet） | router | `agent-mobile-app/src/app/(tabs)/me.tsx` |
 | BFF 地址运行时覆盖（方案 C 重启生效，key `pulse_bff_url`） | services | `agent-mobile-app/src/services/bff-config.ts` + `config/opencode.ts getBaseUrl()` |
@@ -40,6 +44,11 @@
 | 项目聊天（最近 session / 新建 session） | chat | `agent-mobile-app/src/components/chat/ProjectChat.tsx` |
 | ZCode 风格聊天弹框（并存，`USE_ZCODE_CHAT_SHEET` 开关） | chat | `agent-mobile-app/src/components/chat/zcode/ProjectChatZ.tsx` |
 | Attention store（Pulse actionable 唯一来源，Phase 3） | services | `agent-mobile-app/src/services/attention/` + `hooks/useAttentions.ts` |
+| Memory tab（Phase 6 真实数据：Memory 投影 + KB 检索入口） | services | `agent-mobile-app/src/app/(tabs)/memory.tsx` + `services/memory/` |
+| Responsibilities / Assignment 管理面 + 详情（Phase 9：授权/执行历史投影，revoke/repair/compensate） | services | `agent-mobile-app/src/app/assignments/` + `services/assignment/`（client/projection） |
+| Attention 详情屏（Phase 9：evidence + 关联 assignment 只读投影） | services | `agent-mobile-app/src/app/attention/[id].tsx` |
+| L1 订阅（market + observation，Phase 10/12：Noticed 组数据源） | services | `agent-mobile-app/src/services/l1.ts` + `hooks/useL1.ts` |
+| Suggestion 数据面（Phase 13：proposal 只读投影 + product SSE + confirm/reject 转发） | services | `agent-mobile-app/src/services/proposal/` + `hooks/useSuggestions.ts` |
 | 对话面板（下拉刷新/分页/滚动保持/输入三件套/轮询兜底/agent+model切换/question+permission弹窗） | chat | `agent-mobile-app/src/components/chat/ChatPanel.tsx` |
 | 消息气泡（user/text markdown + 错误气泡 + StepChip 旁白） | chat | `agent-mobile-app/src/components/chat/MessageBubble.tsx` |
 | 过程旁白（思考中/工具调用中） | chat | `agent-mobile-app/src/components/chat/StepChip.tsx` |
@@ -48,7 +57,7 @@
 | 消息增量更新 reducer | services | `agent-mobile-app/src/services/message-reducer.ts` |
 | 消息 step 展开（OpenCodeMessage → DisplayStep） | services | `agent-mobile-app/src/services/message-merging.ts` |
 | 底部 4-tab 导航 | router | `agent-mobile-app/src/app/(tabs)/_layout.tsx` |
-| Talk/Memory 占位页 | router | `agent-mobile-app/src/app/(tabs)/talk.tsx` 等 |
+| Talk tab（占位；Talk 能力经 Pulse 项目/Attention 卡的会话 sheet 承载） | router | `agent-mobile-app/src/app/(tabs)/talk.tsx` |
 | 组件库（primitives/feedback/navigation） | components | `agent-mobile-app/src/components/index.ts` |
 | 设计 token（暗色主题） | theme | `agent-mobile-app/src/theme/index.ts` |
 | Web 静态预览服务（9928，gzip，当前） | ops | `agent-mobile-app/scripts/serve-static.mjs` + `serve-9928.service` |
@@ -89,6 +98,10 @@ agent-mobile/                                  # git 根仓库
 │   │   ├── INDEX.md / ARCHITECTURE.md / API.md / DATA.md / OPERATIONS.md / CONVENTIONS.md
 │   │   ├── modules/{router,theme,components,pulse-stream,chat,services}.md
 │   │   └── DESIGN*.md / REVIEW*.md / SHOWCASE*.md  # 历史设计/评审（仅参考）
+│   └── redesign/                             # ★ MVP 语义与架构文档（PRODUCT_MODEL 冻结）
+│       ├── PRODUCT_MODEL.md                  # 冻结产品语义基线（唯一语义来源）
+│       ├── FINAL_ARCHITECTURE.md / MVP_ACCEPTANCE.md / BACKLOG.md / IMPLEMENTATION_MODEL.md
+│       └── PHASE{1,5,9..13}_*.md             # 各阶段设计/实现/审计报告
 ├── src/                                       # 设计期 RN 源码（React/TSX，无 package.json，非运行态）
 │   ├── components/  screens/  theme/
 ├── showcase/                                  # 静态 HTML UI 原型（浏览器打开 index.html）
@@ -122,11 +135,11 @@ theme（无依赖，叶子）
   ↑
 components（依赖 theme）
   ↑
-services（opencode-client/events/reducer/merging/project-status/fund-events；无 UI 依赖）
+services（opencode-client/events/reducer/merging/project-status/l1；无 UI 依赖）
   ↑
 chat（ChatPanel/MessageBubble/StepChip/ProjectChat；依赖 components + services + theme）
   ↑
-pulse-stream（index.tsx + useProjectEvents + useFundEvents；依赖 components + chat + services + theme）
+pulse-stream（index.tsx + useProjectEvents + useL1；依赖 components + chat + services + theme）
   ↑
 router（app/_layout → (tabs)/_layout → 各页面，依赖全部）
   ↑
@@ -143,8 +156,12 @@ opencode server (127.0.0.1:4096, Basic auth)
   │     └── → ChatPanel → message-reducer（增量 patch）→ message-merging → MessageBubble
   └── 发送消息：ChatPanel → sendMessageAsync (prompt_async) → SSE 回流
 
-family-finance BFF (106.13.181.13:19234) /api/events/stream
-  └── SSE（JWT + 退避重连）→ fund-events → useFundEvents → index.tsx（估值跑马灯 + trade-alert 提醒）
+family-finance BFF (106.13.181.13:19234)，JWT，全部为 projection（canonical 在 BFF SQLite / memx / vault）：
+  ├── /api/product/attention（snapshot）+ /api/product/stream（SSE：attention.* + proposal.*）→ services/attention → useAttentions → Needs you
+  ├── /api/product/assignment-proposals（snapshot ?status=proposed，SSE proposal.*）→ services/proposal → useSuggestions → Suggested（Confirm/Reject 转发既有 API）
+  ├── /api/product/l1 + /api/product/l1/stream（SSE 全帧）→ services/l1 → useL1 → Market 跑马灯 + Noticed
+  ├── /api/product/assignments(+detail/history/repair/compensate/revoke) → services/assignment → Memory tab Responsibilities
+  └── /api/product/memory + /api/product/kb/* → services/memory → Memory tab（只读投影 + forget/检索）
 ```
 
 ## 速查表
@@ -162,7 +179,7 @@ family-finance BFF (106.13.181.13:19234) /api/events/stream
 | 改 SSE 增量更新 | `agent-mobile-app/src/services/message-reducer.ts` |
 | 新增 opencode 端点封装 | `agent-mobile-app/src/services/opencode-client.ts` |
 | 改 SSE 订阅/重连 | `agent-mobile-app/src/services/opencode-events.ts` |
-| 改基金事件订阅/跑马灯/交易提醒 | `agent-mobile-app/src/services/fund-events.ts` + `hooks/useFundEvents.ts` + `components/navigation/Marquee.tsx` |
+| 改基金行情订阅/跑马灯（L1） | `agent-mobile-app/src/services/l1.ts` + `hooks/useL1.ts` + `components/navigation/Marquee.tsx` |
 | 改 BFF 地址（运行时切换，重启生效） | `agent-mobile-app/src/services/bff-config.ts`，消费方一律走 `config/opencode.ts getBaseUrl()` |
 | 改 model 偏好 / Me 页 | `agent-mobile-app/src/app/(tabs)/me.tsx` + `services/model-prefs.ts`；ChatPanel 默认 pill 优先级 Me 偏好 > server agent.model > FALLBACK_AGENTS |
 | 改后端地址/账号 | `agent-mobile-app/.env.local`（EXPO_PUBLIC_OPENCODE_*） |

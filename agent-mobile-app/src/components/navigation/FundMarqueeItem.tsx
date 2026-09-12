@@ -5,19 +5,18 @@ import { Box } from "../primitives/Box";
 import { Text } from "../primitives/Text";
 import { StatusPill } from "../feedback/StatusPill";
 import { Marquee } from "./Marquee";
-import type { FundEstimateItem } from "../../services/fund-events";
+import type { L1MarketEstimateData } from "../../services/l1";
 
 export interface FundMarqueeItemProps {
-  funds: FundEstimateItem[];
+  funds: L1MarketEstimateData[];
   onPress?: () => void;
 }
 
 /**
- * 基金行情条目——UI 与 EventItem（项目列）完全一致：
- * 同 surface.1 背景、边框、padding、gap；type 标签 + title/summary 两行 + StatusPill。
- * title 行为基金名跑马灯滚动，summary 行为估值 + 涨跌幅跑马灯滚动。
- * StatusPill 恒 idle"Watching"——这是 L1 行情数据面（无 obligation）；
- * needs-you 语义在 Attention store（Phase 3 起 trade-alert 已迁走，Phase 7 移除 hasAlert）。
+ * 基金行情条目——UI 与 EventItem（项目列）完全一致。
+ * Phase 10：数据源从 legacy /api/events/stream 迁移到 L1（/api/product/l1）。
+ * L1 = authorized informational presentation（PM §22）：无 obligation、无 badge、无 lifecycle。
+ * StatusPill 恒 idle"Watching"——L1 行情数据面。
  * 可点击（onPress，与 EventItem 同 pressed 反馈）。
  */
 export function FundMarqueeItem({ funds, onPress }: FundMarqueeItemProps) {

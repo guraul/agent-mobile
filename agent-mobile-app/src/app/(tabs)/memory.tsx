@@ -1,17 +1,24 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { View, ScrollView, Pressable, StyleSheet, Alert } from "react-native";
-import { Trash2 } from "lucide-react-native";
+import { useRouter } from "expo-router";
+import { Trash2, ChevronRight, ShieldCheck } from "lucide-react-native";
 import { colors, spacing, radius, typography } from "@/theme";
 import { Card, Text, Input, Button } from "@/components";
 import { loadToken } from "@/services/auth";
 import { fetchMemories, forgetMemory, searchKb, buildMemoryGroups, type MemoryProjection, type MemoryGroup, type KbHit } from "@/services/memory/client";
+import { fetchAssignments } from "@/services/assignment/client";
+import { fetchAttentions } from "@/services/attention/client";
+import { buildAssignmentGroups } from "@/services/assignment/projection";
+import type { AttentionItem } from "@/services/attention/store";
 
 // Memory tab（Phase 6，PM §6）：memx canonical storage 的产品投影。
 // User（preferences / working style）+ Projects（durable project understanding）。
 // 不是会话记录；Forget 作用于 canonical（.trash / 弃用标记），非 UI 隐藏。
 // KB 搜索入口（PM §5）：canonical = llm-wiki vault，只读检索。
+// Phase 9：顶部 "Responsibilities" 区块 = Assignment/Attention canonical 的只读投影入口（无新 tab）。
 
 export default function MemoryScreen() {
+  const router = useRouter();
   const [projection, setProjection] = useState<MemoryProjection | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -19,6 +26,8 @@ export default function MemoryScreen() {
   const [kbHits, setKbHits] = useState<KbHit[] | null>(null);
   const [kbConfigured, setKbConfigured] = useState(true);
   const [kbLoading, setKbLoading] = useState(false);
+  const [activeCount, setActiveCount] = useState<number | null>(null);
+  const [needsAttentionCount, setNeedsAttentionCount] = useState<number | null>(null);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -26,6 +35,16 @@ export default function MemoryScreen() {
       // 直开/刷新 /memory 时先恢复 token（tokenHeader 依赖 AsyncStorage 恢复，同 Me tab）
       await loadToken();
       setProjection(await fetchMemories());
+      // Responsibilities 计数（只读投影；失败不阻塞 Memory 本体）
+      try {
+        const [assignments, attentions] = await Promise.all([fetchAssignments(), fetchAttentions()]);
+        const groups = buildAssignmentGroups(assignments, attentions as AttentionItem[]);
+        setActiveCount(groups.find((g) => g.key === "active")?.items.length ?? 0);
+        setNeedsAttentionCount(groups.find((g) => g.key === "needs-attention")?.items.length ?? 0);
+      } catch {
+        setActiveCount(null);
+        setNeedsAttentionCount(null);
+      }
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -76,6 +95,23 @@ export default function MemoryScreen() {
 
   return (
     <ScrollView style={s.screen} contentContainerStyle={s.content}>
+      {/* Responsibilities 区块（Phase 9：Assignment/Attention 只读投影入口；无新 tab） */}
+      <Card testID="memory-responsibilities" style={s.card} onPress={() => router.push("/assignments")}>
+        <View style={s.respHeader}>
+          <View style={s.respTitleRow}>
+            <ShieldCheck size={16} color={colors.accent.default} strokeWidth={2} />
+            <Text variant="title" color="ink">Responsibilities</Text>
+          </View>
+          <ChevronRight size={16} color={colors.muted} />
+        </View>
+        <Text variant="caption" color="muted">
+          {needsAttentionCount != null && needsAttentionCount > 0
+            ? `${needsAttentionCount} need attention · `
+            : ""}
+          {activeCount != null ? `${activeCount} active` : "…"} AI-owned responsibilities
+        </Text>
+      </Card>
+
       {/* KB search（Knowledge Base 检索入口） */}
       <Card testID="memory-kb-card" style={s.card}>
         <Text variant="title" color="ink">Knowledge Base</Text>
@@ -142,6 +178,8 @@ const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.canvas },
   content: { padding: spacing.md, gap: spacing.sm, paddingBottom: spacing.xl },
   card: { padding: spacing.md, gap: spacing.xs },
+  respHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.xs },
+  respTitleRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
   searchRow: { flexDirection: "row", gap: spacing.xs, alignItems: "center" },
   item: { flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingVertical: spacing.xs, borderTopWidth: 1, borderTopColor: colors.border.default },
   forgetBtn: { padding: spacing.xs, borderRadius: radius.sm },

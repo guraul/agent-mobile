@@ -117,7 +117,7 @@
 | **Reconstruct** | 原 Session 不可用时从 KB/Memory 重建新 Session | PM §4.2 |
 | **KB → Talk 深度集成** | 从 KB 搜索结果直接带 ref 上下文开 Session（当前只有搜索/读取） | PM §7 |
 | **L1 speaking rule 清单化** | named standing rule 的 L1 呈现默认清单（fund.estimate 数据面已存在；completion 播报等） | PM §22 |
-| **Agent Observation pipeline** | permitted observation rule（"同一处反复失败"类）→ Attention | PM §19 |
+| **Agent Observation（coding / L1 / Attention 路径）** | Phase 12 已实现 market repeated-decline → L1（Pulse "Noticed"）+ Proposal（`lib/observation/*`）；coding/email/user-profiling/Attention output 仍为 Future | PM §19 |
 | **Notification delivery 队列** | Attention/L1 → 外部通道（邮件/企微/微信）的投递层重设计（当前 market 通知仍是 handler 内 best-effort 调用） | IMPLEMENTATION_MODEL §11 |
 | **Open Thread** | PM §24-26 的会话续点 marker（当前无任何实现；needs proposal/activation 类最小语义裁决） | PM §24 |
 | **Memory/KB reconciliation 入口** | 两侧表征分歧时的 re-evaluate 交互（不自动覆盖） | PM §6 |

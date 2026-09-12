@@ -11,14 +11,17 @@ import {
   type ViewStyle,
 } from "react-native";
 import { Bell, ChevronDown, ChevronRight, X } from "lucide-react-native";
-import { ScreenHeader, StatusDot, EventItem, BottomSheet, Text, Box, Button, FundMarqueeItem } from "@/components";
+import { ScreenHeader, StatusDot, StatusPill, EventItem, BottomSheet, Text, Box, Button, FundMarqueeItem } from "@/components";
 import { ProjectChat } from "@/components/chat/ProjectChat";
 import { ProjectChatZ } from "@/components/chat/zcode/ProjectChatZ";
 import { useProjectEvents, type ProjectEvent } from "@/hooks/useProjectEvents";
-import { useFundEvents } from "@/hooks/useFundEvents";
+import { useL1 } from "@/hooks/useL1";
+import { type L1Statement } from "@/services/l1";
 import { loadToken, login, onUnauthorized } from "@/services/auth";
 import { useAttentions } from "@/hooks/useAttentions";
 import type { PulseAttentionItem } from "@/services/attention/store";
+import { useSuggestions } from "@/hooks/useSuggestions";
+import type { PulseSuggestion } from "@/services/proposal/store";
 import { opencodeClient } from "@/services/opencode-client";
 import { getRuntimeBaseUrl } from "@/services/bff-config";
 import { opencodeConfig } from "@/config/opencode";
@@ -41,6 +44,16 @@ function statusTypeForAttention(domain: PulseAttentionItem["domain"]): StatusTyp
   return domain === "market" ? "warning" : "running";
 }
 
+// Suggestion 有效期提示（仅展示；expiry 权威在 BFF sweep，客户端不倒计时移除）
+function formatExpiry(epoch: number): string {
+  const d = new Date(epoch);
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mi = String(d.getMinutes()).padStart(2, "0");
+  return `${mm}-${dd} ${hh}:${mi}`;
+}
+
 interface GroupedEvent extends ProjectEvent {
   section: "today";
 }
@@ -52,8 +65,16 @@ const USE_ZCODE_CHAT_SHEET = true;
 
 export default function PulseScreen() {
   const { events, otherProjects, loading, error, refresh } = useProjectEvents();
-  const { funds } = useFundEvents();
+  const { funds, noticed } = useL1();
   const { open: openAttentions, dismiss: dismissAttention, engage: engageAttention } = useAttentions();
+  const {
+    suggestions,
+    confirm: confirmSuggestion,
+    reject: rejectSuggestion,
+    error: suggestionError,
+  } = useSuggestions();
+  // §8.3 动作进行中：按钮置 busy，防双击重复提交（服务端 409 兜底）
+  const [suggestionBusyId, setSuggestionBusyId] = useState<string | null>(null);
   const [activeProject, setActiveProject] = useState<{
     id: string;
     projectPath: string;
@@ -134,6 +155,19 @@ export default function PulseScreen() {
     Alert.alert("该事项的会话已不可用", "原会话已删除，暂不能自动重建（Reconstruct 需满足 PM §4.2）。");
   };
 
+  // Suggestion 动作（Phase 13，§8.3）：两个显式按钮是唯一推进路径。
+  // 点卡体/阅读/进入 Talk 永不 confirm（查看 ≠ 授权）；成功后卡片经 SSE/proposal.updated 消失。
+  const onSuggestionAction = async (id: string, action: "confirm" | "reject") => {
+    if (suggestionBusyId) return;
+    setSuggestionBusyId(id);
+    try {
+      if (action === "confirm") await confirmSuggestion(id);
+      else await rejectSuggestion(id);
+    } finally {
+      setSuggestionBusyId(null);
+    }
+  };
+
   const doLogin = async () => {
     try {
       setLoginError(null);
@@ -153,17 +187,29 @@ export default function PulseScreen() {
   type GroupItem =
     | { kind: "project"; event: GroupedEvent }
     | { kind: "attention"; attention: PulseAttentionItem }
-    | { kind: "market" };
+    | { kind: "market" }
+    | { kind: "noticed"; statement: L1Statement }
+    | { kind: "suggestion"; suggestion: PulseSuggestion };
 
   // Needs you 分组 = Attention store 的 open items（authoritative，PM §16/§17）。
   // 项目 running/idle 是中性信息性呈现；fund.estimate 是 L1 行情（MARKET 分组）。
+  // Phase 12：observation L1 statements 是 Noticed 分组。
+  // Phase 13：proposed proposals 是 Suggested 分组（L2 suggestion，Confirm/Reject 显式推进）。
   const needsYouItems: GroupItem[] = openAttentions.map(
     (attention): GroupItem => ({ kind: "attention", attention }),
   );
+  const suggestedItems: GroupItem[] = suggestions.map(
+    (suggestion): GroupItem => ({ kind: "suggestion", suggestion }),
+  );
   const todayItems: GroupItem[] = today.map((event): GroupItem => ({ kind: "project", event }));
+  const noticedItems: GroupItem[] = noticed.map(
+    (statement): GroupItem => ({ kind: "noticed", statement }),
+  );
 
   const groups: { label: string; items: GroupItem[] }[] = [
     ...(needsYouItems.length > 0 ? [{ label: "Needs you", items: needsYouItems }] : []),
+    ...(suggestedItems.length > 0 ? [{ label: "Suggested", items: suggestedItems }] : []),
+    ...(noticedItems.length > 0 ? [{ label: "Noticed", items: noticedItems }] : []),
     { label: "Today", items: todayItems },
     ...(funds.length > 0
       ? [{ label: "Market", items: [{ kind: "market" as const }] }]
@@ -226,6 +272,12 @@ export default function PulseScreen() {
           </Box>
         ) : null}
 
+        {suggestionError ? (
+          <Box padding="sm" backgroundColor="surface.1" rounded="md">
+            <Text variant="caption" color="error">{suggestionError}</Text>
+          </Box>
+        ) : null}
+
         {loading && groups.length === 0 ? (
           <Box padding="lg">
             <Text variant="body" color="muted">Loading projects…</Text>
@@ -253,7 +305,11 @@ export default function PulseScreen() {
                       ? "market"
                       : item.kind === "attention"
                         ? `attention-${item.attention.id}`
-                        : `project-${item.event.id}`
+                        : item.kind === "noticed"
+                          ? `noticed-${item.statement.id}`
+                          : item.kind === "suggestion"
+                            ? `suggestion-${item.suggestion.id}`
+                            : `project-${item.event.id}`
                   }
                   style={
                     index === arr.length - 1 ? styles.lastItemWrap : undefined
@@ -289,6 +345,81 @@ export default function PulseScreen() {
                           <X size={16} color={colors.muted} strokeWidth={2} />
                         </Pressable>
                       ) : null}
+                    </View>
+                  ) : item.kind === "noticed" ? (
+                    // Phase 12：Noticed section（observation L1 statements）
+                    <EventItem
+                      type="INFO"
+                      title="Noticed"
+                      summary={item.statement.text}
+                      status="idle"
+                      statusLabel="Noticed"
+                      testID={`noticed-${item.statement.id}`}
+                    />
+                  ) : item.kind === "suggestion" ? (
+                    // Phase 13：Suggested section（proposal 的 L2 呈现；卡体无 press 动作——查看 ≠ 授权）
+                    <View style={styles.suggestionCard} testID={`suggestion-${item.suggestion.id}`}>
+                      <Box
+                        gap="xxs"
+                        style={{ alignSelf: "stretch" }}
+                      >
+                        <Box
+                          style={{
+                            flexDirection: "row",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                          }}
+                        >
+                          <Text variant="captionStrong" color="muted">
+                            Suggested
+                          </Text>
+                          <StatusPill
+                            status="idle"
+                            label={item.suggestion.domain === "market" ? "Market" : "Personal"}
+                          />
+                        </Box>
+                        <Text variant="captionStrong" color="ink">
+                          我建议：{item.suggestion.responsibility}
+                        </Text>
+                        {item.suggestion.reasonLabel ? (
+                          <Text variant="caption" color="muted">
+                            为什么：{item.suggestion.reasonLabel}
+                          </Text>
+                        ) : null}
+                        <Text variant="caption" color="muted">
+                          {item.suggestion.effectLabel}
+                        </Text>
+                        {item.suggestion.expiresAt ? (
+                          <Text variant="caption" color="muted">
+                            有效至 {formatExpiry(item.suggestion.expiresAt)}
+                          </Text>
+                        ) : null}
+                      </Box>
+                      <Box
+                        style={{
+                          flexDirection: "row",
+                          justifyContent: "flex-end",
+                          gap: spacing.xs,
+                          alignSelf: "stretch",
+                        }}
+                      >
+                        <Button
+                          variant="secondary"
+                          label="不用了"
+                          disabled={suggestionBusyId !== null}
+                          loading={suggestionBusyId === item.suggestion.id}
+                          onPress={() => onSuggestionAction(item.suggestion.id, "reject")}
+                          testID={`suggestion-reject-${item.suggestion.id}`}
+                        />
+                        <Button
+                          variant="primary"
+                          label="确认"
+                          disabled={suggestionBusyId !== null}
+                          loading={suggestionBusyId === item.suggestion.id}
+                          onPress={() => onSuggestionAction(item.suggestion.id, "confirm")}
+                          testID={`suggestion-confirm-${item.suggestion.id}`}
+                        />
+                      </Box>
                     </View>
                   ) : (
                     <EventItem
@@ -451,6 +582,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderRadius: 8,
     backgroundColor: colors.surface[1],
+  },
+  suggestionCard: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    gap: spacing.xs,
   },
   container: {
     flex: 1,

@@ -132,6 +132,19 @@ async function main() {
   }
   check('项目事件条目可见', itemVisible);
 
+  // Step 1b: Phase 12 Noticed（observation L1）——informational，不应混入 Needs you
+  const noticedItem = page.locator('[data-testid^="noticed-"]').first();
+  const noticedVisible = await noticedItem.isVisible().catch(() => false);
+  check('Phase 12 Noticed 分组可见 (observation L1)', noticedVisible);
+  if (noticedVisible) {
+    const noticedText = await noticedItem.innerText().catch(() => '');
+    check('Noticed 条目为 informational 文案（我注意到…）', /我注意到|Noticed/i.test(noticedText), noticedText.slice(0, 60));
+    // observation L1 不得变成 Attention（Needs you）
+    const needsYouText = await page.locator('[data-testid^="attention-att_"]').allInnerTexts().catch(() => []);
+    const leaked = needsYouText.some((t) => /我注意到/.test(t));
+    check('Noticed 未混入 Needs you（observation ≠ Attention）', !leaked);
+  }
+
   // Step 2: 点击条目 → 进入对话（attention market 行会 Create 会话，耗时含网络）
   let hasTextarea = false;
   let chatRendered = false;

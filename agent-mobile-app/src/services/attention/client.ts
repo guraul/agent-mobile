@@ -121,8 +121,7 @@ export function subscribeToAttentionEvents(opts: {
 }
 
 /** 显式 engage（PM §16.4）：记录交互 + 回填 session 引用（仅当为空）。engage ≠ handled。 */
-export async function engageAttention(id: string, sessionId: string): Promise<void> {
-  const res = await fetch(`${getBaseUrl()}/api/product/attention/${id}/engage`, {
+export async function engageAttention(id: string, sessionId: string): Promise<void> {  const res = await fetch(`${getBaseUrl()}/api/product/attention/${id}/engage`, {
     method: "POST",
     headers: { ...authHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify({ sessionId }),
@@ -153,4 +152,41 @@ export async function handleAttention(id: string, artifactRef: string): Promise<
   if (!res.ok) throw new Error(`handle failed: ${res.status}`);
   const body = (await res.json()) as { transitioned?: boolean };
   return { transitioned: body.transitioned ?? true };
+}
+
+// ── Phase 9：Attention 详情投影（只读）──
+
+export interface AttentionEvidenceItem {
+  id: string;
+  type: string;
+  occurredAt: number;
+  attempt?: number;
+  error?: string;
+}
+
+export interface RelatedAssignment {
+  id: string;
+  mode: "one-shot" | "ongoing";
+  responsibility: string;
+  domain: "market" | "personal";
+  state: "active" | "revoked" | "completed";
+  createdAt: number;
+  activatedAt: number;
+}
+
+export interface AttentionDetail {
+  attention: AttentionItem;
+  evidence: AttentionEvidenceItem[];
+  relatedAssignment: RelatedAssignment | null;
+}
+
+/** Phase 9：Attention 详情（含 evidence + 关联 assignment 投影；只读）。 */
+export async function fetchAttentionDetail(id: string): Promise<AttentionDetail> {
+  const res = await fetch(`${getBaseUrl()}/api/product/attention/${id}`, { headers: authHeaders() });
+  if (res.status === 401) {
+    await handleUnauthorized();
+    throw new Error("unauthorized");
+  }
+  if (!res.ok) throw new Error(`attention detail failed: ${res.status}`);
+  return (await res.json()) as AttentionDetail;
 }

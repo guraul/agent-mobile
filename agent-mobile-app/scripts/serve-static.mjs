@@ -45,6 +45,19 @@ createServer(async (req, res) => {
     try {
       await serveFile(res, file + '.html', acceptsGzip);
     } catch {
+      // 动态路由 fallback：expo 静态导出生成 `parent/[id].html`。
+      // 访问 `/parent/<x>` 解析不到文件时，回退到 `parent/[id].html`（SPA 在客户端匹配 [id]）。
+      const lastSlash = path.lastIndexOf('/');
+      if (lastSlash > 0) {
+        const parent = path.slice(0, lastSlash);
+        const dynamicFile = normalize(join(ROOT, parent, '[id].html'));
+        if (dynamicFile.startsWith(ROOT)) {
+          try {
+            await serveFile(res, dynamicFile, acceptsGzip);
+            return;
+          } catch { /* fallthrough to 404 */ }
+        }
+      }
       res.writeHead(404).end('Not Found');
     }
   }

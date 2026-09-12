@@ -317,12 +317,40 @@ Event
  └── optional notification delivery（把"有新 Attention / 有新 L1"投递到外部通道）
 ```
 
-现状违反点与修法：
+现状违反点与修法（Phase 1 + Phase 10 已落实）：
 
-- **耦合**：`fund-estimation.ts` 通知成功 → 才 publish trade-alert；通知通道全关 → App 永远收不到 Attention。**修法**：handler 无条件入 `market.rule.evaluated/matched` 事件；通知降级为 delivery 订阅者。
-- **通知失败 ≠ Event 消失 / Attention 消失**：delivery 层重试/降级，永不回删 store 记录。
+- **耦合**：`fund-estimation.ts` 通知成功 → 才 publish trade-alert；通知通道全关 → App 永远收不到 Attention。**修法（Phase 1 + Phase 10）**：handler 无条件入 `market.rule.evaluated/matched` 事件；Phase 10 起通知降级为 delivery 订阅者（`delivery_jobs` outbox → channel adapter）。
+- **通知失败 ≠ Event 消失 / Attention 消失**：delivery 层重试/降级，永不回删 store 记录（`lib/delivery/*` 验证）。
 - **Event ≠ notification，Attention ≠ notification**：notification channel 只是 delivery mechanism；Pulse 是呈现面（App 内），通道是推送（App 外）。两者消费同一 Attention/L1 事实，互不拥有。
-- 现有 `fund.estimate` 5s 推送 → 重分类为 **L1 presentation** 的数据源（有 named standing rule 授权的行情信息面，PM §22），不再是"事件流的一部分被当通知"。
+- 现有 `fund.estimate` 5s 推送 → Phase 10 重分类为 **L1 presentation**（有 named standing rule 授权的行情信息面，PM §22），经 `/api/product/l1` + `/api/product/l1/stream` 呈现；legacy `/api/events/stream` 已删除。
+
+## 11b. L1 + Delivery runtime（Phase 10 定稿）
+
+```text
+Market estimation（deterministic data source，5s 现算）
+      ↓
+L1 rule（l1.market.estimate，authorized presentation）
+      ↓
+L1Statement（无 lifecycle；内存 frame）
+      ↓
+Pulse（/api/product/l1 snapshot + /api/product/l1/stream SSE）
+```
+
+```text
+Attention / L1
+      ↓
+Delivery decision（code/config registry）
+      ↓
+delivery_jobs（SQLite outbox，UNIQUE dedup_key 幂等）
+      ↓
+delivery-sweep（scheduler，每分钟）
+      ↓
+Channel adapter（email/wework/wechat；push 占位）
+```
+
+- L1 不建 canonical entity、不建 lifecycle；`fund.estimate` 不入 `product_events`。
+- `delivery_jobs` 是 infrastructure outbox（非 product entity）；投递失败不影响 Event/Attention/Assignment。
+- 幂等键 = `sha256(kind|ref|channel|window)`；retry 同键不新增行。
 
 ---
 

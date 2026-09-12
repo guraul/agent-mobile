@@ -94,3 +94,53 @@ Orphan 分析：assignments 无 DELETE 产品路径（仅 revoke/complete）→ 
 ## 10. Runtime permission boundary（§11 审计结论）
 
 Phase 5 代码无任何 OpenCode permission 读写路径（`assignment-triggers/conditions` 仅调用市场数据 HTTP 只读）。Assignment active 不影响 `permission.asked → Attention（named-rule）` 的独立管道（有组合测试）。Assignment 授权的是"未来什么条件可以产生 Attention"（PM §12），action-time approval 恒独立。
+
+---
+
+## §P8 Assignment Execution Resilience（Phase 8 定稿）
+
+### P8.1 Failure 分类（§2）
+
+| 结果 | 分类 | 责任语义 |
+|---|---|---|
+| condition matched → Attention | 成功 | one-shot → Completed（surfacing happened） |
+| condition **false**（评估正常完成、无 match） | **不是 failure** | one-shot → Completed（legit：condition 未成立即无 surfacing 义务，PM §16.3）；ongoing → 留待下次 occurrence |
+| **execution error**（评估抛错 / Attention 写失败） | **failure** | **责任未 discharged**——PM §11 completion 条件「surfacing happened **or legitimately suppressed**」不涵盖 error（error 不是 suppression）。**修正了 Phase 5.5 的实现错误**（此前 failure 也 Completed） |
+| infrastructure/runtime failure | 同 execution error（MVP 不再细分；partial execution 归入同路径） | 同上 |
+
+### P8.2 Execution identity / attempt（§3/§6）
+
+- `executionId = assignmentId:occurrenceAt`（不变）——同一次 scheduled occurrence 的所有尝试共享。
+- `executionAttemptId = executionId#a<attempt>`（implementation identity，非产品实体）。
+- fired 事件 id：attempt 1 = `evt_trig_<asg>_<occ>`（Phase 5 兼容），attempt ≥2 = `..._a<n>`。
+- 幂等边界：**同 executionId + 同 attempt** → 幂等（确定性 id + replay 预检）；**同 executionId + 新 attempt**（显式 retry）→ 允许真正再次执行，不产生第二个 logical occurrence。
+
+### P8.3 one-shot 执行锁（§6）
+
+- `assignments.execution_lock`（migration `20260907-product-p8-execution-lock`）：fire 开始原子占坑（`WHERE state='active' AND execution_lock IS NULL`），成功后消费（Completed）并释放，失败释放。
+- **消费点从「评估前」后移到「成功后」**——失败不再吞掉执行机会。并发第二调用 → `skipped='execution-in-progress'`（deterministic）。
+- revoke race 语义随之精确化：执行中（锁持有、未消费）revoke 提交 → revoke 赢（state=revoked，consume 不命中），已建 Attention 保留（PM §11：revocation 不触碰 Attention）；consume 已提交后 revoke → 失效。事件顺序（fired.occurred_at ≤ revoked.occurred_at）保证审计可解释。
+
+### P8.4 Repair（§5/§7-§9）
+
+- one-shot failure → **repair-request Attention**（authority：PM §14 attributable condition——责任无法履行可请求用户决定；`creation_reason_kind='assignment-authorization'`，ref=assignmentId，无时间窗）。
+- ongoing failure → 单次不打扰（下次 occurrence 自愈）；**连续 ≥3 次失败** → repair-request Attention（不静默偏离）。
+- 恢复（成功执行、streak 归零）→ open repair-request → 系统 **EXPIRED**（creation reason 的 window =「直到执行恢复或用户决定」，系统侧关闭，PM §17）。
+- Repair 授权 ≠ activation：`POST /api/product/assignments/:id/repair`（同 executionId 新 attempt）与 `POST /:id/compensate`（missed 决定）都是**用户显式动作**承载的授权；不重建 Assignment。
+- Assignment lifecycle 保持三态：**无 failed state**；failure 只存在于 execution 层（事件 + repair Attention）。
+
+### P8.5 Missed one-shot（§10-13）
+
+- scheduler 语义不变：**missed occurrence 不自动执行**（skip missed run，Phase 5.5 决策保留）。
+- 启动扫描 `detectMissedOneShots()`（DB-only，deterministic）：active one-shot 且「最近 occurrence 已过 + 晚于 activated_at + 无该 occurrence 的任何 fired 事件」→
+  ingest `assignment.execution.missed`（确定性 id `evt_missed_<asg>_<occ>`）+ `provenance.pendingCompensation`。
+- 补偿待决期间：正常 fire → `skipped='compensation-pending'`（杜绝错过后的意外未来执行）；状态保持 Active（不自动 Completed/Revoked）。
+- **L2 proposal（≠ Attention）**：补偿以待决状态 + missed 事件表达，UI 呈现为 `[Run now]/[Skip]` 提案（当前最小入口 = Talk：`/assignments` 列表标注 + `/run-now <asg>` / `/skip <asg>` 命令；Pulse 卡片为 UX backlog）。
+- 用户决定（`POST /:id/compensate`）：
+  - `run-now` → **compensation execution**：identity 取补偿发生时刻（新 executionId，**不伪造原 missed occurrence 已执行**），payload 带 `compensation:true + compensatesMissedOccurrence` 审计链；成功 → Completed。
+  - `skip` → 用户显式放弃该 one-shot 责任 → **Revoked**（`revokedBy='user:compensation-declined'`，PM §11 用户撤回）。
+- 决定记入 `provenance.compensationDecision`（append 到行内 provenance，审计完整）。
+
+### P8.6 Semantic gap 记录（未修改 PM）
+
+PM §11 "its single execution opportunity was consumed and nothing further will fire" 与 P8 行为（failure 释放机会、repair/下次 occurrence 可再执行）存在字面张力。裁决依据：PM 的 completion 定义（「surfacing happened or legitimately suppressed」）排除了 execution error——error 既非 surfacing 也非 suppression，Completed 不成立；"single opportunity" 的意图是防止无限重复履行，由执行锁（并发 exactly-once）+ attempt 幂等 + repair 显式授权共同保证。属 PM 原则内推导，记录于此。

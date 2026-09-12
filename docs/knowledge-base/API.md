@@ -20,18 +20,21 @@
 | `/api/opencode/stream` | GET | SSE 事件流（`message.*`、`delta`、`session.*`、`permission.*`、`question.*`（`question.asked/replied/rejected`，v1 名）、`server.connected`、`stream.error`） | Bearer JWT |
 | `/api/product/attention` | GET/POST | query `state/domain/...`；POST=405（创建只能经内部管道） | Attention 列表/405 | Bearer JWT |
 | `/api/product/attention/:id/{handle,dismiss,engage}` | POST | `{artifactRef?}`/`{}`/`{sessionId}` | 生命周期迁移（PM §17） | Bearer JWT |
-| `/api/product/stream` | GET | SSE：`attention.created/updated` | Pulse 增量通道 | Bearer JWT |
+| `/api/product/stream` | GET | SSE：`attention.created/updated` + `proposal.created/updated`（Phase 13：连接时重放 open attention + proposed proposals；均为 presentation 变更通知，非 product_event） | Pulse 增量通道 | Bearer JWT |
+| `/api/product/l1` | GET | L1 snapshot（只读；无 lifecycle；stale/收盘返回 `items: []`） | L1 presentation 快照 | Bearer JWT |
+| `/api/product/l1/stream` | GET | SSE：`l1.updated`（每帧全量替换当前生效 statements） | L1 presentation 增量 | Bearer JWT |
 | `/api/product/assignments` | GET/POST | query `state/domain`；POST=405 | Assignment 列表/405（激活必须经 proposals） | Bearer JWT |
 | `/api/product/assignments/:id` | GET/POST(revoke 另路由) | — | 单条（含 trigger/provenance） | Bearer JWT |
 | `/api/product/assignments/:id/revoke` | POST | `{}` 幂等 | Active→Revoked | Bearer JWT |
-| `/api/product/assignment-proposals` | GET/POST | 结构化提案（matrix 把关） | `{proposal, confirmation, assignment?}` | Bearer JWT |
-| `/api/product/assignment-proposals/:id/{confirm,reject}` | POST | `{}` | activation moment / 拒绝 | Bearer JWT |
+| `/api/product/assignment-proposals` | GET/POST | GET `?status=`（Phase 13 Suggested 数据源：`?status=proposed`）；POST 结构化提案（matrix 把关） | `{items}` / `{proposal, confirmation, assignment?}` | Bearer JWT |
+| `/api/product/assignment-proposals/:id/{confirm,reject}` | POST | `{}` | activation moment / 拒绝（重复/已终态 → 409；Pulse Suggested 的 Confirm/Reject 调用此入口） | Bearer JWT |
 | `/api/product/memory` | GET/POST | includeDeprecated?；POST=405 | Memory 投影（canonical=memx） | Bearer JWT |
 | `/api/product/memory/:id` | GET/DELETE | DELETE=`{reason?}` | 详情 / Forget（.trash 或弃用标记） | Bearer JWT |
 | `/api/product/kb/search` | GET | `q, limit?` | vault 全文检索（rg） | Bearer JWT |
 | `/api/product/kb/doc/<ref>` | GET | vault-relative ref | 受限文档读取 | Bearer JWT |
 | `/api/product/kb/raw-ideas` | POST | `{title,content,source,sourceRef?}` | Raw Idea → vault（保存≠执行） | Bearer JWT |
-| `/api/events/stream` | GET | ⚠️ LEGACY：仅 fund.estimate L1 数据面（trade-alert/ack 已于 Phase 7 退役） | 行情跑马灯 | Bearer JWT |
+
+> `/api/events/stream` 已于 Phase 10 **删除**（L1 迁移到 `/api/product/l1` + `/api/product/l1/stream`；legacy `lib/events/*` 一并移除）。
 
 **认证**：`Authorization: Bearer <JWT>`（`/api/auth/login` 签发）。401 → 手机端清 token + 显示登录横幅。
 **CORS**：允许 `http://106.13.181.13:9928`、`http://127.0.0.1:9928`、`http://localhost:9928`（`lib/cors.ts` `CORS_ORIGINS`）。OPTIONS 预检返回 204 + CORS 头。
