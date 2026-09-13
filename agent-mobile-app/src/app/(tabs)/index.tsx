@@ -10,10 +10,9 @@ import {
   Alert,
   type ViewStyle,
 } from "react-native";
-import { Bell, ChevronDown, ChevronRight, X } from "lucide-react-native";
+import { Bell, ChevronDown, ChevronRight, MessageCircle, X } from "lucide-react-native";
 import { ScreenHeader, StatusDot, StatusPill, EventItem, BottomSheet, Text, Box, Button, FundMarqueeItem } from "@/components";
-import { ProjectChat } from "@/components/chat/ProjectChat";
-import { ProjectChatZ } from "@/components/chat/zcode/ProjectChatZ";
+import { useRouter } from "expo-router";
 import { useProjectEvents, type ProjectEvent } from "@/hooks/useProjectEvents";
 import { useL1 } from "@/hooks/useL1";
 import { type L1Statement } from "@/services/l1";
@@ -25,6 +24,8 @@ import type { PulseSuggestion } from "@/services/proposal/store";
 import { opencodeClient } from "@/services/opencode-client";
 import { getRuntimeBaseUrl } from "@/services/bff-config";
 import { opencodeConfig } from "@/config/opencode";
+import { classifyRuntimeFailure, runtimeFailureMessage } from "@/services/runtime-presence";
+import { MARKET_TALK_DIRECTORY } from "@/services/attention/talk";
 import { colors, spacing, radius } from "@/theme";
 import type { StatusType } from "@/components/feedback/StatusDot";
 
@@ -58,15 +59,10 @@ interface GroupedEvent extends ProjectEvent {
   section: "today";
 }
 
-// ZCode 风格聊天弹框开关（src/components/chat/zcode/）：false 一行回退旧弹框
-// （旧弹框 src/components/chat/ProjectChat.tsx 零改动保留）。详见
-// docs/superpowers/plans/2026-08-30-zcode-chat-sheet.md
-const USE_ZCODE_CHAT_SHEET = true;
-
 export default function PulseScreen() {
   const { events, otherProjects, loading, error, refresh } = useProjectEvents();
   const { funds, noticed } = useL1();
-  const { open: openAttentions, dismiss: dismissAttention, engage: engageAttention } = useAttentions();
+  const { open: openAttentions, dismiss: dismissAttention } = useAttentions();
   const {
     suggestions,
     confirm: confirmSuggestion,
@@ -75,14 +71,9 @@ export default function PulseScreen() {
   } = useSuggestions();
   // §8.3 动作进行中：按钮置 busy，防双击重复提交（服务端 409 兜底）
   const [suggestionBusyId, setSuggestionBusyId] = useState<string | null>(null);
-  const [activeProject, setActiveProject] = useState<{
-    id: string;
-    projectPath: string;
-    /** Phase 4：从 Attention engage 进入时携带（ChatPanelZ 上下文卡 + Mark handled） */
-    attention?: PulseAttentionItem;
-    /** market Create 流程：新会话挂载后自动发送 Attention 上下文消息 */
-    autoSendContext?: boolean;
-  } | null>(null);
+  // v0.1.1 UX correction：Pulse 是 «AI → User»，不承载完整 Chat（«User ↔ AI» 属 Talk）。
+  // 所有"去聊聊"路径 create session 后 router.push 进 Talk workspace；BottomSheet 仅保留预览类（行情/登录）。
+  const router = useRouter();
   const [otherOpen, setOtherOpen] = useState(false);
   const [fundSheetOpen, setFundSheetOpen] = useState(false);
   const [needLogin, setNeedLogin] = useState(false);
@@ -113,46 +104,49 @@ export default function PulseScreen() {
     return onUnauthorized(() => setNeedLogin(true));
   }, [refresh]);
 
-  // market Attention 的 Talk 工作区（finance 域仓库；PM §8.2 Create + 域上下文）
-  const MARKET_TALK_DIRECTORY = "/root/project/family-finance";
+  // Attention 点击路由（v0.1.1）：进入详情屏（evidence/history 投影），由详情屏提供真 Talk 入口。
+  // 查看 ≠ handled：detail 与 Talk 都不改 Attention lifecycle；dismiss/handle 仍是显式动作。
+  const onAttentionPress = (a: PulseAttentionItem) => {
+    router.push(`/attention/${a.id}`);
+  };
 
-  // Attention 点击路由（PM §16.4，Phase 4）：
-  //   有 session → Resume 该 session（engage 记录交互，不改变 lifecycle）
-  //   无 session → 用户显式 engage → Create 新会话（market 域工作区）+ 上下文注入
-  // Attention 本身绝不自动创建 Session——创建只发生在用户点击之后。
-  const onAttentionPress = async (a: PulseAttentionItem) => {
-    if (a.sessionId) {
-      // Resume：优先恢复 Attention 引用的 session
-      try {
-        const session = await opencodeClient.getSession(a.sessionId);
-        const dir = session.directory || "";
-        if (dir) {
-          engageAttention(a.id, a.sessionId);
-          setActiveProject({ id: a.id, projectPath: dir, attention: a });
-          return;
-        }
-      } catch { /* session 已删 → 走 Create（Reconstruct 留 PM §4.2 条件） */ }
+  // Runtime 失败 → companion 的声音（runtime-presence 分类，不吞错误）
+  const alertRuntimeFailure = (e: unknown) => {
+    const kind = classifyRuntimeFailure(e);
+    const m = runtimeFailureMessage(kind);
+    Alert.alert(m.title, m.body);
+  };
+
+  // Suggested → Talk（v0.1.1）：非授权动作——只开上下文会话，绝不调用 proposal API。
+  // Authorization boundary 不变：Confirm/Reject 仍是唯一推进路径。
+  const talkAboutSuggestion = async (sg: PulseSuggestion) => {
+    try {
+      const dir = sg.domain === "market" ? MARKET_TALK_DIRECTORY : "/";
+      const created = await opencodeClient.createSession({ directory: dir });
+      router.push({
+        pathname: "/talk",
+        params: {
+          sessionId: created.id, projectPath: dir,
+          autoContextText: `我们来讨论一个你提出的建议：「${sg.responsibility}」${sg.reasonLabel ? `（${sg.reasonLabel}）` : ""}。先只讨论，不要确认。`,
+        },
+      });
+    } catch (e) {
+      alertRuntimeFailure(e);
     }
-    if (a.domain === "market") {
-      // Create：market 类无 session → 新会话 + engage 回填 + 上下文自动注入
-      try {
-        const created = await opencodeClient.createSession({
-          directory: MARKET_TALK_DIRECTORY,
-          title: `处理：${a.title}`.slice(0, 80),
-        });
-        engageAttention(a.id, created.id); // 引用回填（session_id NULL → 新 id）；state 仍 OPEN
-        setActiveProject({
-          id: a.id,
-          projectPath: MARKET_TALK_DIRECTORY,
-          attention: { ...a, sessionId: created.id },
-          autoSendContext: true,
-        });
-      } catch (e) {
-        Alert.alert("无法创建处理会话", e instanceof Error ? e.message : String(e));
-      }
-      return;
+  };
+
+  // Noticed → Talk（PM §22：tapping an L1 starts normal Talk rules）：
+  // 上下文会话开场；不产生 Assignment、不改任何 lifecycle。observation L1 属 market 域。
+  const talkAboutNoticed = async (st: L1Statement) => {
+    try {
+      const created = await opencodeClient.createSession({ directory: MARKET_TALK_DIRECTORY });
+      router.push({
+        pathname: "/talk",
+        params: { sessionId: created.id, projectPath: MARKET_TALK_DIRECTORY, autoContextText: `关于你刚才注意到的：「${st.text}」我们聊聊。` },
+      });
+    } catch (e) {
+      alertRuntimeFailure(e);
     }
-    Alert.alert("该事项的会话已不可用", "原会话已删除，暂不能自动重建（Reconstruct 需满足 PM §4.2）。");
   };
 
   // Suggestion 动作（Phase 13，§8.3）：两个显式按钮是唯一推进路径。
@@ -267,8 +261,12 @@ export default function PulseScreen() {
         showsVerticalScrollIndicator={false}
       >
         {error ? (
-          <Box padding="sm" backgroundColor="surface.1" rounded="md">
-            <Text variant="caption" color="error">{error}</Text>
+          <Box padding="sm" backgroundColor="surface.1" rounded="md" testID="pulse-error">
+            <Text variant="caption" color="error">
+              {classifyRuntimeFailure(error) === "opencode-offline"
+                ? `${runtimeFailureMessage("opencode-offline").title} — ${runtimeFailureMessage("opencode-offline").body}`
+                : error}
+            </Text>
           </Box>
         ) : null}
 
@@ -354,6 +352,7 @@ export default function PulseScreen() {
                       summary={item.statement.text}
                       status="idle"
                       statusLabel="Noticed"
+                      onPress={() => talkAboutNoticed(item.statement)}
                       testID={`noticed-${item.statement.id}`}
                     />
                   ) : item.kind === "suggestion" ? (
@@ -398,11 +397,20 @@ export default function PulseScreen() {
                       <Box
                         style={{
                           flexDirection: "row",
+                          flexWrap: "wrap",
                           justifyContent: "flex-end",
                           gap: spacing.xs,
                           alignSelf: "stretch",
                         }}
                       >
+                        <Button
+                          variant="ghost"
+                          label="去聊聊"
+                          icon={MessageCircle}
+                          disabled={suggestionBusyId !== null}
+                          onPress={() => talkAboutSuggestion(item.suggestion)}
+                          testID={`suggestion-talk-${item.suggestion.id}`}
+                        />
                         <Button
                           variant="secondary"
                           label="不用了"
@@ -429,7 +437,7 @@ export default function PulseScreen() {
                       status={statusTypeFor(item.event.status)}
                       statusLabel={item.event.statusLabel}
                       onPress={() =>
-                        setActiveProject({ id: item.event.id, projectPath: item.event.projectPath })
+                        router.push({ pathname: "/talk", params: { projectPath: item.event.projectPath } })
                       }
                       testID={`project-${item.event.id}`}
                     />
@@ -475,7 +483,7 @@ export default function PulseScreen() {
                       status="idle"
                       statusLabel={event.statusLabel}
                       onPress={() =>
-                        setActiveProject({ id: event.id, projectPath: event.projectPath })
+                        router.push({ pathname: "/talk", params: { projectPath: event.projectPath } })
                       }
                       testID={`project-${event.id}`}
                     />
@@ -537,38 +545,6 @@ export default function PulseScreen() {
         </Box>
       </BottomSheet>
 
-      <BottomSheet
-        visible={activeProject !== null}
-        onClose={() => setActiveProject(null)}
-        fullScreen
-        testID="project-chat-sheet"
-      >
-        {activeProject && (USE_ZCODE_CHAT_SHEET ? (
-          <ProjectChatZ
-            projectPath={activeProject.projectPath}
-            onBack={() => setActiveProject(null)}
-            attention={
-              activeProject.attention
-                ? {
-                    id: activeProject.attention.id,
-                    title: activeProject.attention.title,
-                    summary: activeProject.attention.summary,
-                    subjectId: activeProject.attention.subjectId,
-                    state: activeProject.attention.state,
-                    sessionId: activeProject.attention.sessionId,
-                  }
-                : undefined
-            }
-            initialSessionId={activeProject.attention?.sessionId ?? null}
-            autoSendContext={activeProject.autoSendContext}
-          />
-        ) : (
-          <ProjectChat
-            projectPath={activeProject.projectPath}
-            onBack={() => setActiveProject(null)}
-          />
-        ))}
-      </BottomSheet>
     </KeyboardAvoidingView>
   );
 }

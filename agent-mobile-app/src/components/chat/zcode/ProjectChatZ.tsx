@@ -3,7 +3,7 @@
 // 回退开关：src/app/(tabs)/index.tsx 的 USE_ZCODE_CHAT_SHEET。
 import React, { useEffect, useState, useCallback } from "react";
 import { View, Pressable, StyleSheet, ScrollView } from "react-native";
-import { ArrowLeft, Plus, Layers } from "lucide-react-native";
+import { ArrowLeft, Plus, Layers, X } from "lucide-react-native";
 import { Text, Box, Button, IconButton } from "../../index";
 import { colors, spacing, radius } from "../../../theme";
 import { opencodeClient, type OpenCodeSession } from "../../../services/opencode-client";
@@ -13,13 +13,18 @@ import { BottomSheet } from "../../navigation/BottomSheet";
 
 interface ProjectChatProps {
   projectPath: string;
-  onBack: () => void;
+  /** v0.1.1 UX correction：Talk tab 内嵌时无 back 目标 → 不渲染返回箭头 */
+  onBack?: () => void;
+  /** v0.1.1 correction：关闭当前会话视图（Talk → 回 Pulse；不删除会话，Layers 内仍可切回） */
+  onClose?: () => void;
   /** Phase 4：从 Attention 进入时携带（上下文卡 + Mark handled 入口） */
   attention?: EngagedAttentionRef;
   /** Attention 引用的既有 session —— 精确 Resume（PM §8.2/§16.4），优先于"最近会话" */
   initialSessionId?: string | null;
   /** market 类 Create 流程：新会话挂载后自动发送 Attention 上下文消息 */
   autoSendContext?: boolean;
+  /** v0.1.1 通用上下文首消息（Suggested/Noticed → Talk）：透传 ChatPanelZ，无授权语义 */
+  autoContextText?: string;
 }
 
 function byRecent(a: OpenCodeSession, b: OpenCodeSession): number {
@@ -34,7 +39,7 @@ function sessionLabel(s: OpenCodeSession): string {
  * Direct chat entry for a project: opens the most recently active session,
  * or an empty chat composer when no session exists yet.
  */
-export function ProjectChatZ({ projectPath, onBack, attention, initialSessionId, autoSendContext }: ProjectChatProps) {
+export function ProjectChatZ({ projectPath, onBack, attention, initialSessionId, autoSendContext, autoContextText, onClose }: ProjectChatProps) {
   const [session, setSession] = useState<OpenCodeSession | null>(null);
   const [sessions, setSessions] = useState<OpenCodeSession[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -104,7 +109,11 @@ export function ProjectChatZ({ projectPath, onBack, attention, initialSessionId,
   return (
     <View style={styles.flex}>
       <View style={styles.headerRow}>
-        <IconButton icon={ArrowLeft} onPress={onBack} accessibilityLabel="Back to projects" testID="zcode-sheet-back" />
+        {onBack ? (
+          <IconButton icon={ArrowLeft} onPress={onBack} accessibilityLabel="Back to projects" testID="zcode-sheet-back" />
+        ) : (
+          <View style={styles.headerSpacer} />
+        )}
         <View style={styles.titleWrap}>
           <Text variant="bodyStrong" color="ink" numberOfLines={1}>
             {session ? sessionLabel(session) : projectPath.split("/").filter(Boolean).pop()}
@@ -114,6 +123,9 @@ export function ProjectChatZ({ projectPath, onBack, attention, initialSessionId,
           </Text>
         </View>
         <IconButton icon={Layers} onPress={openPicker} accessibilityLabel="Switch session" />
+        {onClose ? (
+          <IconButton icon={X} onPress={onClose} accessibilityLabel="Close session" testID="zcode-session-close" />
+        ) : null}
       </View>
 
       {error ? (
@@ -128,7 +140,7 @@ export function ProjectChatZ({ projectPath, onBack, attention, initialSessionId,
         </Box>
       ) : session ? (
         <View style={styles.flex}>
-          <ChatPanelZ key={session.id} sessionID={session.id} attention={attention} autoSendContext={autoSendContext} />
+          <ChatPanelZ key={session.id} sessionID={session.id} attention={attention} autoSendContext={autoSendContext} autoContextText={autoContextText} />
         </View>
       ) : (
         <Box padding="lg" style={styles.center}>
@@ -192,6 +204,7 @@ export function ProjectChatZ({ projectPath, onBack, attention, initialSessionId,
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   center: { alignItems: "center", justifyContent: "center" },
+  headerSpacer: { width: 40 },
   headerRow: {
     flexDirection: "row",
     alignItems: "center",

@@ -75,9 +75,11 @@ interface ChatPanelProps {
   attention?: EngagedAttentionRef;
   /** market 类 Create 流程：挂载后自动发送一条 Attention 上下文消息（用户显式 engage 的结果） */
   autoSendContext?: boolean;
+  /** v0.1.1 通用上下文首消息（Suggested/Noticed → Talk）：挂载后发送一次；仅是对话开场，无 lifecycle/授权语义 */
+  autoContextText?: string;
 }
 
-export function ChatPanelZ({ sessionID, attention, autoSendContext = false }: ChatPanelProps) {
+export function ChatPanelZ({ sessionID, attention, autoSendContext = false, autoContextText }: ChatPanelProps) {
   const [messages, setMessages] = useState<OpenCodeMessage[]>([]);
   const [display, setDisplay] = useState<DisplayStep[]>([]);
   const [input, setInput] = useState("");
@@ -524,6 +526,24 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false }: Ch
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoSendContext, attention, loading]);
+
+  // v0.1.1：通用上下文首消息（Suggested/Noticed → Talk 的对话开场）。
+  // 与 Attention 注入的区别：不带 engage/handle/subject 语义，只是一条用户消息——绝不触发任何 proposal/attention 动作。
+  const autoContextSentRef = useRef(false);
+  useEffect(() => {
+    if (!autoContextText || autoContextSentRef.current) return;
+    if (loading) return;
+    autoContextSentRef.current = true;
+    opencodeClient
+      .sendMessageAsync(sessionID, {
+        parts: [{ type: "text", text: autoContextText }],
+        agent: agents[agentIdx].id,
+        model,
+      })
+      .then(() => { stickToBottom.current = true; })
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoContextText, loading]);
 
   const markHandled = async () => {
     if (!attention) return;

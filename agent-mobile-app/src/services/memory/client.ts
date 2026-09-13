@@ -82,6 +82,18 @@ export async function searchKb(query: string): Promise<{ configured: boolean; hi
   return (await res.json()) as { configured: boolean; hits: KbHit[] };
 }
 
+/** KB 文档阅读（v0.1.1）：按 ref 读 vault 全文（BFF 受限读取：vault 内 + .md + 防 traversal）。 */
+export async function fetchKbDoc(ref: string): Promise<{ title: string; content: string; updatedAt: number; ref: string }> {
+  const res = await fetch(`${getBaseUrl()}/api/product/kb/doc/${ref.split("/").map(encodeURIComponent).join("/")}`, {
+    headers: authHeaders(),
+  });
+  await ensureAuth(res);
+  const body = (await res.json()) as { item?: { title: string; content: string; updatedAt: number; ref: string }; error?: string };
+  if (!res.ok) throw new Error(body.error ?? `kb doc failed: ${res.status}`);
+  if (!body.item) throw new Error("kb doc empty response");
+  return body.item;
+}
+
 // ── 分组/展示纯函数（可测）──
 
 export interface MemoryGroup {

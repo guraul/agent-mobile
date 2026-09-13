@@ -8,6 +8,8 @@ import { loadToken } from "@/services/auth";
 import { fetchAttentionDetail, dismissAttention, type AttentionDetail } from "@/services/attention/client";
 import { repairAssignment } from "@/services/assignment/client";
 import { formatRelative } from "@/services/assignment/projection";
+import { resolveAttentionConversation } from "@/services/attention/talk";
+import { classifyRuntimeFailure, runtimeFailureMessage } from "@/services/runtime-presence";
 
 // Attention 详情屏（Phase 9，Part 5）：Attention 行 + evidence 投影 + 关联 responsibility。
 // Viewing ≠ Handling：打开本页不改 state；Open Talk 不自动 handle（engage 也只在用户点击时发生）。
@@ -20,6 +22,9 @@ export default function AttentionDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<"retry" | "dismiss" | null>(null);
+  // v0.1.1：真正的 Talk 入口（此前 Open Talk 只是 router.back() 的假动作）。
+  // v0.1.1 correction：路由进入 Talk workspace（不在详情屏本地承载 Chat）。
+  // Resume/Create 语义与 Pulse 一致（resolveAttentionConversation）；Open Talk 不改 Attention state。
 
   const reload = useCallback(async () => {
     if (!id) return;
@@ -52,6 +57,39 @@ export default function AttentionDetailScreen() {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(null);
+    }
+  };
+
+  const openTalk = async () => {
+    if (!att) return;
+    try {
+      const r = await resolveAttentionConversation({
+        id: att.id, title: att.title, summary: att.summary, subjectId: att.subjectId,
+        state: att.state, sessionId: att.sessionId, domain: att.domain,
+      });
+      router.push({
+        pathname: "/talk",
+        params: {
+          sessionId: r.sessionId, projectPath: r.projectPath,
+          attId: att.id, attTitle: att.title, attSummary: att.summary,
+          attSubjectId: att.subjectId, attState: att.state,
+          ...(r.created ? { autoSendContext: "1" } : {}),
+        },
+      });
+    } catch (e) {
+      const kind = classifyRuntimeFailure(e);
+      const msg = e instanceof Error ? e.message : String(e);
+      if (kind === "opencode-offline" || kind === "bff-offline" || kind === "auth") {
+        const m = runtimeFailureMessage(kind); Alert.alert(m.title, m.body);
+      } else if (/会话已不可用|404|not found/i.test(msg)) {
+        // 会话已丢失（runtime 重启等）→ 提供去 Talk 默认会话的逃生口，而不是死胡同
+        Alert.alert("原会话已不存在", "该事项引用的会话已丢失（agent runtime 可能重启过）。", [
+          { text: "取消", style: "cancel" },
+          { text: "去 Talk 默认会话", onPress: () => router.push({ pathname: "/talk" }) },
+        ]);
+      } else {
+        Alert.alert("无法进入 Talk", msg);
+      }
     }
   };
 
@@ -130,12 +168,13 @@ export default function AttentionDetailScreen() {
               <View style={s.actions}>
                 {isRepair ? <Button label="Retry" onPress={doRetry} variant="secondary" loading={busy === "retry"} testID="attention-retry" /> : null}
                 <Button label="Dismiss" onPress={doDismiss} variant="ghost" loading={busy === "dismiss"} testID="attention-dismiss" />
-                <Button label="Open Talk" onPress={() => router.back()} variant="secondary" testID="attention-open-talk" />
+                <Button label="Open Talk" onPress={openTalk} variant="secondary" testID="attention-open-talk" />
               </View>
             </Card>
           </>
         ) : null}
       </ScrollView>
+
     </View>
   );
 }

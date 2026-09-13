@@ -11,6 +11,10 @@ import { probeBffHealth } from "@/services/bff-health";
 import { loadModelPrefs, setModelPref } from "@/services/model-prefs";
 import { filterModels, type ModelPref } from "@/services/filter-models";
 import { opencodeClient } from "@/services/opencode-client";
+import { fetchAssignments } from "@/services/assignment/client";
+import { fetchAttentions } from "@/services/attention/client";
+import { buildAssignmentGroups } from "@/services/assignment/projection";
+import type { AttentionItem } from "@/services/attention/store";
 
 interface AgentRow { id: string; model: ModelPref }
 
@@ -25,6 +29,8 @@ export default function MeScreen() {
   const [modelList, setModelList] = useState<ModelPref[]>([]);
   const [pickAgent, setPickAgent] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  // v0.1.1：Me = How we work together——Responsibilities 是「我们协作」的核心表达（自 Memory tab 归位）
+  const [respCounts, setRespCounts] = useState<{ active: number | null; needs: number | null }>({ active: null, needs: null });
 
   const reload = useCallback(async () => {
     // 直开/刷新 /me 时无 Pulse 启动流程,先从 AsyncStorage 恢复 token,否则 listAgents/listProviders 401
@@ -51,6 +57,17 @@ export default function MeScreen() {
       }
     }
     if (flat.length > 0) setModelList(flat);
+    // Responsibilities 计数（只读投影；失败不阻塞 Me 本体）
+    try {
+      const [assignments, attentions] = await Promise.all([fetchAssignments(), fetchAttentions()]);
+      const groups = buildAssignmentGroups(assignments, attentions as AttentionItem[]);
+      setRespCounts({
+        active: groups.find((g) => g.key === "active")?.items.length ?? 0,
+        needs: groups.find((g) => g.key === "needs-attention")?.items.length ?? 0,
+      });
+    } catch {
+      setRespCounts({ active: null, needs: null });
+    }
   }, []);
 
   useEffect(() => { reload(); }, [reload]);
@@ -86,6 +103,27 @@ export default function MeScreen() {
 
   return (
     <ScrollView style={s.screen} contentContainerStyle={s.content}>
+      {/* ── Responsibilities（v0.1.1 自 Memory tab 归位）：「AI 替我负责什么」── */}
+      <View style={s.section}>
+      <Text variant="caption" color="muted">RESPONSIBILITIES</Text>
+      <Card testID="me-responsibilities" style={s.card} onPress={() => router.push("/assignments")}>
+        <View style={s.row}>
+          <View style={s.flex}>
+            <Text variant="title">Responsibilities</Text>
+            <Text variant="caption" color="muted">
+              {respCounts.needs !== null
+                ? `${respCounts.active ?? 0} active${respCounts.needs > 0 ? ` · ${respCounts.needs} needs attention` : ""}`
+                : "Active / completed / revoked assignments"}
+            </Text>
+          </View>
+          <Icon icon={ChevronRight} size="sm" color="muted" />
+        </View>
+      </Card>
+      </View>
+
+      {/* ── Connection ── */}
+      <View style={s.section}>
+      <Text variant="caption" color="muted">CONNECTION</Text>
       {/* Card 1 连接与账号 */}
       <Card testID="me-card-account" style={s.card}>
         <View style={s.row}>
@@ -125,6 +163,11 @@ export default function MeScreen() {
         {saved && <Text variant="caption" color="accent">ⓘ 保存后重启生效(web 刷新即可)</Text>}
       </Card>
 
+      </View>
+
+      {/* ── Preferences ── */}
+      <View style={s.section}>
+      <Text variant="caption" color="muted">PREFERENCES</Text>
       {/* Card 3 model 偏好 */}
       <Card testID="me-card-model" style={s.card}>
         <Text variant="title">model 偏好</Text>
@@ -140,6 +183,7 @@ export default function MeScreen() {
           </Pressable>
         ))}
       </Card>
+      </View>
 
       {/* model 选择 BottomSheet */}
       <BottomSheet visible={pickAgent !== null} onClose={() => setPickAgent(null)} testID="me-model-sheet">
@@ -167,6 +211,7 @@ const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.canvas },
   content: { padding: spacing.lg, gap: spacing.lg },
   card: { gap: spacing.xs },
+  section: { gap: spacing.xs },
   row: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
   mt: { marginTop: spacing.sm },
   btnRow: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.md },

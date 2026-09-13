@@ -42,6 +42,7 @@ export default function RootLayout() {
         <Stack.Screen name="assignments" />
         <Stack.Screen name="assignments/[id]" />
         <Stack.Screen name="attention/[id]" />
+        <Stack.Screen name="kb/doc" />
       </Stack>
     </SafeAreaProvider>
   );
