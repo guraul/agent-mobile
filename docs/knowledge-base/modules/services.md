@@ -25,6 +25,9 @@ auth.ts ──Bearer JWT──► 认证（family-finance 用户）       openco
 | 文件路径 | 职责 |
 |---|---|
 | `agent-mobile-app/src/config/opencode.ts` | BFF baseUrl + token + runtimeBaseUrl（`getBaseUrl()` = runtime 覆盖优先回退 env） |
+| `agent-mobile-app/src/services/runtime-presence.ts` | v0.1.1：runtime 失败分类（opencode-offline/bff-offline/auth/other）+ companion 文案；只有可确认 opencode 不可达才算 offline |
+| `agent-mobile-app/src/services/attention/talk.ts` | v0.1.1：Attention→会话解析共享层（Resume 优先 / market Create+engage / offline 上抛）；`MARKET_TALK_DIRECTORY` 常量 |
+| `agent-mobile-app/src/services/memory/client.ts` | +`fetchKbDoc(ref)`（v0.1.1：/api/product/kb/doc 受限读取，供 KB 阅读屏） |
 | `agent-mobile-app/src/services/auth.ts` | JWT 登录/登出/username/存取/401 联动（AsyncStorage） |
 | `agent-mobile-app/src/services/bff-config.ts` | BFF 地址运行时覆盖（AsyncStorage key `pulse_bff_url`，方案 C 重启生效） |
 | `agent-mobile-app/src/services/bff-health.ts` | `probeBffHealth(url)`：OPTIONS `/api/auth/login` 探测 BFF 在线（2xx-4xx 在线，超时默认 3s） |

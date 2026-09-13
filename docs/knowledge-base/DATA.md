@@ -64,4 +64,4 @@ session CRUD               OpenCode Server                useProjectEvents / Pro
 - SSE 事件流验证：`curl -N -u opencode:$PASS http://127.0.0.1:4096/global/event`（注意 `sync` 内部帧会被客户端过滤）。
 - 消息顺序问题排查：先 curl 确认 API 返回顺序（**chronological**），再检查 reducer 插入与 mergeMessages 是否保持了该顺序。
 
-> Phase 1-6 追加：产品层持久化在 BFF SQLite（product_events / attention_items / assignments / assignment_proposals，见 family-finance 知识库 DATA.md）；Memory 投影来自 `~/.opencode`（memx canonical）；KB 检索来自 llm-wiki vault。手机端数据源：`services/attention/`、`services/assignment/`、`services/memory/`。
+> Phase 1-6 追加：产品层持久化在 BFF SQLite（product_events / attention_items / assignments / assignment_proposals，见 family-finance 知识库 DATA.md）；Memory 投影来自 `~/.opencode`（memx canonical）；KB 检索来自 llm-wiki vault。手机端数据源：`services/attention/`（含 talk 会话解析）、`services/assignment/`（含 projection）、`services/proposal/`（v0.1.1）、`services/memory/`（含 fetchKbDoc）、`services/runtime-presence.ts`。

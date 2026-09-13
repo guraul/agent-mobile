@@ -31,7 +31,7 @@
 | `/api/product/memory` | GET/POST | includeDeprecated?；POST=405 | Memory 投影（canonical=memx） | Bearer JWT |
 | `/api/product/memory/:id` | GET/DELETE | DELETE=`{reason?}` | 详情 / Forget（.trash 或弃用标记） | Bearer JWT |
 | `/api/product/kb/search` | GET | `q, limit?` | vault 全文检索（rg） | Bearer JWT |
-| `/api/product/kb/doc/<ref>` | GET | vault-relative ref | 受限文档读取 | Bearer JWT |
+| `/api/product/kb/doc/<ref>` | GET | vault-relative ref | 受限文档读取（v0.1.1 起 mobile KB 阅读屏消费） | Bearer JWT |
 | `/api/product/kb/raw-ideas` | POST | `{title,content,source,sourceRef?}` | Raw Idea → vault（保存≠执行） | Bearer JWT |
 
 > `/api/events/stream` 已于 Phase 10 **删除**（L1 迁移到 `/api/product/l1` + `/api/product/l1/stream`；legacy `lib/events/*` 一并移除）。

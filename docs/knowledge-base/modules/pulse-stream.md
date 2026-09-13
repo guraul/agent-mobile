@@ -2,7 +2,16 @@
 
 > ⚠️ **Phase 3-13 更新**：needs-you 现在只来自 Attention store（`services/attention/`，/api/product/attention + /api/product/stream）；`fund.trade-alert` SSE 语义与 `/api/events/ack` 已退役（Phase 7）；`fund.estimate` 为 L1 行情数据面（Phase 10 迁到 `/api/product/l1` + `/api/product/l1/stream`，legacy `/api/events/stream` 与 `services/fund-events.ts`、`hooks/useFundEvents.ts` 已删除）；Phase 12 新增 Noticed 组（observation L1）；Phase 13 新增 Suggested 组（Assignment Proposal 的 L2 呈现，`services/proposal/` + `hooks/useSuggestions.ts`）。活跃聊天为 `ProjectChatZ`（ZCode fork）。下文部分段落描述 Phase 3 之前行为，已用 ~~删除线~~ 或保留作历史参考——以本标注与 `services/` 源码为准。
 
-> 最后更新：2026-09-12 · Phase 13：Suggested 组（proposal → Pulse L2 Suggestion，Confirm/Reject 显式推进）
+> 最后更新：2026-09-12 · commit：`c315931`（v0.1.1 UX Correction：Pulse 不再承载 chat，卡片动作路由进 Talk）
+
+## v0.1.1 UX Correction（2026-09-12）
+
+- **Pulse 不再承载 chat**：BottomSheet 聊天宿主已删除（«AI → User» vs «User ↔ AI» 职责切分）。卡片动作全部路由进 Talk workspace（`router.push("/talk", params)`）。
+- 卡片路径：Needs You 卡 → `/attention/[id]` 详情（evidence/history 投影）→ **Open Talk**；Suggested 卡 → [去聊聊]（非授权，proposal 保持 PROPOSED）+[确认]/[不用了]；Noticed 卡 → tap 上下文会话；Today 项目卡 → Talk 项目模式。
+- `services/attention/talk.ts`：Attention→会话解析共享层（Resume 优先 / market Create+engage），Pulse 卡与详情屏共用。
+- offline：`services/runtime-presence.ts` 分类错误（opencode-offline / bff-offline / auth / other），呈现「AI is offline」而非裸 502。
+
+## Phase 13：Pulse ← Proposal（Suggested 组，2026-09-12）
 
 ## Phase 13：Pulse ← Proposal（Suggested 组，2026-09-12）
 

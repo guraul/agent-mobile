@@ -1,6 +1,8 @@
 # modules/chat.md —— 聊天（项目对话）
 
-> 最后更新：2026-08-30 · commit：`d255c48`（ChatPanel 默认 model pill 读 Me 偏好）
+> 最后更新：最后更新：2026-09-12 · commit：`c315931`（v0.1.1 Companion UX：Talk 一级工作区 / Responsibilities→Me / KB 阅读器 / runtime-presence / 移除 Pulse sheet chat）
+>
+> ⚠️ **v0.1.1 变更**：聊天唯一入口 = **Talk tab**（`src/app/(tabs)/talk.tsx` 薄入口 → `ProjectChatZ`/`ChatPanelZ`）。Pulse 的 BottomSheet 不再承载 chat；contextual 会话（Attention/Suggested/Noticed）经 route params 进入 Talk。`ProjectChatZ` 新增 `onClose`（X → 回 Pulse 主页面）与可选 `onBack`；`ChatPanelZ` 新增 `autoContextText`（通用开场消息，无授权语义）与既有 `autoSendContext`（Attention 上下文注入）并列。Layers（session picker）是 session 列出/切换/新建的唯一 UI，按当前 projectPath 过滤。
 
 ## 模块职责
 
@@ -8,7 +10,8 @@
 
 ## 入口文件
 
-`agent-mobile-app/src/components/chat/ProjectChat.tsx`
+- `agent-mobile-app/src/app/(tabs)/talk.tsx`（v0.1.1：Talk 一级工作区——薄入口，进入即当前/默认 session；pinned session 404 时自动降级默认会话）
+- `agent-mobile-app/src/components/chat/zcode/ProjectChatZ.tsx`（活跃壳：header + Layers picker + ChatPanelZ）
 
 ## 关键文件清单
 

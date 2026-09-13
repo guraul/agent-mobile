@@ -1,6 +1,6 @@
 # Agent Mobile 项目知识库 · 索引总览
 
-> 最后更新：2026-09-12 · MVP mainline closed（Phase 13 + MVP Acceptance 完成，状态见 `docs/redesign/MVP_ACCEPTANCE.md`）
+> 最后更新：2026-09-12 · commit：`c315931`（v0.1.1 Companion UX 完成与修正；MVP mainline closed，验收见 `docs/redesign/MVP_ACCEPTANCE.md`）
 > 维护：见 [CONVENTIONS.md](CONVENTIONS.md)「知识库维护约定」
 
 ## 使用说明
@@ -27,7 +27,7 @@
 ## 项目定位
 
 **Agent Mobile / Pulse** — 持久 AI 伴侣（persistent, Jarvis-like companion），当前 Agent Runtime 为 OpenCode（实现选择，非产品身份，PM §1/§34）。
-当前形态（MVP mainline）：Expo（SDK 57）应用；Pulse 首页五分组 = Needs you（Attention）/ Suggested（Assignment Proposal 的 L2 呈现）/ Noticed（observation L1）/ Today（项目 running）/ Market（行情 L1）；Talk = 真实会话（经 Pulse 项目/Attention 卡进入 ChatPanelZ，含 /assign /confirm 斜杠命令；Talk tab 本身为占位）；Memory tab = 真实数据 + Responsibilities（Assignment 管理面）+ KB 检索；Me tab 为配置页。产品语义唯一来源 `docs/redesign/PRODUCT_MODEL.md`（冻结）。
+当前形态（MVP mainline）：Expo（SDK 57）应用；Pulse 首页五分组 = Needs you（Attention）/ Suggested（Assignment Proposal 的 L2 呈现）/ Noticed（observation L1）/ Today（项目 running）/ Market（行情 L1）；Talk = 一级对话工作区（v0.1.1：进入即当前/默认 session；session 切换由 ProjectChatZ Layers 承载；含 /assign /confirm 斜杠命令；X 关闭回 Pulse）；Memory tab = 真实数据 + Responsibilities（Assignment 管理面）+ KB 检索；Me tab 为配置页。产品语义唯一来源 `docs/redesign/PRODUCT_MODEL.md`（冻结）。
 
 ## 核心功能清单
 
@@ -44,7 +44,10 @@
 | 项目聊天（最近 session / 新建 session） | chat | `agent-mobile-app/src/components/chat/ProjectChat.tsx` |
 | ZCode 风格聊天弹框（并存，`USE_ZCODE_CHAT_SHEET` 开关） | chat | `agent-mobile-app/src/components/chat/zcode/ProjectChatZ.tsx` |
 | Attention store（Pulse actionable 唯一来源，Phase 3） | services | `agent-mobile-app/src/services/attention/` + `hooks/useAttentions.ts` |
-| Memory tab（Phase 6 真实数据：Memory 投影 + KB 检索入口） | services | `agent-mobile-app/src/app/(tabs)/memory.tsx` + `services/memory/` |
+| Memory tab（v0.1.1：REMEMBERS 记忆 + KNOWS 检索→文档阅读） | services | `agent-mobile-app/src/app/(tabs)/memory.tsx` + `services/memory/`（含 `fetchKbDoc`） |
+| KB 文档阅读屏（v0.1.1：搜索结果点开读全文，`/kb/doc`） | services | `agent-mobile-app/src/app/kb/doc.tsx` |
+| Me tab（v0.1.1：Responsibilities 归位 + Connection + Preferences） | services | `agent-mobile-app/src/app/(tabs)/me.tsx` + `app/assignments/` |
+| Runtime presence（v0.1.1：opencode 离线识别与诚实呈现） | services | `agent-mobile-app/src/services/runtime-presence.ts` |
 | Responsibilities / Assignment 管理面 + 详情（Phase 9：授权/执行历史投影，revoke/repair/compensate） | services | `agent-mobile-app/src/app/assignments/` + `services/assignment/`（client/projection） |
 | Attention 详情屏（Phase 9：evidence + 关联 assignment 只读投影） | services | `agent-mobile-app/src/app/attention/[id].tsx` |
 | L1 订阅（market + observation，Phase 10/12：Noticed 组数据源） | services | `agent-mobile-app/src/services/l1.ts` + `hooks/useL1.ts` |
@@ -57,7 +60,7 @@
 | 消息增量更新 reducer | services | `agent-mobile-app/src/services/message-reducer.ts` |
 | 消息 step 展开（OpenCodeMessage → DisplayStep） | services | `agent-mobile-app/src/services/message-merging.ts` |
 | 底部 4-tab 导航 | router | `agent-mobile-app/src/app/(tabs)/_layout.tsx` |
-| Talk tab（占位；Talk 能力经 Pulse 项目/Attention 卡的会话 sheet 承载） | router | `agent-mobile-app/src/app/(tabs)/talk.tsx` |
+| Talk 一级工作区（v0.1.1：薄入口直进 chat；Layers 管 session；X 关闭回 Pulse） | router | `agent-mobile-app/src/app/(tabs)/talk.tsx` + `components/chat/zcode/` |
 | 组件库（primitives/feedback/navigation） | components | `agent-mobile-app/src/components/index.ts` |
 | 设计 token（暗色主题） | theme | `agent-mobile-app/src/theme/index.ts` |
 | Web 静态预览服务（9928，gzip，当前） | ops | `agent-mobile-app/scripts/serve-static.mjs` + `serve-9928.service` |

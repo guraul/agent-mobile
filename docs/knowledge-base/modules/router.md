@@ -1,6 +1,6 @@
 # modules/router.md —— 路由与应用壳
 
-> 最后更新：2026-08-30 · commit：`d255c48`（Me 页从占位转正式——账号/BFF地址/model偏好）
+> 最后更新：最后更新：2026-09-12 · commit：`c315931`（v0.1.1 Companion UX：Talk 一级工作区 / Responsibilities→Me / KB 阅读器 / runtime-presence / 移除 Pulse sheet chat）
 
 ## 模块职责
 
@@ -17,7 +17,9 @@ Expo Router 文件路由：根 Stack + 4-tab Tabs，承载全部页面注册。
 |---|---|---|
 | `src/app/_layout.tsx` | — | SafeAreaProvider + StatusBar(light) + Stack（headerShown:false，仅 `(tabs)`） |
 | `src/app/(tabs)/_layout.tsx` | `/` 组 | Tabs 容器，4 个 Tab.Screen |
-| `src/app/(tabs)/index.tsx` | `/`（默认 tab） | Pulse 事件流页（默认 tab，历史名 pulse.tsx） |
+| `src/app/(tabs)/index.tsx` | `/`（默认 tab） | Pulse 五分组页（Needs you/Suggested/Noticed/Today/Market；v0.1.1 起不承载 chat，卡片动作路由进 Talk/详情） |
+| `src/app/(tabs)/talk.tsx` | `/talk` | **Talk 一级工作区**（v0.1.1：薄入口，进入即当前/默认 session；params: sessionId/projectPath/autoContextText/att* 为 contextual 入口） |
+| `src/app/kb/doc.tsx` | `/kb/doc` | KB 文档阅读屏（v0.1.1：params ref/title；消费 /api/product/kb/doc） |
 | `src/app/(tabs)/talk.tsx` | `/talk` | 占位页 |
 | `src/app/(tabs)/memory.tsx` | `/memory` | 占位页 |
 | `src/app/(tabs)/me.tsx` | `/me` | Me 配置页：连接与账号（在线探测/登出）+ BFF 地址（运行时覆盖）+ model 偏好（BottomSheet 选择）；直开时 reload 开头 `loadToken()` |
