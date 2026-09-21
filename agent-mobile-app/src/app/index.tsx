@@ -402,7 +402,8 @@ export default function PulseScreen() {
         style={StyleSheet.absoluteFill}
       />
       <LinearGradient
-        colors={["rgba(139,92,246,0.12)", "transparent"]}
+        colors={["rgba(139,92,246,0.22)", "rgba(139,92,246,0.07)", "transparent"]}
+        locations={[0, 0.45, 1]}
         style={styles.topGlow}
         pointerEvents="none"
       />
@@ -430,7 +431,7 @@ export default function PulseScreen() {
             testID="pulse-settings"
             hitSlop={10}
           >
-            <Settings color={c2colors.textMuted} size={20} strokeWidth={iconStroke} />
+            <Settings color={c2colors.textLabel} size={18} strokeWidth={iconStroke} />
           </Pressable>
         </View>
 

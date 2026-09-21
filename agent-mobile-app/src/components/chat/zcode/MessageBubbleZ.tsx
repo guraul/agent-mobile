@@ -7,6 +7,7 @@ import { Text, Box, Icon } from "../../index";
 import { colors, radius, spacing } from "../../../theme";
 import type { DisplayStep } from "../../../services/message-merging";
 import { StepRow } from "./StepRow";
+import { AIOrb } from "../../pulse/AIOrb";
 
 // User message: subtle violet bubble (accentSoft), no border.
 const userMarkdown = {
@@ -17,7 +18,7 @@ const userMarkdown = {
 
 // AI message: plain text, no bubble — the voice, not a chat widget.
 const aiMarkdown = {
-  body: { color: colors.ink, fontSize: 15, lineHeight: 22 },
+  body: { color: "#B4AECB", fontSize: 15, lineHeight: 24 },
   heading1: { color: colors.ink, fontSize: 18, fontWeight: "700" as const },
   heading2: { color: colors.ink, fontSize: 16, fontWeight: "700" as const },
   heading3: { color: colors.ink, fontSize: 15, fontWeight: "700" as const },
@@ -60,7 +61,7 @@ export const MessageBubbleZ = React.memo(function MessageBubbleZ({ step }: { ste
   if (step.kind === "user") {
     return (
       <Box marginBottom="xs" style={{ alignItems: "flex-end" }}>
-        <Box paddingHorizontal="sm" paddingVertical="xs" style={{ minWidth: 40, maxWidth: "80%", backgroundColor: colors.accent.subtle, borderRadius: radius.lg, borderBottomRightRadius: radius.xs }}>
+        <Box paddingHorizontal="lg" paddingVertical="md" style={{ minWidth: 40, maxWidth: "80%", marginLeft: 20, backgroundColor: "rgba(139,92,246,0.15)", borderRadius: 18, borderWidth: 1, borderColor: "rgba(167,139,250,0.28)" }}>
           <Markdown style={userMarkdown}>{step.text}</Markdown>
         </Box>
         <Actions text={step.text} createdAt={step.createdAt} align="right" />
@@ -79,13 +80,18 @@ export const MessageBubbleZ = React.memo(function MessageBubbleZ({ step }: { ste
     );
   }
 
-  // AI: plain text, no bubble. Identity lives in the Talk header orb.
+  // AI: plain text, no bubble — orb avatar + indent (showcase2 ConversationMessage).
   return (
     <Box marginBottom="xs" style={{ alignItems: "flex-start" }}>
-      <Box style={{ maxWidth: "92%", paddingLeft: spacing.sm }}>
+      <Box style={{ flexDirection: "row", alignItems: "flex-start", gap: 12, paddingLeft: 4, maxWidth: "94%" }}>
+      <View style={{ marginTop: 2 }}>
+        <AIOrb state="attentive" size="dot" />
+      </View>
+      <Box style={{ flex: 1, minWidth: 0 }}>
         {/* No fixed-height scroll container here: the typewriter reveals the
             text character by character, so the block must grow with the text. */}
         <Markdown style={aiMarkdown}>{step.text}</Markdown>
+      </Box>
       </Box>
       <Actions text={step.text} createdAt={step.createdAt} align="left" />
     </Box>
