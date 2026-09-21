@@ -1,40 +1,43 @@
 # modules/router.md —— 路由与应用壳
 
-> 最后更新：最后更新：2026-09-12 · commit：`c315931`（v0.1.1 Companion UX：Talk 一级工作区 / Responsibilities→Me / KB 阅读器 / runtime-presence / 移除 Pulse sheet chat）
+> 最后更新：2026-09-21 · commit：`feat/companion-ui-migration`（Companion UI Migration：单表面导航，取消 4-tab）
 
 ## 模块职责
 
-Expo Router 文件路由：根 Stack + 4-tab Tabs，承载全部页面注册。
+Expo Router 文件路由：根 Stack（单表面 Companion 导航），承载全部页面注册。
+Pulse 是唯一根界面；Talk / Attention / Responsibilities / Knowledge 是 contextual stack 路由；
+Settings / Memory / Knowledge 检索以 contextual sheet 呈现（不再是 tab 页）。
 
 ## 入口文件
 
-- `agent-mobile-app/src/app/_layout.tsx`（根）
-- `agent-mobile-app/src/app/(tabs)/_layout.tsx`（Tabs）
+- `agent-mobile-app/src/app/_layout.tsx`（根，SafeAreaProvider + StatusBar(light) + Stack）
 
 ## 关键文件清单
 
 | 文件路径 | 路由 | 内容 |
 |---|---|---|
-| `src/app/_layout.tsx` | — | SafeAreaProvider + StatusBar(light) + Stack（headerShown:false，仅 `(tabs)`） |
-| `src/app/(tabs)/_layout.tsx` | `/` 组 | Tabs 容器，4 个 Tab.Screen |
-| `src/app/(tabs)/index.tsx` | `/`（默认 tab） | Pulse 五分组页（Needs you/Suggested/Noticed/Today/Market；v0.1.1 起不承载 chat，卡片动作路由进 Talk/详情） |
-| `src/app/(tabs)/talk.tsx` | `/talk` | **Talk 一级工作区**（v0.1.1：薄入口，进入即当前/默认 session；params: sessionId/projectPath/autoContextText/att* 为 contextual 入口） |
-| `src/app/kb/doc.tsx` | `/kb/doc` | KB 文档阅读屏（v0.1.1：params ref/title；消费 /api/product/kb/doc） |
-| `src/app/(tabs)/talk.tsx` | `/talk` | 占位页 |
-| `src/app/(tabs)/memory.tsx` | `/memory` | 占位页 |
-| `src/app/(tabs)/me.tsx` | `/me` | Me 配置页：连接与账号（在线探测/登出）+ BFF 地址（运行时覆盖）+ model 偏好（BottomSheet 选择）；直开时 reload 开头 `loadToken()` |
+| `src/app/_layout.tsx` | — | SafeAreaProvider + StatusBar(light) + Stack（headerShown:false；web 端 fatal error 兜底屏） |
+| `src/app/index.tsx` | `/` | **Pulse 根界面**（唯一表面）：Hero（问候+AI 文案+watching 行）/ Featured（≤1 attention）/ Supporting（≤4 行）/ Noticed（≤5）+ Conversation Entry + Settings 入口 |
+| `src/app/talk.tsx` | `/talk` | Talk contextual stack：params sessionId/projectPath/attention/autoSendContext/autoContextText；runtime 不可用时呈现 orb header + 离线卡片（带返回） |
+| `src/app/assignments.tsx` | `/assignments` | Responsibilities 列表（WATCHING 行 → FundSheet） |
+| `src/app/assignments/[id].tsx` | `/assignments/[id]` | Responsibility 详情 |
+| `src/app/attention/[id].tsx` | `/attention/[id]` | Attention 详情（evidence + 关联 assignment 只读投影） |
+| `src/app/kb/doc.tsx` | `/kb/doc` | KB 文档阅读屏（params ref/title） |
+| `src/app/memory.tsx` | `/memory` | **Redirect → `/`**（legacy 兼容，避免旧深链 404） |
+| `src/app/me.tsx` | `/me` | **Redirect → `/`**（legacy 兼容；配置能力迁入 SettingsSheet） |
 | `src/app/+not-found.tsx` | 404 | expo-router 自动生成（未列，由模板提供） |
 
-## Tab 配置（(tabs)/_layout.tsx）
+**已删除**：`src/app/(tabs)/` 整个目录（`_layout.tsx` / `index.tsx` / `talk.tsx` / `memory.tsx` / `me.tsx`）。
+底部 tab bar 已不存在；`(tabs)/_layout.tsx` 的 Tab 配置随之废弃。
 
-| Tab | title | 图标（lucide） |
-|---|---|---|
-| pulse | Pulse | Activity |
-| talk | Talk | MessageCircle |
-| memory | Memory | BookOpen |
-| me | Me | User |
+## 导航语义（Companion IA）
 
-Tab 样式：`tabBarActiveTintColor=colors.accent.default`，`tabBarInactiveTintColor=colors.muted`，背景 `colors.canvas`，`headerShown:false`，label fontSize 11 / weight 500。
+- Pulse 根界面不渲染 tab bar；唯一输入 affordance 是底部 Conversation Entry（胶囊输入 + 发送按钮），
+  进入即 `/talk`（无既有 attention 上下文时）。
+- Attention 动作路由：REVIEW → `/attention/[id]`；Discuss → `/talk`（带 attention 上下文）；Mark handled / Dismiss 在卡内完成。
+- Settings / Memory / Knowledge / Fund 详情均为 **sheet**（`components/pulse/*Sheet.tsx`），挂在 `index.tsx`。
+- `/talk` 是 stack 路由：关闭走 `router.back()`（无可返回时 `router.replace("/")`），
+  离线/加载态 header 也带返回按钮（`talk-back`），不会把用户困在子页。
 
 ## 对外暴露的接口/导出
 
@@ -47,8 +50,10 @@ Tab 样式：`tabBarActiveTintColor=colors.accent.default`，`tabBarInactiveTint
 
 ## 修改注意事项
 
-- **新增页面**：在 `src/app/` 下建文件即注册路由；新增 tab 需同时加 `Tabs.Screen` 并在 `src/app/(tabs)/_layout.tsx` 配图标。
-- expo 静态导出（web）按路由生成独立 HTML（pulse.html 等），**不生成根 index.html**——web 服务器需处理 `/` 与无扩展名路径（serve-static.mjs 已处理：`/`→302 `/pulse`，`/pulse`→`pulse.html`）。
-- tab 顺序决定默认首页（pulse 在前即为默认）。
-- 根 `_layout.tsx` 目前只有一个 Stack.Screen，新增非 tab 路由（如详情页）在此登记。
-- 改 tab 图标来自 lucide-react-native，导入后 `strokeWidth={iconStroke}` 保持视觉统一。
+- **新增页面**：在 `src/app/` 下建文件即注册路由；同时必须在 `_layout.tsx` 的 `<Stack.Screen>` 登记。
+- **不要再建 tab**：IA 已冻结为单表面（PRODUCT_MODEL / PRODUCTION_UI_MIGRATION_MAPPING.md）；
+  contextual 能力一律 sheet 或 stack push。
+- expo 静态导出（web）按路由生成独立 HTML（`index.html` / `talk.html` / `memory.html` / `me.html` /
+  `assignments.html` / `attention/[id].html` / `kb/doc.html`），`serve-static.mjs` 处理 `/`、无扩展名
+  与动态段回退（`/attention/x` → `attention/[id].html`）。
+- `/memory` `/me` 保留仅为旧深链兼容，不要再往里加功能。

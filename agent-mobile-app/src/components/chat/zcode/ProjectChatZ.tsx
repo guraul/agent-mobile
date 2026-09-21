@@ -1,10 +1,10 @@
-// Fork of src/components/chat/ProjectChat.tsx —— ZCode 风格弹框壳：
-// header 显示会话标题（副标题项目名），IconButton 化，主体为 ChatPanelZ。
-// 回退开关：src/app/(tabs)/index.tsx 的 USE_ZCODE_CHAT_SHEET。
+// Talk workspace 壳（Companion migration）：orb + Pulse 标题（副标题会话名），
+// IconButton 化（Layers 会话切换 / Close），主体为 ChatPanelZ。
 import React, { useEffect, useState, useCallback } from "react";
 import { View, Pressable, StyleSheet, ScrollView } from "react-native";
 import { ArrowLeft, Plus, Layers, X } from "lucide-react-native";
 import { Text, Box, Button, IconButton } from "../../index";
+import { AIOrb } from "../../pulse/AIOrb";
 import { colors, spacing, radius } from "../../../theme";
 import { opencodeClient, type OpenCodeSession } from "../../../services/opencode-client";
 import { ChatPanelZ } from "./ChatPanelZ";
@@ -115,11 +115,14 @@ export function ProjectChatZ({ projectPath, onBack, attention, initialSessionId,
           <View style={styles.headerSpacer} />
         )}
         <View style={styles.titleWrap}>
-          <Text variant="bodyStrong" color="ink" numberOfLines={1}>
-            {session ? sessionLabel(session) : projectPath.split("/").filter(Boolean).pop()}
-          </Text>
+          <View style={styles.titleRow}>
+            <AIOrb size={20} accessibilityLabel="Pulse AI presence" />
+            <Text variant="bodyStrong" color="ink" numberOfLines={1}>
+              Pulse
+            </Text>
+          </View>
           <Text variant="caption" color="muted" numberOfLines={1}>
-            {projectPath.split("/").filter(Boolean).pop()}
+            {session ? sessionLabel(session) : projectPath.split("/").filter(Boolean).pop()}
           </Text>
         </View>
         <IconButton icon={Layers} onPress={openPicker} accessibilityLabel="Switch session" />
@@ -212,8 +215,13 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
     paddingHorizontal: spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border.default,
-    backgroundColor: colors.surface[3],
+    borderBottomColor: colors.border.subtle,
+    backgroundColor: colors.canvas,
+  },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xxs,
   },
   titleWrap: {
     flexShrink: 1,

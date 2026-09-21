@@ -1,8 +1,10 @@
-# modules/chat.md —— 聊天（项目对话）
+# modules/chat.md —— 聊天（项目对话 / Talk）
 
-> 最后更新：最后更新：2026-09-12 · commit：`c315931`（v0.1.1 Companion UX：Talk 一级工作区 / Responsibilities→Me / KB 阅读器 / runtime-presence / 移除 Pulse sheet chat）
+> 最后更新：2026-09-21 · commit：`feat/companion-ui-migration`（Companion UI Migration：Talk 从 tab 改为 contextual stack 路由；ProjectChatZ header/MessageBubbleZ/ChatPanelZ 视觉迁移到 Showcase2 语言）
 >
-> ⚠️ **v0.1.1 变更**：聊天唯一入口 = **Talk tab**（`src/app/(tabs)/talk.tsx` 薄入口 → `ProjectChatZ`/`ChatPanelZ`）。Pulse 的 BottomSheet 不再承载 chat；contextual 会话（Attention/Suggested/Noticed）经 route params 进入 Talk。`ProjectChatZ` 新增 `onClose`（X → 回 Pulse 主页面）与可选 `onBack`；`ChatPanelZ` 新增 `autoContextText`（通用开场消息，无授权语义）与既有 `autoSendContext`（Attention 上下文注入）并列。Layers（session picker）是 session 列出/切换/新建的唯一 UI，按当前 projectPath 过滤。
+> ⚠️ **v0.1.1 变更**：聊天唯一入口 = **Talk stack route**（`src/app/talk.tsx` 薄入口 → `ProjectChatZ`/`ChatPanelZ`）。Pulse 不再承载 chat，只保留底部 Conversation Entry；contextual 会话（Attention/Suggested/Noticed）经 route params 进入 Talk。`ProjectChatZ` 有 `onClose`（X → 回 Pulse）与可选 `onBack`；`ChatPanelZ` 有 `autoContextText`（通用开场消息，无授权语义）与既有 `autoSendContext`（Attention 上下文注入）。Layers（session picker）是 session 列出/切换/新建的唯一 UI，按当前 projectPath 过滤。
+>
+> ⚠️ **2026-09-21 Companion 视觉迁移**：`USE_ZCODE_CHAT_SHEET` 开关已删除（Talk 是唯一聊天渲染层，无回退分支）；ZCode 组件改为 Companian 视觉——header 左 AIOrb + AIStatus +「Pulse」+ 右会话标题/Layers/Close；AI 消息纯文本无气泡，user 消息 accent.subtle 淡紫气泡，error 为语义色 pill；输入区移除 Mic，输入框与发送键统一 48px。
 
 ## 模块职责
 
@@ -10,7 +12,7 @@
 
 ## 入口文件
 
-- `agent-mobile-app/src/app/(tabs)/talk.tsx`（v0.1.1：Talk 一级工作区——薄入口，进入即当前/默认 session；pinned session 404 时自动降级默认会话）
+- `agent-mobile-app/src/app/talk.tsx`（Talk contextual stack：薄入口，进入即当前/默认 session；runtime 不可用时呈现 orb header + 离线卡片 + 返回；pinned session 404 时自动降级默认会话）
 - `agent-mobile-app/src/components/chat/zcode/ProjectChatZ.tsx`（活跃壳：header + Layers picker + ChatPanelZ）
 
 ## 关键文件清单
@@ -132,7 +134,7 @@ SSE: BFF /api/opencode/stream（Bearer JWT + ?sessionID= 过滤）
 ### agent / model 切换（动态加载，2026-08-14 重构）
 
 - **机制**：opencode **不支持修改已存在 session 的 agent/model**（`PATCH /session/{id}/update` 只有 title/metadata/permission）；agent/model 只能**按消息指定**（`POST /session/{id}/prompt_async` body 的 `agent` / `model:{providerID,modelID}`）。`ModelRef = { providerID, modelID }`（结构化对象，不是字符串）。
-- **agent pill**（输入区上方左）：显示当前 agent，点击**循环切换** primary agents。primary agents 的 model **动态加载**：mount 时 `listAgents()`（`GET /agent`）过滤 `mode === "primary"`，取其 `model`，再 `loadModelPrefs()` 用 **Me 页偏好覆盖**（优先级：**Me 偏好 > server `agent.model` > FALLBACK_AGENTS**，build/plan/design，deepseek）。
+- **agent pill**（输入区上方左）：显示当前 agent，点击**循环切换** primary agents。primary agents 的 model **动态加载**：mount 时 `listAgents()`（`GET /agent`）过滤 `mode === "primary"`，取其 `model`，再 `loadModelPrefs()` 用 **Settings 偏好覆盖**（优先级：**Settings 偏好 > server `agent.model` > FALLBACK_AGENTS**，build/plan/design，deepseek）。偏好入口在 Pulse → Settings sheet。
 - **初始 model pill（2026-08-30）**：`getModelPref(curAgent)` 有偏好 → 直接设为当前 model；无偏好才 adopt session model（须匹配 primary agent 列表）。手选 model 不持久化（只影响本次会话）。
 - 常量已从 `PRIMARY_AGENTS` 重命名为 `FALLBACK_AGENTS`。
 - **model pill**（旁边）：点击打开 **BottomSheet 弹出框**选择模型（**阶段 2 起为动态列表**：`listProviders()` 全量模型，失败回退 `FALLBACK_AGENTS` 默认模型；曾用内联下拉，被输入框遮挡且效果差，2026-08-12 改为 BottomSheet）。
@@ -141,12 +143,13 @@ SSE: BFF /api/opencode/stream（Bearer JWT + ?sessionID= 过滤）
 - 初始化：mount 时 `getSession(sessionID)` 读取 session 的 `agent` / `model`（注意 `OpenCodeSession.model` 用 `id` 字段，非 `modelID`）。**仅当 session.model 命中某个 primary agent 的默认 model 时才采纳**——避免迁移前的旧 model 把会话钉在旧 provider。
 - 发送：`sendMessageAsync` body 带 `agent: agents[agentIdx].id` + `model`。
 
-## ZCode 风格弹框（2026-08-30，与旧弹框并存）
+## ZCode 风格弹框（2026-08-30 起为唯一聊天渲染层；2026-09-21 Companian 视觉）
 
-- **开关**：`src/app/(tabs)/index.tsx` 的 `USE_ZCODE_CHAT_SHEET`（true=新弹框，false 一行回退旧弹框；旧组件零改动保留）。
-- **组件树**（`src/components/chat/zcode/`，全部 fork 自旧组件）：`ProjectChatZ`（header 会话标题+项目名副标题+IconButton）→ `ChatPanelZ`（ListFooter 状态行「运行中…/已停止」、圆角输入栏、pills 带 Bot/Cpu 图标）→ `MessageBubbleZ`（气泡下复制 expo-clipboard + HH:mm 时间戳）→ `StepRow`（思考/工具可折叠行：icon+label+inputSummary 摘要，展开显 reasoning 正文/命令摘要）。
+- **组件树**（`src/components/chat/zcode/`，fork 自旧组件）：`ProjectChatZ`（header：AIOrb + AIStatus「Pulse」+ 会话标题 + Layers + Close）→ `ChatPanelZ`（ListFooter 状态行「运行中…/已停止」、圆角输入栏、pills 带 Bot/Cpu 图标）→ `MessageBubbleZ`（AI 纯文本无气泡 / user accent.subtle 淡紫气泡 / error 语义色 pill；气泡下复制 expo-clipboard + HH:mm 时间戳）→ `StepRow`（思考/工具可折叠行：icon+label+inputSummary 摘要，展开显 reasoning 正文/命令摘要）。
+- **`USE_ZCODE_CHAT_SHEET` 开关已删除**：Talk stack route 只渲染 ZCode 组件；旧 `ProjectChat`/`ChatPanel`/`MessageBubble` 组件仍保留在 `components/chat/`（fork 上游），但无路由引用。
 - **fork 双维护**：ChatPanelZ/ProjectChatZ 复制自 ChatPanel/ProjectChat，上游 SSE/reducer/typewriter 修复需手动同步（两文件头有 fork 声明）。
 - **数据层**：`mergeMessages` 增量透传 `reasoning.text` 与 `tool.inputSummary`（input 压缩单行、200 字符截断）——旧组件不读新字段，行为零影响。
+- **输入区**：Mic 已移除；输入框与发送键统一 48px 高度（Companion 规格）。
 - 验收脚本：`test/zcode-sheet-e2e.mjs`（8 项，含剪贴板真实验证）。
 
 ## 修改本模块的注意事项

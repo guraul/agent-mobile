@@ -13,6 +13,20 @@ export const typography = {
     lineHeight: 28 * 1.15,
     letterSpacing: -0.5,
   },
+  hero: {
+    fontFamily: Platform.select({ ios: "System", android: "sans-serif", default: "System" }),
+    fontSize: 33,
+    fontWeight: "700" as const,
+    lineHeight: 33 * 1.16,
+    letterSpacing: -0.6,
+  },
+  label: {
+    fontFamily: Platform.select({ ios: "System", android: "sans-serif", default: "System" }),
+    fontSize: 12,
+    fontWeight: "600" as const,
+    lineHeight: 16,
+    letterSpacing: 0.6,
+  },
   headline: {
     fontFamily: Platform.select({ ios: "System", android: "sans-serif", default: "System" }),
     fontSize: 22,

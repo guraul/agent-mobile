@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { View, StyleSheet } from "react-native";
+import { View, StyleSheet, Alert } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Alert } from "react-native";
-import { RefreshCw } from "lucide-react-native";
-import { ScreenHeader, Text, Box, Button, StatusDot } from "@/components";
+import { ArrowLeft, RefreshCw } from "lucide-react-native";
+import { Text, Box, Button, StatusDot, IconButton } from "@/components";
+import { AIOrb } from "@/components/pulse/AIOrb";
+import { AIStatus } from "@/components/pulse/AIStatus";
 import { colors, spacing } from "@/theme";
 import { opencodeClient, type OpenCodeSession } from "@/services/opencode-client";
 import { loadToken } from "@/services/auth";
@@ -11,12 +12,13 @@ import { classifyRuntimeFailure, runtimeFailureMessage } from "@/services/runtim
 import { ProjectChatZ } from "@/components/chat/zcode/ProjectChatZ";
 import type { EngagedAttentionRef } from "@/services/attention/store";
 
-// Talk tab（v0.1.1 UX correction）：「你走向 AI」的一级对话工作区——薄入口。
+// Talk stack route（v0.1.1 UX correction / Companion migration）：/talk 是
+// contextual conversation workspace，不再是 top-level tab。
 // 进入即处于当前/默认 Agent Session：有最近 session → Resume；没有 → 直接创建并进入。
 // session 的列出/切换/新建完全由 ProjectChatZ 的 Layers picker 承载（OpenCode 原生能力，零重复 IA）。
 // Contextual Talk（Attention/Suggested/Noticed）通过 route params 进入同一 workspace：
 //   sessionId+projectPath → 精确 Resume；attId* → Attention 上下文卡 + Mark handled；
-//   autoContextText → 对话开场（Suggested/Noticed，无授权语义）。
+//   autoContextText → 对话开场（Suggested/Noticed/Sources，无授权语义）。
 
 interface ActiveConversation {
   sessionId?: string;
@@ -76,14 +78,15 @@ export default function TalkScreen() {
         setFailureKind(null);
         return;
       }
-      // 裸进入 Talk：当前/默认 session = 全局最近；没有 → 直接创建（PM §8.1 Direct Talk）
+      // 裸进入 Talk（Conversation Entry / Sources ASK）：当前/默认 session = 全局最近；
+      // 没有 → 直接创建（PM §8.1 Direct Talk）。autoContextText 作为开场消息透传。
       const list = await opencodeClient.listSessions();
       const sorted: OpenCodeSession[] = [...list].sort((a, b) => (b.time?.updated ?? 0) - (a.time?.updated ?? 0));
       if (sorted.length > 0) {
-        setActive({ sessionId: sorted[0].id, projectPath: sorted[0].directory || "/" });
+        setActive({ sessionId: sorted[0].id, projectPath: sorted[0].directory || "/", autoContextText: params.autoContextText });
       } else {
         const created = await opencodeClient.createSession({ directory: "/" });
-        setActive({ sessionId: created.id, projectPath: created.directory || "/" });
+        setActive({ sessionId: created.id, projectPath: created.directory || "/", autoContextText: params.autoContextText });
       }
       setFailureKind(null);
       setError(null);
@@ -98,6 +101,12 @@ export default function TalkScreen() {
 
   useEffect(() => { boot(); }, [boot]);
 
+  // Talk is a stack route (no longer a tab): closing must never strand the user.
+  const close = useCallback(() => {
+    if (router.canGoBack()) router.back();
+    else router.replace("/");
+  }, [router]);
+
   if (active) {
     return (
       <View style={s.screen}>
@@ -108,7 +117,7 @@ export default function TalkScreen() {
           attention={active.attention}
           autoSendContext={active.autoSendContext}
           autoContextText={active.autoContextText}
-          onClose={() => router.push("/")}
+          onClose={close}
         />
       </View>
     );
@@ -120,7 +129,14 @@ export default function TalkScreen() {
 
   return (
     <View style={s.screen}>
-      <ScreenHeader title="Talk" />
+      <View style={s.header}>
+        <IconButton icon={ArrowLeft} onPress={close} accessibilityLabel="Back to Pulse" testID="talk-back" />
+        <AIOrb size={40} state={offline ? "offline" : "attentive"} testID="talk-orb" />
+        <View style={s.headerText}>
+          <AIStatus state={offline ? "offline" : "attentive"} testID="talk-status" />
+          <Text variant="title" color="ink">Pulse</Text>
+        </View>
+      </View>
       <View style={s.centerWrap}>
         {failMsg ? (
           <Box padding="sm" backgroundColor="surface.1" rounded="md" testID="talk-offline">
@@ -147,5 +163,14 @@ export default function TalkScreen() {
 
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.canvas },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
+  },
+  headerText: { flex: 1, gap: 2 },
   centerWrap: { flex: 1, justifyContent: "center", padding: spacing.lg, gap: spacing.sm },
 });

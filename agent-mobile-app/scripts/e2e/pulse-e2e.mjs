@@ -114,23 +114,24 @@ async function main() {
   await page.waitForTimeout(15000);
   check('页面加载 (JS bundle + render)', (await page.locator('body').innerText().catch(() => '')).length > 0);
 
-  // Step 1: Pulse 首页 / 项目事件
+  // Step 1: Pulse 首页 / Companion 结构（single-surface，无 tab bar）
   const pulseVisible = await page.locator('text=Pulse').first().isVisible().catch(() => false);
   check('Pulse 首页可见', pulseVisible);
-  const groupNeedsYou = await page.locator('text=NEEDS YOU').first().isVisible().catch(() => false);
-  const groupToday = await page.locator('text=TODAY').first().isVisible().catch(() => false);
-  check('项目分组显示 (Needs you / Today)', groupNeedsYou || groupToday, `needsYou=${groupNeedsYou} today=${groupToday}`);
+  const heroVisible = await page.locator('[data-testid="pulse-hero"]').first().isVisible().catch(() => false);
+  check('Pulse Hero 可见', heroVisible);
+  const entryVisible = await page.locator('[data-testid="conversation-entry"]').first().isVisible().catch(() => false);
+  check('Conversation Entry 可见（Pulse 无输入框）', entryVisible);
+  const tabBarCount = await page.locator('[role="tablist"]').count().catch(() => 0);
+  check('无 bottom tab bar', tabBarCount === 0, `tablist=${tabBarCount}`);
 
-  // 取第一个可见的脉冲条目：Phase 3 起 Needs you 主体是 attention 卡
-  //（attention-att_* ；排除 dismiss 按钮），其次才是 Today 分组的 project-* 行。
-  // 注意不能直接用 [data-testid^="project-"]——project-chat-sheet-scrim 会被误命中。
-  let pulseItem = page.locator('[data-testid^="attention-att_"]').first();
+  // 第一个可见 Pulse 条目：Featured（OPEN Attention）优先，其次任一 Supporting 语义行
+  let pulseItem = page.locator('[data-testid="featured-attention"]').first();
   let itemVisible = await pulseItem.isVisible().catch(() => false);
   if (!itemVisible) {
-    pulseItem = page.locator('[data-testid^="project-"]').first();
+    pulseItem = page.locator('[data-testid^="supporting-"]').first();
     itemVisible = await pulseItem.isVisible().catch(() => false);
   }
-  check('项目事件条目可见', itemVisible);
+  check('Pulse 条目可见 (Featured / Supporting)', itemVisible);
 
   // Step 1b: Phase 12 Noticed（observation L1）——informational，不应混入 Needs you
   const noticedItem = page.locator('[data-testid^="noticed-"]').first();
@@ -139,24 +140,24 @@ async function main() {
   if (noticedVisible) {
     const noticedText = await noticedItem.innerText().catch(() => '');
     check('Noticed 条目为 informational 文案（我注意到…）', /我注意到|Noticed/i.test(noticedText), noticedText.slice(0, 60));
-    // observation L1 不得变成 Attention（Needs you）
-    const needsYouText = await page.locator('[data-testid^="attention-att_"]').allInnerTexts().catch(() => []);
+    // observation L1 不得变成 Attention（Needs you / Featured）
+    const needsYouText = await page
+      .locator('[data-testid="featured-attention"], [data-testid^="supporting-ny-"]')
+      .allInnerTexts()
+      .catch(() => []);
     const leaked = needsYouText.some((t) => /我注意到/.test(t));
     check('Noticed 未混入 Needs you（observation ≠ Attention）', !leaked);
   }
 
-  // Step 2: 点击条目 → 进入对话（attention market 行会 Create 会话，耗时含网络）
+  // Step 2: Conversation Entry → Talk workspace（stack push，真实输入框）
   let hasTextarea = false;
-  let chatRendered = false;
-  if (itemVisible) {
-    await pulseItem.dispatchEvent('click', { bubbles: true });
+  if (entryVisible) {
+    await page.locator('[data-testid="conversation-entry"]').first().dispatchEvent('click', { bubbles: true });
     await page.waitForTimeout(15000);
-    const sheetVisible = await page.locator('[data-testid="project-chat-sheet"]').first().isVisible().catch(() => false);
     hasTextarea = (await page.locator('textarea').count()) > 0;
-    chatRendered = hasTextarea;
-    check('点击项目打开对话面板 (含输入框)', sheetVisible && chatRendered, `sheet=${sheetVisible} textarea=${hasTextarea}`);
+    check('Conversation Entry 打开 Talk workspace (含输入框)', hasTextarea, `textarea=${hasTextarea}`);
   } else {
-    check('点击项目打开对话面板 (含输入框)', false, '未找到项目事件条目');
+    check('Conversation Entry 打开 Talk workspace (含输入框)', false, '未找到对话入口');
   }
 
   // Step 4: 发消息验证流式（可选，默认启用）

@@ -51,7 +51,7 @@
 | 旧页面缓存 | 浏览器缓存旧 HTML | 响应已带 `Cache-Control: no-store` |
 | chromium 测试 | Playwright 需复用系统浏览器（snap chromium 已删） | `executablePath: '/root/.cache/ms-playwright/chromium_headless_shell-1228/chrome-headless-shell-linux64/chrome-headless-shell'` + `--no-sandbox`，勿 `playwright install`；headless 中 `locator.click`/`mouse` 对 RN Web Pressable 时序不稳定，可用 `dispatchEvent(new MouseEvent('click',{...}))` 复现真实点击 |
 | **E2E 断言误匹配** | 脚本按气泡文本 `includes()` 断言时，AI 回复中若引用了测试消息文本会被误命中 | 断言尽量结合角色（USER/AI）与位置，或匹配不含引用的唯一标识 |
-| **APK 冷启动 unmatched route** | `(tabs)` 组无 `index.tsx`，冷启动 `pulseapp:///` 无匹配路由 → 白屏 | 首页路由文件命名 `index.tsx`（pulse.tsx → index.tsx，commit `de9120c`） |
+| **APK 冷启动 unmatched route** | 根 Stack 无 `index.tsx` 时，冷启动 `pulseapp:///` 无匹配路由 → 白屏 | 首页路由文件命名 `index.tsx` 并置于 `src/app/` 根（commit `de9120c`；Companion 迁移后仍是 `src/app/index.tsx`） |
 | **RN 原生无 `window` / 全局 `alert()`** | `window.addEventListener`、全局 `alert()` 在原生不存在，调用即崩 | `Platform.OS === 'web'` 判断 + `Alert.alert`（commit `824054f`） |
 | **ErrorUtils 覆盖闪退（release）** | release 下覆盖 RN 全局错误 handler 有递归崩溃风险 | 移除 `ErrorUtils.setGlobalHandler` 覆盖（commit `824054f`） |
 | **Android 9+ 禁明文 HTTP** | BFF 是 `http://` 明文，Android 9+ 默认禁 cleartext → `UnknownServiceException: cleartext communication ... not permitted` | `expo-build-properties` 插件配 `android.usesCleartextTraffic: true`（app.json，commit `46473bf`） |
@@ -63,7 +63,7 @@
 ## 已知坑（2026-08-30 Me 页新增）
 
 - **`bff-health` 探测必须用 OPTIONS**：BFF 仅对 OPTIONS 回 CORS 头；HEAD → 405 且无 CORS 头，web 静态版（9928）里 fetch 被 CORS 拦 → 永远误判"离线"。
-- **除 Pulse 外可直开/刷新的页面必须先 `loadToken()`**：token 只在 Pulse 启动 effect 恢复到内存 `opencodeConfig.token`，直开 `/me` 不恢复 → authed 请求 401（me.tsx reload 开头已修，新增直开路由照做）。
+- **除 Pulse 外可直开/刷新的页面必须先 `loadToken()`**：token 只在 Pulse 启动 effect 恢复到内存 `opencodeConfig.token`，可直开的 contextual 路由（`talk.tsx` / `assignments/[id].tsx` / `attention/[id].tsx` / `kb/doc.tsx`）不恢复 → authed 请求 401（各路由入口已自行调用，新增直开路由照做）。
 
 ## 修改红线
 

@@ -164,36 +164,39 @@ async function main() {
   console.log(`[phase13-e2e] 注入 P1=${p1.id}`);
   let p1Visible = false;
   try {
-    await page.locator(`[data-testid="suggestion-${p1.id}"]`).waitFor({ state: 'visible', timeout: 20000 });
+    await page.locator(`[data-testid="supporting-sg-${p1.id}"]`).waitFor({ state: 'visible', timeout: 20000 });
     p1Visible = true;
   } catch { /* timeout */ }
-  check('S2: proposal 注入后 Suggested 卡经 SSE 出现（不重开页面）', p1Visible);
+  check('S2: proposal 注入后 Suggested 行经 SSE 出现（不重开页面）', p1Visible);
   if (p1Visible) {
-    const cardText = await page.locator(`[data-testid="suggestion-${p1.id}"]`).innerText();
-    check('S2: 卡片四问齐备（为什么/确认后/撤销出口）',
+    const cardText = await page.locator(`[data-testid="supporting-sg-${p1.id}"]`).innerText();
+    check('S2: 行内四问齐备（为什么/确认后/撤销出口）',
       cardText.includes('为什么：') && cardText.includes('确认后：') && cardText.includes('撤销'),
       cardText.replace(/\n/g, ' | ').slice(0, 160));
   }
 
-  // Step 3: 点卡体 → 无 confirm 请求（查看 ≠ 授权）
+  // Step 3: 点建议行（Discuss）→ 无 confirm 请求（查看 ≠ 授权）
   if (p1Visible) {
-    await page.locator(`[data-testid="suggestion-${p1.id}"]`).dispatchEvent('click', { bubbles: true });
+    await page.locator(`[data-testid="supporting-sg-${p1.id}-body"]`).dispatchEvent('click', { bubbles: true });
     await page.waitForTimeout(3000);
     const { body } = await apiCall(`/api/product/assignment-proposals?status=proposed`);
     const stillProposed = (body.items ?? []).some((p) => p.id === p1.id);
-    check('S3: 点卡体后 proposal 仍 proposed（无 confirm 请求）', stillProposed && confirmRequests.length === 0,
+    check('S3: 点建议行（Discuss）后 proposal 仍 proposed（无 confirm 请求）', stillProposed && confirmRequests.length === 0,
       `confirmRequests=${confirmRequests.length}`);
+    // Discuss 会 push 进 Talk；回到 Pulse 继续后续步骤
+    await page.goto(E2E_URL, { waitUntil: 'load', timeout: 120000 });
+    await page.waitForTimeout(12000);
   } else {
-    check('S3: 点卡体后 proposal 仍 proposed（无 confirm 请求）', false, '卡片未出现，跳过');
+    check('S3: 点建议行（Discuss）后 proposal 仍 proposed（无 confirm 请求）', false, '行未出现，跳过');
   }
 
-  // Step 4: 点 [确认] → 卡片消失 + Assignment active
+  // Step 4: 点 [CONFIRM] → 行消失 + Assignment active
   let assignmentId = null;
   if (p1Visible) {
-    await page.locator(`[data-testid="suggestion-confirm-${p1.id}"]`).dispatchEvent('click', { bubbles: true });
+    await page.locator(`[data-testid="supporting-sg-${p1.id}-action"]`).dispatchEvent('click', { bubbles: true });
     await page.waitForTimeout(6000);
-    const cardGone = !(await page.locator(`[data-testid="suggestion-${p1.id}"]`).isVisible().catch(() => false));
-    check('S4: Confirm 后 Suggested 卡消失', cardGone);
+    const cardGone = !(await page.locator(`[data-testid="supporting-sg-${p1.id}"]`).isVisible().catch(() => false));
+    check('S4: Confirm 后 Suggested 行消失', cardGone);
     const { body: listBody } = await apiCall('/api/product/assignment-proposals?status=confirmed');
     const confirmed = (listBody.items ?? []).find((p) => p.id === p1.id);
     check('S4: BFF proposal confirmed', !!confirmed);
@@ -205,15 +208,15 @@ async function main() {
     check('S4: Assignment 创建且 active（activation moment = confirm）', created?.state === 'active', `id=${assignmentId} state=${created?.state}`);
     check('S4: authorizationRef = confirmation:<proposalId>', String(created?.authorizationRef ?? '').includes(p1.id), created?.authorizationRef);
 
-    // S4b: Memory tab → Responsibilities 可见（Phase 9 管理面）
+    // S4b: Settings → Responsibilities 可见（Phase 9 管理面）
     if (assignmentId) {
-      const memoryTab = page.locator('text=Memory').first();
-      if (await memoryTab.isVisible().catch(() => false)) {
-        await memoryTab.dispatchEvent('click', { bubbles: true });
-        await page.waitForTimeout(8000);
-        const respCard = page.locator('[data-testid="memory-responsibilities"]').first();
-        if (await respCard.isVisible().catch(() => false)) {
-          await respCard.dispatchEvent('click', { bubbles: true });
+      const settingsBtn = page.locator('[data-testid="pulse-settings"]').first();
+      if (await settingsBtn.isVisible().catch(() => false)) {
+        await settingsBtn.dispatchEvent('click', { bubbles: true });
+        await page.waitForTimeout(1500);
+        const respRow = page.locator('[data-testid="settings-responsibilities"]').first();
+        if (await respRow.isVisible().catch(() => false)) {
+          await respRow.dispatchEvent('click', { bubbles: true });
           await page.waitForTimeout(8000);
         }
         const inList = await page.locator(`[data-testid="assign-${assignmentId}"]`).isVisible().catch(() => false);
@@ -222,7 +225,7 @@ async function main() {
         await page.goto(E2E_URL, { waitUntil: 'load', timeout: 120000 });
         await page.waitForTimeout(12000);
       } else {
-        check('S4b: 激活的 Assignment 在 Responsibilities 可见', false, 'Memory tab 不可见');
+        check('S4b: 激活的 Assignment 在 Responsibilities 可见', false, 'Settings 入口不可见');
       }
     }
   } else {
@@ -237,15 +240,15 @@ async function main() {
   console.log(`[phase13-e2e] 注入 P2=${p2.id}`);
   let p2Visible = false;
   try {
-    await page.locator(`[data-testid="suggestion-${p2.id}"]`).waitFor({ state: 'visible', timeout: 20000 });
+    await page.locator(`[data-testid="supporting-sg-${p2.id}"]`).waitFor({ state: 'visible', timeout: 20000 });
     p2Visible = true;
   } catch { /* timeout */ }
-  check('S5: 第二张 proposal 经 SSE 出现', p2Visible);
+  check('S5: 第二条 proposal 经 SSE 出现', p2Visible);
   if (p2Visible) {
-    await page.locator(`[data-testid="suggestion-reject-${p2.id}"]`).dispatchEvent('click', { bubbles: true });
+    await page.locator(`[data-testid="supporting-sg-${p2.id}-quiet"]`).dispatchEvent('click', { bubbles: true });
     await page.waitForTimeout(6000);
-    const cardGone = !(await page.locator(`[data-testid="suggestion-${p2.id}"]`).isVisible().catch(() => false));
-    check('S5: Reject 后卡片消失', cardGone);
+    const cardGone = !(await page.locator(`[data-testid="supporting-sg-${p2.id}"]`).isVisible().catch(() => false));
+    check('S5: Reject 后行消失', cardGone);
     const { body: rejBody } = await apiCall('/api/product/assignment-proposals?status=rejected');
     const rejected = (rejBody.items ?? []).find((p) => p.id === p2.id);
     check('S5: BFF proposal rejected', !!rejected);

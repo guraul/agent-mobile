@@ -4,12 +4,14 @@ import { typography, colors } from "../../theme";
 
 type TypographyTokenKey =
   | "display"
+  | "hero"
   | "headline"
   | "title"
   | "body"
   | "bodyStrong"
   | "caption"
   | "captionStrong"
+  | "label"
   | "button"
   | "monoBody"
   | "monoCaption";
