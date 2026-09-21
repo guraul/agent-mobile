@@ -43,6 +43,7 @@ import { handleAttention } from "../../../services/attention/client";
 import { parseAssignmentCommand, executeAssignmentCommand } from "../../../services/assignment/client";
 import type { EngagedAttentionRef } from "../../../services/attention/store";
 import { MessageBubbleZ } from "./MessageBubbleZ";
+import { LinearGradient } from "expo-linear-gradient";
 
 const PAGE_SIZE = 50;
 // keep a bounded window in memory: SSE events keep appending to the list loaded
@@ -937,7 +938,14 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
             style={[styles.sendBtn, !input.trim() && { opacity: 0.4 }]}
             accessibilityLabel="Send"
           >
-            <Send color={colors.onAccent} size={18} strokeWidth={iconStroke} />
+            <LinearGradient
+              colors={["#A78BFA", "#6D3EF0"]}
+              start={{ x: 0.1, y: 0 }}
+              end={{ x: 0.9, y: 1 }}
+              style={styles.sendFill}
+            >
+              <Send color="#FFFFFF" size={18} strokeWidth={iconStroke} />
+            </LinearGradient>
           </Pressable>
         )}
       </View>
@@ -1010,32 +1018,28 @@ const styles = StyleSheet.create({
   inputRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.xs,
-    paddingBottom: spacing.xs,
-    borderTopWidth: 1,
-    borderTopColor: colors.border.default,
-    backgroundColor: colors.canvas,
+    gap: 10,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 12,
+    backgroundColor: "transparent",
   },
   input: {
     flex: 1,
-    height: 48,
-    maxHeight: 48,
+    minHeight: 52,
+    maxHeight: 100,
     boxSizing: "border-box",
-    backgroundColor: colors.surface[1],
-    borderRadius: radius.full,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 0,
-    color: colors.ink,
+    backgroundColor: "#1B1830",
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(167,139,250,0.22)",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    color: "#F5F3FA",
     fontSize: 15,
-    // center the caret/text vertically on both native and web. RN TextInput
-    // ignores textAlignVertical on web, so use lineHeight there; native keeps
-    // textAlignVertical. Fixed height + single line keeps the input on the
-    // same axis as the send icon.
     textAlignVertical: "center",
     ...Platform.select({
-      web: { lineHeight: 48 },
+      web: { lineHeight: 22 },
       default: {},
     }),
   },
@@ -1051,12 +1055,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
+  sendFill: {
+    width: 48,
+    height: 48,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   sendBtn: {
     width: 48,
     height: 48,
-    borderRadius: radius.full,
-    backgroundColor: colors.accent.default,
+    borderRadius: 24,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
 });
