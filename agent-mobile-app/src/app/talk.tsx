@@ -131,9 +131,9 @@ export default function TalkScreen() {
     <View style={s.screen}>
       <View style={s.header}>
         <IconButton icon={ArrowLeft} onPress={close} accessibilityLabel="Back to Pulse" testID="talk-back" />
-        <AIOrb size={40} state={offline ? "offline" : "attentive"} testID="talk-orb" />
+        <View testID="talk-orb"><AIOrb state={offline ? "offline" : "attentive"} size="header" /></View>
         <View style={s.headerText}>
-          <AIStatus state={offline ? "offline" : "attentive"} testID="talk-status" />
+          <View testID="talk-status"><AIStatus state={offline ? "offline" : "attentive"} /></View>
           <Text variant="title" color="ink">Pulse</Text>
         </View>
       </View>

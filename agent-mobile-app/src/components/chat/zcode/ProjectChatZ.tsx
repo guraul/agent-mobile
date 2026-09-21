@@ -116,7 +116,7 @@ export function ProjectChatZ({ projectPath, onBack, attention, initialSessionId,
         )}
         <View style={styles.titleWrap}>
           <View style={styles.titleRow}>
-            <AIOrb size={20} accessibilityLabel="Pulse AI presence" />
+            <AIOrb state="attentive" size="dot" />
             <Text variant="bodyStrong" color="ink" numberOfLines={1}>
               Pulse
             </Text>
