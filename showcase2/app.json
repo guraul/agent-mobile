@@ -1,0 +1,21 @@
+{
+  "expo": {
+    "name": "Pulse",
+    "slug": "pulse-showcase2",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0B0A12",
+    "ios": {
+      "supportsTablet": false
+    },
+    "android": {
+      "package": "com.guraul.pulseshowcase"
+    },
+    "web": {
+      "output": "single",
+      "themeColor": "#0D0B18",
+      "backgroundColor": "#0B0A12"
+    }
+  }
+}
