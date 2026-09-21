@@ -116,9 +116,6 @@ export function ProjectChatZ({ projectPath, onBack, attention, initialSessionId,
           ) : null}
         </View>
         <View style={styles.titleWrap}>
-          <View style={styles.headerOrb}>
-            <AIOrb state={error ? "offline" : "attentive"} size="avatar" />
-          </View>
           <Text variant="bodyStrong" color="ink" numberOfLines={1}>
             Pulse
           </Text>
