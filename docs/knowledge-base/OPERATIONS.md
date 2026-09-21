@@ -1,6 +1,6 @@
 # OPERATIONS.md —— 构建与运维
 
-> 最后更新：2026-08-30 · commit：`d255c48`（9928 恢复 web 静态版 serve-9928，Metro/APK 转备用）
+> 最后更新：2026-09-21 · commit：`feat/companion-ui-migration`（Companion UI Migration 部署说明：9928 现由 showcase2 占用；导出路由清单变化）
 
 ## 环境变量清单
 
@@ -75,20 +75,25 @@ node test/bff-e2e.mjs      # 登录 → 横幅消失 → 打开项目 → 动态
 
 - 构建注入 BFF 地址：`EXPO_PUBLIC_OPENCODE_URL=http://127.0.0.1:19235 pnpm exec expo export --platform web --clear`（**必须 `--clear`**，否则 env 不注入）。
 
-## Web 预览部署（手机浏览器，静态产物）【当前方案，2026-08-30 起恢复】
+## Web 预览部署（手机浏览器，静态产物）
 
-> 2026-08-30 起 9928 恢复 web 静态版（`serve-9928`），替代 Expo Go Metro / APK 下载。**BFF CORS 允许列表只放行 9928 的三个 origin**（`106.13.181.13`/`127.0.0.1`/`localhost`，见 family-finance `lib/cors.ts`），静态版换端口浏览器端会全被 CORS 拦。
+> **9928 端口现状（2026-09-21）**：当前由 **showcase2** 占用（systemd `showcase2-9928.service`）。
+> 部署生产应用需先 `systemctl stop showcase2-9928.service`，再用 `agent-mobile-app/scripts/serve-static.mjs`
+> （端口硬编码 9928）或 systemd `serve-9928.service`（已 disable）。
+> **BFF CORS 允许列表只放行 9928 的三个 origin**（`106.13.181.13`/`127.0.0.1`/`localhost`，见 family-finance `lib/cors.ts`），
+> 静态版换端口浏览器端会全被 CORS 拦——所以换端口前必须先改 BFF CORS 允许列表。
 
 ```bash
 cd agent-mobile-app
-pnpm exec expo export --platform web   # 产出 dist/（含 pulse.html 等）
-npx serve dist -l 9928                # 或 node scripts/serve-static.mjs（gzip + /→/pulse 302）
+pnpm exec expo export --platform web --clear   # 产出 dist/（index/talk/memory/me/assignments.html 等；--clear 必须，否则 env 不注入）
+systemctl stop showcase2-9928.service          # 让出 9928
+node scripts/serve-static.mjs                  # gzip + /→index.html + 无扩展名/[id].html 回退
 ```
 
 - 服务地址：`http://<公网IP>:9928`（公网 IP 参考 `curl ifconfig.me`）
 - serve-static.mjs 特性：gzip（bundle 3MB→0.5MB）、`Cache-Control: no-store`（防浏览器缓存）
 - **重新部署 = 重跑 export + 重启服务**：`pnpm exec expo export --platform web --clear` 后**必须** `pkill -f serve-static.mjs && node scripts/serve-static.mjs` 重启。`gzipCache` 按路径缓存 gzipped 字节，dist 文件覆盖后仍返回旧 bundle——`Cache-Control: no-store` 只防浏览器缓存，防不了服务端 gzipCache（见 CONVENTIONS）
-- 进程管理：systemd 单元 `serve-9928.service`（已 disable）；恢复 `systemctl start serve-9928`
+- 进程管理：systemd 单元 `serve-9928.service`（已 disable）；恢复 `systemctl start serve-9928`。showcase2 的单元是 `showcase2-9928.service`。
 
 ## Expo Go 真机预览（备用方案，9928 端口）
 

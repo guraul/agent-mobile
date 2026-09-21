@@ -8,12 +8,14 @@ import { colors, radius, spacing } from "../../../theme";
 import type { DisplayStep } from "../../../services/message-merging";
 import { StepRow } from "./StepRow";
 
+// User message: subtle violet bubble (accentSoft), no border.
 const userMarkdown = {
-  body: { color: colors.onAccent, fontSize: 15, lineHeight: 22 },
-  code_inline: { color: colors.onAccent, backgroundColor: "rgba(255,255,255,0.2)", padding: 0, lineHeight: 22 },
+  body: { color: colors.ink, fontSize: 15, lineHeight: 22 },
+  code_inline: { color: colors.ink, backgroundColor: "rgba(255,255,255,0.12)", padding: 0, lineHeight: 22 },
   paragraph: { marginVertical: 0 },
 };
 
+// AI message: plain text, no bubble — the voice, not a chat widget.
 const aiMarkdown = {
   body: { color: colors.ink, fontSize: 15, lineHeight: 22 },
   heading1: { color: colors.ink, fontSize: 18, fontWeight: "700" as const },
@@ -54,10 +56,11 @@ export const MessageBubbleZ = React.memo(function MessageBubbleZ({ step }: { ste
     return <StepRow step={step} />;
   }
 
+  // User: right-aligned subtle violet bubble.
   if (step.kind === "user") {
     return (
       <Box marginBottom="xs" style={{ alignItems: "flex-end" }}>
-        <Box paddingHorizontal="xs" paddingVertical="xxs" rounded="md" style={{ minWidth: 40, maxWidth: "92%", backgroundColor: colors.accent.default, borderBottomRightRadius: radius.xs }}>
+        <Box paddingHorizontal="sm" paddingVertical="xs" style={{ minWidth: 40, maxWidth: "80%", backgroundColor: colors.accent.subtle, borderRadius: radius.lg, borderBottomRightRadius: radius.xs }}>
           <Markdown style={userMarkdown}>{step.text}</Markdown>
         </Box>
         <Actions text={step.text} createdAt={step.createdAt} align="right" />
@@ -65,12 +68,10 @@ export const MessageBubbleZ = React.memo(function MessageBubbleZ({ step }: { ste
     );
   }
 
+  // Error / system intervention: semantic pill, never dressed as normal conversation.
   if (step.kind === "error") {
     return (
       <Box marginBottom="sm" style={{ alignItems: "flex-start" }}>
-        <Box marginLeft="xxs" marginBottom="xxs">
-          <Text variant="captionStrong" color="error">Pulse · 出错了</Text>
-        </Box>
         <Box padding="sm" rounded="md" style={{ maxWidth: "92%", backgroundColor: colors.surface[2], borderLeftWidth: 3, borderLeftColor: colors.status.error }}>
           <Text variant="body" color="error">{step.text}</Text>
         </Box>
@@ -78,14 +79,12 @@ export const MessageBubbleZ = React.memo(function MessageBubbleZ({ step }: { ste
     );
   }
 
+  // AI: plain text, no bubble. Identity lives in the Talk header orb.
   return (
     <Box marginBottom="xs" style={{ alignItems: "flex-start" }}>
-      <Box marginLeft="xxs" marginBottom="xxs">
-        <Text variant="captionStrong" color="accent">Pulse</Text>
-      </Box>
-      <Box padding="sm" rounded="md" style={{ maxWidth: "92%", backgroundColor: colors.surface[2], borderBottomLeftRadius: radius.xs }}>
+      <Box style={{ maxWidth: "92%", paddingLeft: spacing.sm }}>
         {/* No fixed-height scroll container here: the typewriter reveals the
-            text character by character, so the bubble must grow with the text. */}
+            text character by character, so the block must grow with the text. */}
         <Markdown style={aiMarkdown}>{step.text}</Markdown>
       </Box>
       <Actions text={step.text} createdAt={step.createdAt} align="left" />
@@ -96,8 +95,8 @@ export const MessageBubbleZ = React.memo(function MessageBubbleZ({ step }: { ste
 const s = StyleSheet.create({
   actions: { flexDirection: "row", alignItems: "center", gap: spacing.xs, marginTop: spacing.xxs, paddingHorizontal: 0 },
   // 用户气泡（右对齐）：复制+时间整体贴气泡右边缘，跟气泡本体对齐
-  actionsRight: { alignSelf: "flex-end" },
-  // AI 气泡（左对齐）：贴气泡左边缘
-  actionsLeft: { alignSelf: "flex-start" },
+  actionsRight: { alignSelf: "flex-end", paddingRight: spacing.xs },
+  // AI 纯文本（左对齐）：与文本缩进对齐
+  actionsLeft: { alignSelf: "flex-start", paddingLeft: spacing.sm },
   actionBtn: { padding: 2 },
 });

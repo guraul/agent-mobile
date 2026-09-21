@@ -110,4 +110,4 @@ ChatPanelZ `send()` 前拦截：`/assign fund <code> above-target|above <v>|belo
 ## Memory / KB（Phase 6）
 
 `src/services/memory/client.ts`：Memory 投影（`fetchMemories`）+ Forget（`forgetMemory`，作用于 memx canonical）+ KB 检索（`searchKb`）+ 分组纯函数（`buildMemoryGroups`，User / Projects 分组）。
-Memory tab（`(tabs)/memory.tsx`）：KB 搜索卡片 + User/Projects 分组列表 + Forget（确认后 DELETE）；直开页面先 `loadToken()`（同 Me tab）。KB 无独立 tab（PM §36：无独立管理面），入口在 Memory tab。
+Memory sheet（`components/pulse/MemorySheet.tsx`，Pulse → Settings → What I remember）：KB 搜索卡片 + User/Projects 分组列表 + Forget（确认后 DELETE）；sheet 打开前先 `loadToken()`（同其他可直开路由）。KB 无独立 tab/页面（PM §36：无独立管理面），入口在 Settings sheet；点搜索结果进 `/kb/doc` 阅读全文。

@@ -34,11 +34,14 @@ export default function RootLayout() {
     );
   }
 
+  // Single-surface Companion navigation: Pulse is the only root surface.
+  // Talk / Attention / Responsibilities / Knowledge are contextual stack routes.
   return (
     <SafeAreaProvider>
       <StatusBar style="light" />
       <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="index" />
+        <Stack.Screen name="talk" />
         <Stack.Screen name="assignments" />
         <Stack.Screen name="assignments/[id]" />
         <Stack.Screen name="attention/[id]" />

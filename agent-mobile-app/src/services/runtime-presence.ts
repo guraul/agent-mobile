@@ -28,7 +28,7 @@ export function runtimeFailureMessage(kind: RuntimeFailureKind): { title: string
     case "bff-offline":
       return {
         title: "Connection unavailable",
-        body: "Cannot reach the service right now. Check your network or the BFF address in Me.",
+        body: "Cannot reach the service right now. Check your network or the BFF address in Settings.",
       };
     case "auth":
       return { title: "请先登录", body: "登录已过期，请重新登录后再试。" };

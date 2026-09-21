@@ -1,7 +1,7 @@
 // Fork of src/components/chat/ChatPanel.tsx —— ZCode 风格渲染层改造（StepRow 折叠行 /
 // 气泡复制/时间戳 / 状态行 / 圆角输入栏）。数据逻辑（SSE 订阅 / reducer / typewriter /
 // pagination / agents+model prefs）与上游保持一致，上游修复需手动同步；
-// 回退开关：src/app/(tabs)/index.tsx 的 USE_ZCODE_CHAT_SHEET。
+// Companion migration：/talk stack route 的唯一聊天渲染层（ProjectChatZ 内嵌）。
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import {
   View,
@@ -17,7 +17,7 @@ import {
   type NativeSyntheticEvent,
   type NativeScrollEvent,
 } from "react-native";
-import { Bot, Cpu, Mic, Send, Square } from "lucide-react-native";
+import { Bot, Cpu, Send, Square } from "lucide-react-native";
 import { Text, Box, Button, Icon } from "../../index";
 import { BottomSheet } from "../../navigation/BottomSheet";
 import { colors, spacing, radius, iconStroke } from "../../../theme";
@@ -918,14 +918,6 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
       ) : null}
 
       <View style={styles.inputRow}>
-        <Pressable
-          onPress={() => Alert.alert("Voice input", "Coming soon.")}
-          accessibilityLabel="Voice input"
-          accessibilityRole="button"
-          style={styles.voiceBtn}
-        >
-          <Mic color={colors.body} size={18} strokeWidth={iconStroke} />
-        </Pressable>
         <TextInput
           style={styles.input}
           value={input}
@@ -1028,8 +1020,8 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    height: 44,
-    maxHeight: 44,
+    height: 48,
+    maxHeight: 48,
     boxSizing: "border-box",
     backgroundColor: colors.surface[1],
     borderRadius: radius.full,
@@ -1040,10 +1032,10 @@ const styles = StyleSheet.create({
     // center the caret/text vertically on both native and web. RN TextInput
     // ignores textAlignVertical on web, so use lineHeight there; native keeps
     // textAlignVertical. Fixed height + single line keeps the input on the
-    // same axis as the voice/send icons.
+    // same axis as the send icon.
     textAlignVertical: "center",
     ...Platform.select({
-      web: { lineHeight: 44 },
+      web: { lineHeight: 48 },
       default: {},
     }),
   },
@@ -1059,16 +1051,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
-  voiceBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.full,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   sendBtn: {
-    width: 40,
-    height: 40,
+    width: 48,
+    height: 48,
     borderRadius: radius.full,
     backgroundColor: colors.accent.default,
     alignItems: "center",
