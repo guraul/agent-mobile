@@ -1,76 +1,70 @@
-import React, { useState } from "react";
-import { Pressable, View } from "react-native";
-import { MessageCircle, Plus } from "lucide-react-native";
-import { Text } from "../primitives/Text";
-import { Icon } from "../primitives/Icon";
-import { colors, motion, radius, spacing } from "../../theme";
-
 /**
- * ConversationEntry — Pulse bottom dock (Showcase2 §11 / §12).
- * NOT a TextInput and NOT a Send: the whole capsule is a Pressable that
- * pushes Talk, where the real composer lives. Pulse never sends a message.
+ * ConversationEntry — Pulse bottom entry (spec V2 §11).
+ * NOT a TextInput. The whole capsule is a Pressable that enters Talk,
+ * and the round gradient button on the right is "Enter Talk", not Send.
+ * Real input lives in Talk only.
  */
-export function ConversationEntry({
-  onPress,
-  testID = "conversation-entry",
-}: {
-  onPress: () => void;
-  testID?: string;
-}) {
-  const [pressed, setPressed] = useState(false);
+import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { colors, type, spacing } from '../../theme/companion';
+import { PressableScale } from './PressableScale';
 
+export function ConversationEntry({ onEnter, testID }: { onEnter: () => void; testID?: string }) {
   return (
-    <View
-      style={{
-        flexDirection: "row",
-        alignItems: "center",
-        gap: spacing.sm,
-        paddingHorizontal: spacing.lg,
-        paddingTop: spacing.xs,
-      }}
-    >
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Talk to Pulse"
-        testID={testID}
-        onPressIn={() => setPressed(true)}
-        onPressOut={() => setPressed(false)}
-        onPress={onPress}
-        style={{
-          flex: 1,
-          height: 52,
-          borderRadius: radius.pill,
-          backgroundColor: pressed ? colors.surface[3] : colors.surface[2],
-          borderWidth: 1,
-          borderColor: colors.border.subtle,
-          flexDirection: "row",
-          alignItems: "center",
-          gap: spacing.xs,
-          paddingHorizontal: spacing.md,
-        }}
-      >
-        <Icon icon={Plus} size="sm" color="muted" />
-        <Text variant="button" color="muted">
-          Talk to Pulse…
-        </Text>
-      </Pressable>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Enter Talk"
-        testID={`${testID}-enter`}
-        onPress={onPress}
-        style={({ pressed: p }) => ({
-          width: 48,
-          height: 48,
-          borderRadius: 24,
-          backgroundColor: p ? colors.accent.pressed : colors.accent.default,
-          alignItems: "center",
-          justifyContent: "center",
-          ...(p ? { transform: [{ scale: motion.scale.pressed }] } : null),
-        })}
-      >
-        <Icon icon={MessageCircle} size="md" color="onAccent" />
-      </Pressable>
+    <View style={styles.row} testID={testID}>
+      <PressableScale style={styles.pill} onPress={onEnter} testID={testID ? `${testID}-enter` : undefined}>
+        <Text style={styles.plus}>+</Text>
+        <Text style={styles.label}>Talk to Pulse…</Text>
+      </PressableScale>
+
+      <PressableScale style={styles.circle} onPress={onEnter}>
+        <LinearGradient
+          colors={[colors.accentBright, colors.accentDeep]}
+          start={{ x: 0.15, y: 0 }}
+          end={{ x: 0.85, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+        <Text style={styles.arrow}>→</Text>
+      </PressableScale>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.md,
+  },
+  pill: {
+    flex: 1,
+    height: 54,
+    borderRadius: 999,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    backgroundColor: colors.surfaceElevatedDeep,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  plus: {
+    fontSize: 20,
+    lineHeight: 22,
+    fontWeight: '400',
+    color: colors.accentBright,
+  },
+  label: { ...type.body, color: colors.textSecondaryBright },
+  circle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  arrow: { color: '#FFFFFF', fontSize: 18 },
+});

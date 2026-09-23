@@ -1,118 +1,178 @@
-import React, { useEffect, useRef, useState } from "react";
-import { AccessibilityInfo, Animated, Easing, View } from "react-native";
-import { colors } from "../../theme";
+/**
+ * AIOrb — presence orb, SHOWCASE2_VISUAL_SPEC.md §7.
+ * Soft glowing violet sphere: bright core -> accent -> deep violet + soft halo.
+ * States: attentive / engaged / thinking / noticed / needs-you / offline.
+ * Only motion: slow breathing (opacity + scale), one-time ping for noticed/needs-you.
+ * Exactly one orb per screen. Halo via layered transparent circle (no boxShadow).
+ */
+import React, { useEffect } from 'react';
+import { View, StyleSheet } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withSequence,
+  withTiming,
+  Easing,
+  ReduceMotion,
+} from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
+import { colors, motion } from '../../theme/companion';
+import { PresenceState } from './showcase-types';
 
-export type OrbState = "attentive" | "engaged" | "thinking" | "needs-you" | "offline";
+const SIZES = {
+  dot: 8,
+  avatar: 28,
+  header: 40,
+  hero: 108,
+} as const;
 
-interface OrbPalette {
-  core: string;
-  mid: string;
-  halo: string;
+interface Props {
+  state: PresenceState;
+  size?: keyof typeof SIZES;
+  /** idle pulse factor; 1 = attentive speed, higher = engaged (faster) */
+  speed?: number;
 }
 
-const ORB_PALETTES: Record<OrbState, OrbPalette> = {
-  attentive: { core: "#C4B5FD", mid: colors.accent.default, halo: "rgba(139, 92, 246, 0.28)" },
-  engaged: { core: "#DDD6FE", mid: colors.accent.bright, halo: "rgba(167, 139, 250, 0.32)" },
-  thinking: { core: "#EDE9FE", mid: colors.accent.bright, halo: "rgba(167, 139, 250, 0.38)" },
-  "needs-you": { core: "#FFE3A8", mid: colors.status.running, halo: "rgba(242, 179, 61, 0.28)" },
-  offline: { core: "#77758A", mid: "#46445C", halo: "rgba(85, 83, 107, 0.18)" },
+const STATE_COLOR: Record<PresenceState, string> = {
+  attentive: colors.accent,
+  engaged: colors.accentBright,
+  thinking: colors.accentBright,
+  noticed: colors.accent,
+  'needs-you': colors.attention,
+  offline: colors.offline,
 };
 
-export interface AIOrbProps {
-  size?: number;
-  state?: OrbState;
-  accessibilityLabel?: string;
-  testID?: string;
-}
+export function AIOrb({ state, size = 'avatar', speed = 1 }: Props) {
+  const breath = useSharedValue(0);
+  const ping = useSharedValue(0);
+  const base = SIZES[size];
+  const color = STATE_COLOR[state];
+  const isStatic = state === 'offline';
+  const range = motion.breathingRange;
 
-/**
- * AIOrb — presence orb (Showcase2 visual language §7).
- * Calm breathing by default; amber for needs-you; flat/static when offline.
- * Exactly one orb per screen.
- */
-export function AIOrb({
-  size = 40,
-  state = "attentive",
-  accessibilityLabel = "Pulse AI presence",
-  testID,
-}: AIOrbProps) {
-  const palette = ORB_PALETTES[state];
-  const breath = useRef(new Animated.Value(1)).current;
-  const [reduceMotion, setReduceMotion] = useState(false);
-
+  // Breathing — pause-compatible loop; respects Reduce Motion via withReduceMotion.
   useEffect(() => {
-    const subscription = AccessibilityInfo.addEventListener("reduceMotionChanged", setReduceMotion);
-    AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
-    return () => subscription.remove();
-  }, []);
-
-  useEffect(() => {
-    if (state === "offline" || reduceMotion) {
-      breath.setValue(1);
+    if (isStatic) {
+      breath.value = 0;
       return;
     }
-    const period = state === "engaged" ? 1250 : 1750;
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(breath, {
-          toValue: 0.55,
-          duration: period,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(breath, {
-          toValue: 1,
-          duration: period,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ]),
+    breath.value = 0;
+    breath.value = withRepeat(
+      withTiming(1, {
+        duration: motion.breathing / speed,
+        easing: Easing.inOut(Easing.ease),
+        reduceMotion: ReduceMotion.System,
+      }),
+      -1,
+      true,
     );
-    loop.start();
-    return () => loop.stop();
-  }, [state, reduceMotion, breath]);
+    return () => {
+      // clear loop on unmount
+    };
+  }, [isStatic, speed, breath]);
 
-  const haloSize = Math.round(size * 1.5);
-  const coreSize = Math.max(6, Math.round(size * 0.42));
+  // One-time ping for noticed / needs-you.
+  useEffect(() => {
+    if (state === 'noticed' || state === 'needs-you') {
+      ping.value = 0;
+      ping.value = withSequence(
+        withTiming(1, { duration: 600, easing: Easing.out(Easing.ease) }),
+        withTiming(0, { duration: 0 }),
+      );
+    }
+  }, [state, ping]);
+
+  const orbStyle = useAnimatedStyle(() => {
+    const t = isStatic || state === 'thinking' ? 0 : breath.value;
+    const scale = 1 + (range.scale[1] - 1) * t;
+    const opacity = range.opacity[0] + (range.opacity[1] - range.opacity[0]) * t;
+    return { transform: [{ scale }], opacity };
+  });
+
+  const pingStyle = useAnimatedStyle(() => {
+    const d = base + 16 * ping.value;
+    return {
+      width: d,
+      height: d,
+      borderRadius: d / 2,
+      opacity: 1 - ping.value,
+      transform: [{ translateX: -d / 2 }, { translateY: -d / 2 }],
+    };
+  });
+
+  const haloW = base * 2.1;
 
   return (
-    <View
-      testID={testID}
-      accessibilityLabel={accessibilityLabel}
-      accessibilityRole="image"
-      style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}
-    >
-      {state !== "offline" ? (
+    <View style={[styles.wrap, { width: base, height: base }]}>
+      {(state === 'noticed' || state === 'needs-you') && (
         <Animated.View
-          style={{
-            position: "absolute",
-            width: haloSize,
-            height: haloSize,
-            borderRadius: haloSize / 2,
-            backgroundColor: palette.halo,
-            opacity: breath,
-          }}
+          pointerEvents="none"
+          style={[styles.ping, { borderColor: color }, pingStyle]}
         />
-      ) : null}
-      <View
-        style={{
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          backgroundColor: palette.mid,
-          alignItems: "center",
-          justifyContent: "center",
-        }}
+      )}
+      <Animated.View
+        style={[
+          styles.sphere,
+          { width: base, height: base },
+          orbStyle,
+        ]}
       >
-        <View
-          style={{
-            width: coreSize,
-            height: coreSize,
-            borderRadius: coreSize / 2,
-            backgroundColor: palette.core,
-          }}
+        {state !== 'offline' && (
+          <View
+            pointerEvents="none"
+            style={[
+              styles.halo,
+              {
+                width: haloW,
+                height: haloW,
+                borderRadius: haloW / 2,
+                marginLeft: -haloW / 2,
+                marginTop: -haloW / 2,
+                backgroundColor: colors.glowHalo,
+              },
+            ]}
+          />
+        )}
+        <LinearGradient
+          colors={['#D6C6FF', colors.accentBright, colors.accent, '#4C1D95']}
+          start={{ x: 0.2, y: 0.05 }}
+          end={{ x: 0.8, y: 1 }}
+          style={[styles.core, { width: base, height: base, borderRadius: base / 2 }]}
         />
-      </View>
+        {base >= 24 && (
+          <View
+            pointerEvents="none"
+            style={[styles.spec, { width: base * 0.32, height: base * 0.2 }]}
+          />
+        )}
+      </Animated.View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  wrap: { alignItems: 'center', justifyContent: 'center' },
+  sphere: { alignItems: 'center', justifyContent: 'center' },
+  halo: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+  },
+  core: { position: 'absolute' },
+  spec: {
+    position: 'absolute',
+    top: '18%',
+    left: '30%',
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.45)',
+    transform: [{ rotate: '-28deg' }],
+    opacity: 0.5,
+  },
+  ping: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    borderWidth: 1,
+  },
+});

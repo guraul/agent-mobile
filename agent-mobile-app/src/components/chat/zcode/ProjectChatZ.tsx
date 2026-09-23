@@ -5,6 +5,7 @@ import { View, Pressable, StyleSheet, ScrollView } from "react-native";
 import { ArrowLeft, Plus, Layers, X } from "lucide-react-native";
 import { Text, Box, Button, IconButton } from "../../index";
 import { AIOrb } from "../../pulse/AIOrb";
+import { AIStatus } from "../../pulse/AIStatus";
 import { colors, spacing, radius } from "../../../theme";
 import { opencodeClient, type OpenCodeSession } from "../../../services/opencode-client";
 import { ChatPanelZ } from "./ChatPanelZ";
@@ -109,26 +110,23 @@ export function ProjectChatZ({ projectPath, onBack, attention, initialSessionId,
   return (
     <View style={styles.flex}>
       <View style={styles.headerRow}>
-        {onBack ? (
-          <IconButton icon={ArrowLeft} onPress={onBack} accessibilityLabel="Back to projects" testID="zcode-sheet-back" />
-        ) : (
-          <View style={styles.headerSpacer} />
-        )}
-        <View style={styles.titleWrap}>
-          <View style={styles.titleRow}>
-            <AIOrb size={20} accessibilityLabel="Pulse AI presence" />
-            <Text variant="bodyStrong" color="ink" numberOfLines={1}>
-              Pulse
-            </Text>
-          </View>
-          <Text variant="caption" color="muted" numberOfLines={1}>
-            {session ? sessionLabel(session) : projectPath.split("/").filter(Boolean).pop()}
-          </Text>
+        <View style={styles.headerSide}>
+          {onBack ? (
+            <IconButton icon={ArrowLeft} onPress={onBack} accessibilityLabel="Back to projects" testID="zcode-sheet-back" />
+          ) : null}
         </View>
-        <IconButton icon={Layers} onPress={openPicker} accessibilityLabel="Switch session" />
-        {onClose ? (
-          <IconButton icon={X} onPress={onClose} accessibilityLabel="Close session" testID="zcode-session-close" />
-        ) : null}
+        <View style={styles.titleWrap}>
+          <Text variant="bodyStrong" color="ink" numberOfLines={1}>
+            Pulse
+          </Text>
+          <AIStatus state={error ? "offline" : "attentive"} />
+        </View>
+        <View style={[styles.headerSide, styles.headerRight]}>
+          <IconButton icon={Layers} onPress={openPicker} accessibilityLabel="Switch session" />
+          {onClose ? (
+            <IconButton icon={X} onPress={onClose} accessibilityLabel="Close session" testID="zcode-session-close" />
+          ) : null}
+        </View>
       </View>
 
       {error ? (
@@ -211,23 +209,35 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     padding: spacing.sm,
     paddingHorizontal: spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border.subtle,
-    backgroundColor: colors.canvas,
+    borderBottomColor: "rgba(167,139,250,0.12)",
+    backgroundColor: "#0B0A12",
   },
   titleRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.xxs,
   },
-  titleWrap: {
-    flexShrink: 1,
-    flexGrow: 1,
+  headerSide: {
+    width: 88,
+    flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: spacing.xs,
+    gap: spacing.xs,
+    zIndex: 2,
+  },
+  headerRight: {
+    justifyContent: "flex-end",
+  },
+  headerOrb: {
+    marginBottom: 2,
+  },
+  titleWrap: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 2,
   },
   pickerHeader: {
     borderBottomWidth: 1,

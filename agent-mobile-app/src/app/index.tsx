@@ -4,21 +4,31 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Text as RNText,
   TextInput,
   View,
 } from "react-native";
 import { Settings } from "lucide-react-native";
 import { useRouter } from "expo-router";
-import { BottomSheet, Button, IconButton, Text } from "@/components";
-import { AIOrb, type OrbState } from "@/components/pulse/AIOrb";
+import { BottomSheet, Button, Text } from "@/components";
+import { LinearGradient } from "expo-linear-gradient";
+import { AIOrb } from "@/components/pulse/AIOrb";
 import { AIStatus } from "@/components/pulse/AIStatus";
-import { PulseHero } from "@/components/pulse/PulseHero";
-import { FeaturedAttention } from "@/components/pulse/FeaturedAttention";
-import { SupportingRow, type SupportingKind } from "@/components/pulse/SupportingRow";
-import { NoticedRow } from "@/components/pulse/NoticedRow";
+import { FeaturedItem } from "@/components/pulse/FeaturedItem";
+import { SupportingList } from "@/components/pulse/SupportingList";
+import { PulseNoticed } from "@/components/pulse/PulseNoticed";
 import { ConversationEntry } from "@/components/pulse/ConversationEntry";
+import { DetailSheet } from "@/components/pulse/DetailSheet";
+import { AnimatedEntry } from "@/components/pulse/AnimatedEntry";
+import { TextAction as ChipTextAction } from "@/components/pulse/ActionChips";
+import type {
+  NeedsYouItem,
+  SuggestionItem,
+  NoticedItem,
+  PresenceState,
+} from "@/components/pulse/showcase-types";
+import { backgroundGradient, colors as c2colors } from "@/theme/companion";
 import { ListSheet } from "@/components/pulse/ListSheet";
-import { NoticedDetailSheet } from "@/components/pulse/NoticedDetailSheet";
 import { FundSheet } from "@/components/pulse/FundSheet";
 import { SettingsSheet } from "@/components/pulse/SettingsSheet";
 import { MemorySheet } from "@/components/pulse/MemorySheet";
@@ -38,19 +48,12 @@ import { KbHit } from "@/services/memory/client";
 import { opencodeClient } from "@/services/opencode-client";
 import { getRuntimeBaseUrl } from "@/services/bff-config";
 import { opencodeConfig } from "@/config/opencode";
-import { loadToken, login, onUnauthorized } from "@/services/auth";
+import { loadToken, login, onUnauthorized, getUsername } from "@/services/auth";
 import { classifyRuntimeFailure, runtimeFailureMessage } from "@/services/runtime-presence";
-import { colors, radius, spacing } from "@/theme";
+import { colors, iconStroke, radius, spacing } from "@/theme";
 
 const SUPPORTING_BUDGET = 4;
 const NOTICED_BUDGET = 5;
-
-const KIND_LABEL: Record<SupportingKind, string> = {
-  "needs-you": "NEEDS YOU",
-  suggested: "SUGGESTED",
-  running: "RUNNING",
-  market: "MARKET",
-};
 
 type SupportingItem =
   | { kind: "needs-you"; attention: PulseAttentionItem }
@@ -63,6 +66,61 @@ function getGreeting(): string {
   if (h < 12) return "Good morning.";
   if (h < 18) return "Good afternoon.";
   return "Good evening.";
+}
+
+// ── real data → companion view models (showcase2 component shapes) ─────────
+const toNeedsYou = (a: PulseAttentionItem): NeedsYouItem => ({
+  id: a.id,
+  kind: "needs-you",
+  title: a.title,
+  why: a.summary ?? "",
+  source: a.domain === "market" ? "Market" : a.domain === "coding" ? "Coding" : "Pulse",
+  time: formatRelative(a.createdAt),
+  reviewTarget: `/attention/${a.id}`,
+  status: "open",
+});
+
+const toSuggestion = (sg: PulseSuggestion): SuggestionItem => ({
+  id: sg.id,
+  kind: "suggestion",
+  proposal: sg.responsibility,
+  status: "proposed",
+  assignment: "idle",
+  context: sg.responsibility,
+  confirmLabel: "Confirm",
+});
+
+const toNoticed = (st: L1Statement): NoticedItem => ({
+  id: st.id,
+  kind: "noticed",
+  fact: st.text,
+  time: formatRelative(st.occurredAt),
+  context: "Market",
+});
+
+interface SupportingBuckets {
+  needsYou: NeedsYouItem[];
+  suggestions: SuggestionItem[];
+  running: { id: string; name: string; status: "running" | "idle" }[];
+  market: { id: string; name: string; changePct: number | null }[];
+}
+
+function bucketize(items: SupportingItem[], funds: { code: string; name: string; changePct: number }[]): SupportingBuckets {
+  const needsYou: NeedsYouItem[] = [];
+  const suggestions: SuggestionItem[] = [];
+  const running: SupportingBuckets["running"] = [];
+  let market: SupportingBuckets["market"] = [];
+  for (const item of items) {
+    if (item.kind === "needs-you") needsYou.push(toNeedsYou(item.attention));
+    else if (item.kind === "suggested") suggestions.push(toSuggestion(item.suggestion));
+    else if (item.kind === "running") {
+      running.push({ id: item.event.id, name: item.event.name, status: item.event.status === "running" ? "running" : "idle" });
+    } else if (item.kind === "market" && funds[0]) {
+      const f = funds[0];
+      market = [{ id: f.code, name: funds.length > 1 ? `${f.name} +${funds.length - 1}` : f.name, changePct: f.changePct }];
+    }
+  }
+  return { needsYou, suggestions, running, market };
 }
 
 // Quiet text action ("See All", "More (n)") — accent-bright, no container.
@@ -118,7 +176,16 @@ export default function PulseScreen() {
   // Greeting depends on the client's local time; SSR (server UTC) and client
   // disagree → render only after mount (React #418 guard, unchanged).
   useEffect(() => {
-    setGreeting(getGreeting());
+    (async () => {
+      const g = getGreeting();
+      let name = "";
+      try {
+        name = (await getUsername())?.trim() ?? "";
+      } catch {
+        /* greeting stays anonymous */
+      }
+      setGreeting(name ? `${g.replace(/\.$/, "")}, ${name}.` : g);
+    })();
   }, []);
 
   useEffect(() => {
@@ -157,7 +224,7 @@ export default function PulseScreen() {
     return kind === "opencode-offline" || kind === "bff-offline" ? kind : null;
   }, [attentionError, projectError]);
   const offline = failureKind !== null;
-  const presence: OrbState = offline ? "offline" : openAttentions.length > 0 ? "needs-you" : "attentive";
+  const presence: PresenceState = offline ? "offline" : openAttentions.length > 0 ? "needs-you" : "attentive";
   const aiLine = offline
     ? "I'm having trouble reaching my runtime."
     : "I've been keeping an eye on things for you.";
@@ -176,6 +243,9 @@ export default function PulseScreen() {
 
   const visibleSupporting = supporting.slice(0, SUPPORTING_BUDGET);
   const supportingOverflow = Math.max(0, supporting.length - visibleSupporting.length);
+
+  const visibleBuckets = useMemo(() => bucketize(visibleSupporting, funds), [visibleSupporting, funds]);
+  const allBuckets = useMemo(() => bucketize(supporting, funds), [supporting, funds]);
 
   const noticedSorted = useMemo(
     () => [...noticed].sort((a, b) => b.occurredAt - a.occurredAt),
@@ -309,115 +379,62 @@ export default function PulseScreen() {
   };
 
   // ── render helpers ──────────────────────────────────────────────────────
-  const renderSupportingRow = (item: SupportingItem, index: number, list: SupportingItem[]) => {
-    const firstOfKind = list.findIndex((r) => r.kind === item.kind) === index;
-    const label = firstOfKind ? KIND_LABEL[item.kind] : undefined;
-    const key =
-      item.kind === "needs-you"
-        ? `ny-${item.attention.id}`
-        : item.kind === "suggested"
-          ? `sg-${item.suggestion.id}`
-          : item.kind === "running"
-            ? `run-${item.event.id}`
-            : "market";
-
-    if (item.kind === "needs-you") {
-      const a = item.attention;
-      return (
-        <SupportingRow
-          key={key}
-          kind="needs-you"
-          label={label}
-          statement={a.title}
-          meta={`${a.domain === "market" ? "Market" : "Coding"} · ${formatRelative(a.createdAt)}`}
-          actionLabel="REVIEW"
-          onAction={() => router.push(`/attention/${a.id}`)}
-          quietActionLabel="Dismiss"
-          onQuietAction={() => dismiss(a.id)}
-          testID={`supporting-${key}`}
-        />
-      );
-    }
-    if (item.kind === "suggested") {
-      const sg = item.suggestion;
-      return (
-        <SupportingRow
-          key={key}
-          kind="suggested"
-          label={label}
-          statement={sg.responsibility}
-          meta={[
-            ...(sg.reasonLabel ? [`为什么：${sg.reasonLabel}`] : []),
-            sg.effectLabel,
-          ]}
-          actionLabel="CONFIRM"
-          onAction={() => onSuggestionAction(sg.id, "confirm")}
-          quietActionLabel="Dismiss"
-          onQuietAction={() => onSuggestionAction(sg.id, "reject")}
-          onPress={() => talkAboutSuggestion(sg)}
-          testID={`supporting-${key}`}
-        />
-      );
-    }
-    if (item.kind === "running") {
-      const e = item.event;
-      return (
-        <SupportingRow
-          key={key}
-          kind="running"
-          label={label}
-          statement={e.name}
-          meta={e.statusLabel}
-          onPress={() => router.push({ pathname: "/talk", params: { projectPath: e.projectPath } })}
-          testID={`supporting-${key}`}
-        />
-      );
-    }
-    const first = funds[0];
-    return (
-      <SupportingRow
-        key={key}
-        kind="market"
-        label={label}
-        statement={`${first.name}  ${first.estimatedNav.toFixed(4)}  ${first.changePct >= 0 ? "+" : ""}${first.changePct.toFixed(2)}%`}
-        meta={funds.length > 1 ? `${first.code} · +${funds.length - 1} more` : first.code}
-        onPress={() => setFundsOpen(true)}
-        testID="supporting-market"
-      />
-    );
-  };
-
-  const renderNoticedRow = (st: L1Statement) => (
-    <NoticedRow
+  const renderNoticedItem = (st: L1Statement) => (
+    <PulseNoticed
       key={st.id}
-      text={st.text}
-      time={formatRelative(st.occurredAt)}
-      onPress={() => setDetailStatement(st)}
+      item={toNoticed(st)}
       testID={`noticed-${st.id}`}
+      onPress={() => setDetailStatement(st)}
     />
   );
 
+  const comma = greeting.indexOf(",");
+  const heroLine1 = comma > 0 ? greeting.slice(0, comma + 1) : greeting;
+  const heroLine2 = comma > 0 ? greeting.slice(comma + 1).trim() : "";
+
   return (
-    <View style={styles.screen}>
-      <View style={styles.header}>
-        <AIOrb size={40} state={presence} testID="pulse-orb" />
-        <View style={styles.headerText}>
-          <AIStatus state={presence} testID="pulse-status" />
-          <Text variant="title" color="ink" testID="pulse-title">Pulse</Text>
-        </View>
-        <IconButton
-          icon={Settings}
-          onPress={() => setSettingsOpen(true)}
-          accessibilityLabel="Settings"
-          testID="pulse-settings"
-        />
-      </View>
+    <View style={styles.root}>
+      <LinearGradient
+        colors={backgroundGradient.colors}
+        locations={backgroundGradient.locations}
+        start={backgroundGradient.start}
+        end={backgroundGradient.end}
+        style={StyleSheet.absoluteFill}
+      />
+      <LinearGradient
+        colors={["rgba(139,92,246,0.22)", "rgba(139,92,246,0.07)", "transparent"]}
+        locations={[0, 0.45, 1]}
+        style={styles.topGlow}
+        pointerEvents="none"
+      />
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.content, { paddingBottom: 130 }]}
         showsVerticalScrollIndicator={false}
       >
+        <View style={styles.header}>
+          <View testID="pulse-orb">
+            <AIOrb state={presence} size="header" />
+          </View>
+          <View style={styles.headerStack}>
+            <View testID="pulse-status">
+              <AIStatus state={presence} />
+            </View>
+            <RNText style={styles.appName} testID="pulse-title">Pulse</RNText>
+          </View>
+          <View style={styles.headerSpacer} />
+          <Pressable
+            onPress={() => setSettingsOpen(true)}
+            accessibilityLabel="Settings"
+            accessibilityRole="button"
+            testID="pulse-settings"
+            hitSlop={10}
+          >
+            <Settings color={c2colors.textLabel} size={18} strokeWidth={iconStroke} />
+          </Pressable>
+        </View>
+
         {needLogin ? (
           <Pressable
             onPress={() => setLoginOpen(true)}
@@ -430,69 +447,99 @@ export default function PulseScreen() {
           </Pressable>
         ) : null}
 
-        <PulseHero
-          greeting={greeting}
-          aiLine={aiLine}
-          watchingCount={watchingCount}
-          onWatchingPress={() => router.push("/assignments")}
-        />
+        <AnimatedEntry index={0}>
+          <View style={styles.hero}>
+            <RNText style={styles.heroLine}>{heroLine1}</RNText>
+            {heroLine2 !== "" && <RNText style={styles.heroLine}>{heroLine2}</RNText>}
+            <RNText style={styles.aiVoice}>{aiLine}</RNText>
+            {watchingCount > 0 ? (
+              <Pressable onPress={() => router.push("/assignments")} testID="watching-line" hitSlop={6}>
+                <RNText style={styles.watchingLine}>
+                  Watching {watchingCount} thing{watchingCount === 1 ? "" : "s"} for you ›
+                </RNText>
+              </Pressable>
+            ) : null}
+          </View>
+        </AnimatedEntry>
 
-        {!offline && !featured && supporting.length === 0 && visibleNoticed.length === 0 ? (
-          <View style={{ paddingHorizontal: spacing.lg }}>
-            <Text variant="caption" color="muted" testID="pulse-empty">
-              Nothing needs you right now.
-            </Text>
+        {featured ? (
+          <AnimatedEntry index={1}>
+            <FeaturedItem
+              item={toNeedsYou(featured)}
+              testID="featured-attention"
+              onReview={() => router.push(`/attention/${featured.id}`)}
+              onDiscuss={() => openTalkForAttention(featured)}
+            />
+          </AnimatedEntry>
+        ) : null}
+
+        <AnimatedEntry index={2}>
+          <SupportingList
+            needsYou={visibleBuckets.needsYou}
+            suggestions={visibleBuckets.suggestions}
+            running={visibleBuckets.running}
+            market={visibleBuckets.market}
+            onReview={(it) => router.push(`/attention/${it.id}`)}
+            onDiscussNeedsYou={(it) => {
+              const a = openAttentions.find((x) => x.id === it.id);
+              if (a) openTalkForAttention(a);
+            }}
+            onDiscussSuggestion={(it) => {
+              const sg = suggestions.find((x) => x.id === it.id);
+              if (sg) talkAboutSuggestion(sg);
+            }}
+            onConfirm={(it) => onSuggestionAction(it.id, "confirm")}
+            onDismiss={(it) => onSuggestionAction(it.id, "reject")}
+            onOpenRunning={(row) => {
+              const e = events.find((x) => x.id === row.id);
+              if (e) router.push({ pathname: "/talk", params: { projectPath: e.projectPath } });
+            }}
+            onOpenMarket={() => setFundsOpen(true)}
+          />
+        </AnimatedEntry>
+
+        {supportingOverflow > 0 ? (
+          <View style={styles.overflowRow}>
+            <ChipTextAction
+              label={`More (${supportingOverflow})`}
+              onPress={() => setOverflowOpen(true)}
+              testID="supporting-more"
+            />
           </View>
         ) : null}
 
-        {featured ? (
-          <FeaturedAttention
-            title={featured.title}
-            summary={featured.summary}
-            meta={`${featured.creationReasonRef || (featured.domain === "market" ? "Market" : "Coding")} · ${formatRelative(featured.createdAt)}`}
-            onReview={() => router.push(`/attention/${featured.id}`)}
-            onDiscuss={() => openTalkForAttention(featured)}
-          />
-        ) : null}
-
-        {visibleSupporting.length > 0 || supportingOverflow > 0 || otherProjects.length > 0 ? (
-          <View style={styles.supporting}>
-            {visibleSupporting.map((item, i, list) => renderSupportingRow(item, i, list))}
-            {supportingOverflow > 0 ? (
-              <View style={styles.supportingMore}>
-                <TextAction
-                  label={`More (${supportingOverflow})`}
-                  onPress={() => setOverflowOpen(true)}
-                  testID="supporting-more"
-                />
-              </View>
-            ) : null}
-            {otherProjects.length > 0 ? (
-              <View style={styles.supportingMore}>
-                <TextAction
-                  label={`More projects (${otherProjects.length})`}
-                  onPress={() => setProjectsOpen(true)}
-                  testID="supporting-more-projects"
-                />
-              </View>
-            ) : null}
+        {otherProjects.length > 0 ? (
+          <View style={styles.overflowRow}>
+            <ChipTextAction
+              label={`More projects (${otherProjects.length})`}
+              onPress={() => setProjectsOpen(true)}
+              testID="supporting-more-projects"
+            />
           </View>
         ) : null}
 
         {visibleNoticed.length > 0 ? (
-          <View style={styles.noticed}>
-            <View style={styles.noticedHeader}>
-              <Text variant="label" color="muted">NOTICED</Text>
-              {noticedOverflow > 0 ? (
-                <TextAction
-                  label="See All"
-                  onPress={() => setNoticedListOpen(true)}
-                  testID="noticed-see-all"
-                />
-              ) : null}
+          <AnimatedEntry index={3}>
+            <View style={styles.section}>
+              <View style={styles.sectionHead}>
+                <RNText style={styles.sectionLabel}>Noticed</RNText>
+                {noticedOverflow > 0 ? (
+                  <ChipTextAction
+                    label="See All"
+                    onPress={() => setNoticedListOpen(true)}
+                    testID="noticed-see-all"
+                  />
+                ) : null}
+              </View>
+              <View>{visibleNoticed.map(renderNoticedItem)}</View>
             </View>
-            <View style={styles.noticedRows}>{visibleNoticed.map(renderNoticedRow)}</View>
-          </View>
+          </AnimatedEntry>
+        ) : null}
+
+        {!offline && !featured && supporting.length === 0 && visibleNoticed.length === 0 ? (
+          <RNText style={styles.emptyLine} testID="pulse-empty">
+            Nothing needs you right now.
+          </RNText>
         ) : null}
 
         {suggestionError ? (
@@ -509,7 +556,7 @@ export default function PulseScreen() {
       </ScrollView>
 
       <View style={styles.entryDock}>
-        <ConversationEntry onPress={() => router.push("/talk")} />
+        <ConversationEntry onEnter={() => router.push("/talk")} testID="conversation-entry" />
       </View>
 
       {/* ── contextual sheets ── */}
@@ -531,15 +578,21 @@ export default function PulseScreen() {
         onAskAboutThis={askAboutSource}
       />
       <FundSheet visible={fundsOpen} funds={funds} onClose={() => setFundsOpen(false)} />
-      <NoticedDetailSheet
-        statement={detailStatement}
-        onClose={() => setDetailStatement(null)}
-        onDiscuss={() => {
-          const st = detailStatement;
-          setDetailStatement(null);
-          if (st) talkAboutNoticed(st);
-        }}
-      />
+
+      {/* Noticed read-only detail — Discuss is the only way into Talk */}
+      {detailStatement ? (
+        <DetailSheet
+          label="Noticed"
+          body={detailStatement.text}
+          meta={formatRelative(detailStatement.occurredAt)}
+          onDiscuss={() => {
+            const st = detailStatement;
+            setDetailStatement(null);
+            if (st) talkAboutNoticed(st);
+          }}
+          onClose={() => setDetailStatement(null)}
+        />
+      ) : null}
 
       {/* Supporting overflow: full list, same rows, canonical order, no state change */}
       <ListSheet
@@ -548,7 +601,28 @@ export default function PulseScreen() {
         onClose={() => setOverflowOpen(false)}
         testID="supporting-overflow-sheet"
       >
-        {supporting.map((item, i, list) => renderSupportingRow(item, i, list))}
+        <SupportingList
+          needsYou={allBuckets.needsYou}
+          suggestions={allBuckets.suggestions}
+          running={allBuckets.running}
+          market={allBuckets.market}
+          onReview={(it) => router.push(`/attention/${it.id}`)}
+          onDiscussNeedsYou={(it) => {
+            const a = openAttentions.find((x) => x.id === it.id);
+            if (a) openTalkForAttention(a);
+          }}
+          onDiscussSuggestion={(it) => {
+            const sg = suggestions.find((x) => x.id === it.id);
+            if (sg) talkAboutSuggestion(sg);
+          }}
+          onConfirm={(it) => onSuggestionAction(it.id, "confirm")}
+          onDismiss={(it) => onSuggestionAction(it.id, "reject")}
+          onOpenRunning={(row) => {
+            const e = events.find((x) => x.id === row.id);
+            if (e) router.push({ pathname: "/talk", params: { projectPath: e.projectPath } });
+          }}
+          onOpenMarket={() => setFundsOpen(true)}
+        />
       </ListSheet>
 
       {/* All projects (running + idle) — idle projects stay reachable */}
@@ -558,32 +632,24 @@ export default function PulseScreen() {
         onClose={() => setProjectsOpen(false)}
         testID="projects-sheet"
       >
-        {events.map((e) => (
-          <SupportingRow
-            key={`p-all-${e.id}`}
-            kind="running"
-            statement={e.name}
-            meta={e.statusLabel}
-            onPress={() => {
-              setProjectsOpen(false);
-              router.push({ pathname: "/talk", params: { projectPath: e.projectPath } });
-            }}
-            testID={`p-all-${e.id}`}
-          />
-        ))}
-        {otherProjects.map((e) => (
-          <SupportingRow
-            key={`p-idle-${e.id}`}
-            kind="market"
-            statement={e.name}
-            meta={e.statusLabel}
-            onPress={() => {
-              setProjectsOpen(false);
-              router.push({ pathname: "/talk", params: { projectPath: e.projectPath } });
-            }}
-            testID={`p-idle-${e.id}`}
-          />
-        ))}
+        <SupportingList
+          needsYou={[]}
+          suggestions={[]}
+          running={[
+            ...events.map((e) => ({ id: e.id, name: e.name, status: (e.status === "running" ? "running" : "idle") as "running" | "idle" })),
+            ...otherProjects.map((e) => ({ id: e.id, name: e.name, status: "idle" as const })),
+          ]}
+          onReview={() => {}}
+          onDiscussNeedsYou={() => {}}
+          onDiscussSuggestion={() => {}}
+          onConfirm={() => {}}
+          onDismiss={() => {}}
+          onOpenRunning={(row) => {
+            setProjectsOpen(false);
+            const e = [...events, ...otherProjects].find((x) => x.id === row.id);
+            if (e) router.push({ pathname: "/talk", params: { projectPath: e.projectPath } });
+          }}
+        />
       </ListSheet>
 
       {/* See All — Noticed list */}
@@ -593,7 +659,7 @@ export default function PulseScreen() {
         onClose={() => setNoticedListOpen(false)}
         testID="noticed-list-sheet"
       >
-        {noticedSorted.map(renderNoticedRow)}
+        {noticedSorted.map(renderNoticedItem)}
       </ListSheet>
 
       {/* Login (contextual, unchanged semantics) */}
@@ -625,46 +691,97 @@ export default function PulseScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.canvas },
+  root: { flex: 1, backgroundColor: "#0B0A12" },
+  topGlow: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 260,
+  },
+  scroll: { flex: 1 },
+  content: { paddingHorizontal: 20, paddingTop: 16 },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.xs,
+    gap: 12,
+    marginBottom: 24,
   },
-  headerText: { flex: 1, gap: 2 },
-  scroll: { flex: 1 },
-  scrollContent: {
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.xxl,
-    gap: spacing.xxl,
+  headerStack: { gap: 2 },
+  headerSpacer: { flex: 1 },
+  appName: {
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: "700",
+    letterSpacing: -0.2,
+    color: "#F5F3FA",
   },
-  loginBanner: {
-    marginHorizontal: spacing.lg,
-    padding: spacing.sm,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: colors.border.subtle,
-    backgroundColor: colors.surface[1],
+  hero: { marginBottom: 28 },
+  heroLine: {
+    fontSize: 33,
+    lineHeight: 39,
+    fontWeight: "700",
+    letterSpacing: -0.5,
+    color: "#F5F3FA",
   },
-  supporting: { gap: spacing.sm },
-  supportingMore: { paddingHorizontal: spacing.lg },
-  noticed: { paddingHorizontal: spacing.lg, gap: spacing.xs },
-  noticedHeader: {
+  aiVoice: {
+    fontSize: 15,
+    lineHeight: 23,
+    fontWeight: "400",
+    color: "#B4AECB",
+    marginTop: 8,
+  },
+  watchingLine: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: "400",
+    letterSpacing: 0.2,
+    color: "#A78BFA",
+    marginTop: 10,
+  },
+  section: { marginBottom: 36 },
+  sectionHead: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    marginBottom: 8,
   },
-  noticedRows: { gap: 0 },
-  entryDock: { paddingBottom: spacing.lg },
+  sectionLabel: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: "600",
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    color: "#857FA3",
+  },
+  overflowRow: { marginBottom: 20 },
+  emptyLine: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: "#7A7494",
+    marginBottom: 20,
+  },
+  loginBanner: {
+    marginBottom: 16,
+    padding: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(167,139,250,0.12)",
+    backgroundColor: "#171428",
+  },
+  entryDock: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(11,10,18,0.9)",
+  },
   loginInput: {
-    backgroundColor: colors.surface[2],
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    color: colors.ink,
+    backgroundColor: "#1B1830",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    color: "#F5F3FA",
     fontSize: 15,
   },
 });
