@@ -1,10 +1,10 @@
 # Agent Mobile System - 项目说明
 
-**Updated:** 2026-08-30
+**Updated:** 2026-09-27
 
 项目知识库已拆分到 `docs/knowledge-base/`，本文件只承担**路由**与**强制规定**两个职责。涉及的功能细节、数据、API、部署等一律查阅知识库，不要在本文重复。
 
-> 注意：仓库根目录还有设计期遗留源码 `src/`（React/TSX，无 package.json，非运行态），**勿与 `agent-mobile-app/src/` 混为一谈**。当前活跃应用在 `agent-mobile-app/`。
+> 当前活跃应用在 `agent-mobile-app/`；设计稿与设计文档在 `docs/newdesign/`（用户活跃编辑中，勿改动）。仓库根的历史遗留目录（`src/`、`showcase/`、`showcase2/`）已于 2026-09-27 删除，见强制规定 9。
 
 ## 知识库路由（优先查阅）
 
@@ -46,9 +46,9 @@
 4. **勿移除打字机限速 / FlatList `extraData`**：`revealChars` 逐字揭示依赖 `extraData={revealChars}`，移除会导致整块弹出；轮询兜底与打字机冲突，勿同时启用。
 5. **勿改组件硬编码颜色/字号/间距**：必须走 `src/theme/`，否则破坏主题一致性。勿改 `StatusType` 取值集合。
 6. **敏感凭据不入库**：`EXPO_TOKEN`、`EXPO_PUBLIC_OPENCODE_*`（BFF 侧）等不写入代码/文档/提交。手机端不持有 opencode 凭证。
-7. **9928 端口归属（2026-09-21 起）**：9928 当前由 **showcase2** 占用（systemd `showcase2-9928.service`）。部署生产应用需先 `systemctl stop showcase2-9928.service` 让出端口，再用 `agent-mobile-app/scripts/serve-static.mjs`（端口硬编码 9928）或 `serve-9928.service`（已 disable）。部署流程 = `pnpm exec expo export --platform web --clear`（`--clear` 必须，否则 env 不注入）→ 重启服务（gzipCache 会缓存旧 bundle，不重启则改动"没生效"）。若切回 Expo Go Metro（`expo-metro-9928`），改代码热重载无需重建。**BFF CORS 允许列表只放行 9928 的三个 origin**（见 `family-finance lib/cors.ts`），静态版换端口会全被 CORS 拦——换端口前必须先改 BFF CORS。
-8. **临时测试脚本 / 截图 / 日志统一放仓库根 `test/` 目录**，勿散落 /tmp。
-9. **勿把仓库根 `src/`（设计期）与 `agent-mobile-app/src/`（运行态）混为一谈**，改错位置 = 改到不运行的东西。
+7. **9928 端口归属（2026-09-21 起）**：9928 当前由 **showcase2** 占用（systemd `showcase2-9928.service`；showcase2 源码已从仓库删除——设计已移植进主应用，git 历史可查，服务器上的服务仍在运行待 pipeline 阶段退役）。部署生产应用需先 `systemctl stop showcase2-9928.service` 让出端口，再用 `agent-mobile-app/scripts/serve-static.mjs`（端口硬编码 9928）或 `serve-9928.service`（已 disable）。部署流程 = `pnpm exec expo export --platform web --clear`（`--clear` 必须，否则 env 不注入）→ 重启服务（gzipCache 会缓存旧 bundle，不重启则改动"没生效"）。若切回 Expo Go Metro（`expo-metro-9928`），改代码热重载无需重建。**BFF CORS 允许列表只放行 9928 的三个 origin**（见 `family-finance lib/cors.ts`），静态版换端口会全被 CORS 拦——换端口前必须先改 BFF CORS。
+8. **临时测试脚本 / 截图 / 日志统一放仓库根 `test/` 目录**，勿散落 /tmp。`test/` 已加入 `.gitignore` 不入库，需要留存的结果写进知识库或脚本化进 `agent-mobile-app/scripts/`。
+9. **仓库根的历史遗留目录 `src/`（设计期源码）、`showcase/`（静态原型）、`showcase2/`（Showcase 应用）已于 2026-09-27 删除**（showcase2 设计已移植进 `agent-mobile-app`，其余淘汰；需要时查 git 历史）。运行态代码只在 `agent-mobile-app/`。
 10. **图片/PDF 一律走 vision-reader 子代理，主模型禁止直接 `read` 图片或 PDF 文件路径**：主模型 `deepseek-v4-flash`（volcengine-plan）不支持图片输入，直接 `read` 会把图片带进请求历史，服务端每次返回 `Model do not support image input`，导致对话卡死在重复报错。读图时只把文件路径交给 vision-reader（`task` + `subagent_type: "vision-reader"`），主模型请求里绝不携带图片附件。
 
 ## BROWSER AUTOMATION (Playwright)

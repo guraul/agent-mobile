@@ -1,6 +1,6 @@
 # Agent Mobile 项目知识库 · 索引总览
 
-> 最后更新：2026-09-21 · commit：`feat/companion-ui-migration`（Companion UI Migration：单表面导航取代 4-tab；Pulse 重写为 AI briefing）
+> 最后更新：2026-09-27 · commit：仓库瘦身（删除设计期 `src/`、`showcase/`、`showcase2/`——showcase2 设计已移植进主应用；test/ 不再入库；redesign 历史文档归档至 `docs/redesign/archive/`）
 > 维护：见 [CONVENTIONS.md](CONVENTIONS.md)「知识库维护约定」
 
 ## 使用说明
@@ -20,11 +20,11 @@
 | 构建/部署/预览/测试 | OPERATIONS.md |
 | 改代码前的红线与坑 | CONVENTIONS.md |
 | **产品语义（冻结基线）** | `docs/redesign/PRODUCT_MODEL.md` |
-| **Companion UI 迁移锁定决策（D1-D9）** | `docs/redesign/PRODUCTION_UI_MIGRATION_MAPPING.md` |
-| **视觉语言参考（Strategy B 来源）** | `showcase2/SHOWCASE2_VISUAL_SPEC.md` |
+| **Companion UI 迁移锁定决策（D1-D9）** | `docs/redesign/archive/PRODUCTION_UI_MIGRATION_MAPPING.md` |
+| **视觉语言参考（Strategy B 来源）** | Showcase2 已并入主应用并删除；原 `SHOWCASE2_VISUAL_SPEC.md` 见 git 历史 |
 | **最终架构 / canonical / authority / 恢复语义** | `docs/redesign/FINAL_ARCHITECTURE.md` |
-| **MVP 验收结论与 known gaps** | `docs/redesign/MVP_ACCEPTANCE.md` |
-| **Phase 9–13 设计与实现记录** | `docs/redesign/PHASE{9,10,11,12,13}_*.md` |
+| **MVP 验收结论与 known gaps** | `docs/redesign/archive/MVP_ACCEPTANCE.md` |
+| **Phase 9–13 设计与实现记录** | `docs/redesign/archive/PHASE{9,10,11,12,13}_*.md` |
 
 ## 项目定位
 
@@ -33,7 +33,7 @@
 由 Header（orb+status+Settings）/ Hero / Featured（≤1 attention）/ Supporting（≤4 行，NEEDS YOU→SUGGESTED→RUNNING→MARKET）/
 Noticed（≤5）+ 底部 Conversation Entry 组成；Talk / Attention 详情 / Responsibilities / KB 阅读是 contextual stack 路由；
 Settings（连接/账号/BFF 地址/model 偏好）/ Memory / Knowledge / Fund 详情是 contextual sheet。
-产品语义唯一来源 `docs/redesign/PRODUCT_MODEL.md`（冻结）；迁移锁定决策见 `docs/redesign/PRODUCTION_UI_MIGRATION_MAPPING.md`。
+产品语义唯一来源 `docs/redesign/PRODUCT_MODEL.md`（冻结）；迁移锁定决策见 `docs/redesign/archive/PRODUCTION_UI_MIGRATION_MAPPING.md`。
 
 ## 核心功能清单
 
@@ -41,9 +41,9 @@ Settings（连接/账号/BFF 地址/model 偏好）/ Memory / Knowledge / Fund �
 |---|---|---|
 | Pulse 根界面（Header/Hero/Featured ≤1/Supporting ≤4/Noticed ≤5/Conversation Entry；单表面无 tab） | pulse-stream | `agent-mobile-app/src/app/index.tsx` |
 | AI 在场（orb/状态文字，唯一发光元素） | pulse-stream | `agent-mobile-app/src/components/pulse/AIOrb.tsx` + `AIStatus.tsx` |
-| Featured / Supporting / Noticed 行组件 | pulse-stream | `agent-mobile-app/src/components/pulse/FeaturedAttention.tsx` / `SupportingRow.tsx` / `NoticedRow.tsx` |
-| 底部对话入口（胶囊输入 → /talk） | pulse-stream | `agent-mobile-app/src/components/pulse/ConversationEntry.tsx` |
-| Contextual sheets（Settings/Memory/Knowledge/Fund/List/NoticedDetail） | pulse-stream | `agent-mobile-app/src/components/pulse/*Sheet.tsx` |
+| Featured / Supporting / Noticed 行组件 | pulse-stream | `agent-mobile-app/src/components/pulse/FeaturedItem.tsx` / `SupportingList.tsx` / `PulseNoticed.tsx`（动作原子 `ActionChips.tsx`） |
+| 底部对话入口（胶囊 + 圆钮 Pressable → /talk，非 TextInput） | pulse-stream | `agent-mobile-app/src/components/pulse/ConversationEntry.tsx` |
+| Contextual sheets（Settings/Memory/Knowledge/Fund/List/Detail） | pulse-stream | `agent-mobile-app/src/components/pulse/*Sheet.tsx` |
 | 项目状态聚合（running/idle + SSE 实时） | pulse-stream | `agent-mobile-app/src/hooks/useProjectEvents.ts` |
 | 基金行情订阅（L1 presentation：`/api/product/l1` + `/api/product/l1/stream`） | pulse-stream | `agent-mobile-app/src/hooks/useL1.ts` + `services/l1.ts` |
 | 项目状态判定纯函数 | services | `agent-mobile-app/src/services/project-status.ts` |
@@ -111,14 +111,10 @@ agent-mobile/                                  # git 根仓库
 │   │   └── DESIGN*.md / REVIEW*.md / SHOWCASE*.md  # 历史设计/评审（仅参考）
 │   └── redesign/                             # ★ MVP 语义与架构文档（PRODUCT_MODEL 冻结）
 │       ├── PRODUCT_MODEL.md                  # 冻结产品语义基线（唯一语义来源）
-│       ├── FINAL_ARCHITECTURE.md / MVP_ACCEPTANCE.md / BACKLOG.md / IMPLEMENTATION_MODEL.md
-│       └── PHASE{1,5,9..13}_*.md             # 各阶段设计/实现/审计报告
-├── src/                                       # 设计期 RN 源码（React/TSX，无 package.json，非运行态）
-│   ├── components/  screens/  theme/
-├── showcase/                                  # 静态 HTML UI 原型（浏览器打开 index.html）
-├── showcase2/                                 # Showcase2 视觉参考（Strategy B 来源；独立部署于 9928）
-│   ├── SHOWCASE2_VISUAL_SPEC.md              # 视觉语言规范
-│   └── SHOWCASE2_IMPLEMENTATION.md           # 实现参考
+│       ├── FINAL_ARCHITECTURE.md / BACKLOG.md / IMPLEMENTATION_MODEL.md / Warm_AI_Companion.md
+│       └── archive/                          # 已完结阶段文档（PHASE{1,5,9..13}_*、审计/报告、迁移映射等）
+├── test/                                     # 临时测试脚本/截图/日志（gitignore，不入库）
+├── docs/newdesign/                           # ★ 新设计文档与 HTML 视觉稿（用户活跃编辑中）
 └── agent-mobile-app/                          # ★ 当前活跃的 Expo 应用
     ├── app.json / eas.json                    # EAS + 应用配置
     ├── package.json                           # 依赖（见技术栈表）
@@ -145,7 +141,7 @@ agent-mobile/                                  # git 根仓库
         └── theme/                             # colors/typography/spacing/radius/motion/icons/shadows
 ```
 
-> **9928 端口现状**：当前由 showcase2 占用（systemd `showcase2-9928.service`）。
+> **9928 端口现状**：当前由 showcase2 占用（systemd `showcase2-9928.service`；其源码已从仓库删除，服务器上的服务仍在运行，待 pipeline 阶段退役）。
 > `agent-mobile-app/scripts/serve-static.mjs` 端口硬编码 9928，跑生产 dist 前需先停 showcase2 服务。
 
 ## 模块依赖关系

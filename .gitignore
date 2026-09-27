@@ -2,4 +2,4 @@
 session.md
 *.local
 .worktrees/
-test/download/
+test/

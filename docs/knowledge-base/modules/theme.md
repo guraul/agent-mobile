@@ -5,7 +5,7 @@
 ## 模块职责
 
 全部视觉令牌：颜色、字体、间距、圆角、动效、图标、阴影。暗色系（canvas `#0B0A10`）。
-视觉语言来源：`showcase2/SHOWCASE2_VISUAL_SPEC.md`（Strategy B：语言进 theme/components，非整体拷贝）。
+视觉语言来源：Showcase2（Strategy B：语言进 theme/components，非整体拷贝）。原 `showcase2/SHOWCASE2_VISUAL_SPEC.md` 已随目录删除，需要时查 git 历史。
 
 ## 入口文件
 

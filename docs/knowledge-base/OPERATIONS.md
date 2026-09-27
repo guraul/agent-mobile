@@ -1,6 +1,6 @@
 # OPERATIONS.md —— 构建与运维
 
-> 最后更新：2026-09-21 · commit：`feat/companion-ui-migration`（Companion UI Migration 部署说明：9928 现由 showcase2 占用；导出路由清单变化）
+> 最后更新：2026-09-27 · commit：仓库瘦身（showcase2 源码已删除，设计并入主应用；9928 端口现状说明更新）
 
 ## 环境变量清单
 
@@ -33,7 +33,7 @@ pnpm install               # 包管理器统一用 pnpm
 pnpm start                 # expo start（交互式，可选 --tunnel 供手机 Expo Go 扫码）
 ```
 
-依赖版本约束：Node 24、Expo SDK 57（`npx expo install` 安装依赖保证版本匹配）。
+依赖版本约束：Node 24.21.0（仓库根 `.nvmrc` 已锁定，`nvm use` 即可；两个 package.json 的 `engines` 均要求 `>=24.21.0`）、Expo SDK 57（`npx expo install` 安装依赖保证版本匹配）。
 
 ### BFF（family-finance）
 
@@ -77,7 +77,7 @@ node test/bff-e2e.mjs      # 登录 → 横幅消失 → 打开项目 → 动态
 
 ## Web 预览部署（手机浏览器，静态产物）
 
-> **9928 端口现状（2026-09-21）**：当前由 **showcase2** 占用（systemd `showcase2-9928.service`）。
+> **9928 端口现状（2026-09-21）**：当前由 **showcase2** 占用（systemd `showcase2-9928.service`；showcase2 源码已从仓库删除——设计已移植进主应用，服务器上的服务仍在运行，待 pipeline 阶段退役）。
 > 部署生产应用需先 `systemctl stop showcase2-9928.service`，再用 `agent-mobile-app/scripts/serve-static.mjs`
 > （端口硬编码 9928）或 systemd `serve-9928.service`（已 disable）。
 > **BFF CORS 允许列表只放行 9928 的三个 origin**（`106.13.181.13`/`127.0.0.1`/`localhost`，见 family-finance `lib/cors.ts`），
