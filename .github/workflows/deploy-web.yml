@@ -1,0 +1,68 @@
+name: deploy-web
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'agent-mobile-app/**'
+      - '.github/workflows/deploy-web.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-web
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.21.0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12
+
+      - name: Install
+        working-directory: agent-mobile-app
+        run: pnpm install --frozen-lockfile
+
+      - name: Quality gates (tsc + vitest)
+        working-directory: agent-mobile-app
+        run: |
+          pnpm exec tsc --noEmit
+          pnpm test
+
+      - name: Export web bundle
+        working-directory: agent-mobile-app
+        env:
+          EXPO_PUBLIC_OPENCODE_URL: http://106.13.181.13:19234
+        run: pnpm exec expo export --platform web --clear
+
+      - name: Setup deploy key
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+      - name: Upload release, flip symlink, restart
+        run: |
+          RELEASE="run-${GITHUB_RUN_ID}-${GITHUB_SHA::7}"
+          WEB=/root/project/agent-mobile/agent-mobile-app
+          SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new root@106.13.181.13"
+          rsync -az --delete -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new" \
+            agent-mobile-app/dist/ "root@106.13.181.13:${WEB}/releases/${RELEASE}/"
+          $SSH "cd ${WEB} \
+            && ln -sfn releases/${RELEASE} dist \
+            && systemctl restart serve-9928 \
+            && cd releases && ls -1dt */ | tail -n +6 | xargs -r rm -rf"
+
+      - name: Verify production
+        run: |
+          sleep 2
+          CODE=$(curl -s -m 10 -o /dev/null -w '%{http_code}' http://106.13.181.13:9928/)
+          echo "9928 -> $CODE"
+          if [ "$CODE" != "200" ]; then echo "::error::线上验证失败: $CODE"; exit 1; fi

@@ -12,14 +12,16 @@
 3. 开发          cd 到 worktree 内开发；提交信息建议带 #<issue号>
 4. 开 PR         （在 worktree 内）scripts/pipeline/open-pr.sh
                  → 自动推送 + 开 PR，body 首行 Closes #<issue号>
-5. review        CI 过（tsc + vitest）+ 人工确认 → squash merge
+5. review        CI 过（tsc + vitest）+ **review 约定**（见下）→ squash merge
                  → 合并自动关闭 issue，并触发自动部署
 6. 自动部署      GitHub Actions：tsc/test → expo export → rsync → restart serve-9928
                  手动兜底: scripts/pipeline/deploy.sh（参数见下）
-7. 回滚          scripts/pipeline/rollback.sh
+7. 回滚          scripts/pipeline/rollback.sh（releases 任意秒切）
 ```
 
-规则：**merge 是人在环的最后一步**（agent 可以准备好 PR，合并需用户确认）；发版只由 `agent-mobile-app/**` 变更触发；BFF 走它自己仓库的 pipeline。
+规则：发版只由 `agent-mobile-app/**` 变更触发；BFF 走它自己仓库的 pipeline。
+
+**review 约定（人在环的唯一一步）**：agent 完成开发并开 PR 后，向用户询问"review 是否完成"；**用户回复 ok** 后，agent 运行 `merge-pr.sh` 执行 squash 合并（合并即触发自动部署）。除该确认外，从 issue 到部署全程自动化。
 
 ## 二、脚本用法
 
@@ -31,14 +33,20 @@ scripts/pipeline/new-task.sh 12
 # 开 PR（在 worktree 目录内运行）
 cd .worktrees/12-xxx && ../../scripts/pipeline/open-pr.sh
 
+# 合并（用户 review 通过后；在 worktree 内或指定 PR 号）
+scripts/pipeline/merge-pr.sh            # 自动识别当前分支的 PR
+scripts/pipeline/merge-pr.sh 34         # 指定 PR 号
+scripts/pipeline/merge-pr.sh --force    # CI 失败时强行合并（慎用）
+#   合并动作：squash merge → 删远端/本地分支 → 清理 worktree → 主工作区快进
+
 # 手动部署兜底（Actions 不可用时；质量门槛默认开启）
-scripts/pipeline/deploy.sh                 # tsc + test → export → rsync → restart → 验证
+scripts/pipeline/deploy.sh                 # tsc + test → export → rsync releases/<id> → 切软链 → restart → 验证
 scripts/pipeline/deploy.sh --skip-tests    # 紧急跳过测试
-scripts/pipeline/deploy.sh --with-bff      # 顺带触发 BFF pipeline（Phase 2 接入）
+scripts/pipeline/deploy.sh --with-bff      # 顺带触发 BFF pipeline
 scripts/pipeline/deploy.sh --dry-run       # 只打印将执行的命令
 
-# 回滚上一版（与 deploy.sh 的 dist.prev 快照配合）
-scripts/pipeline/rollback.sh [--dry-run]
+# 回滚（releases 任意版本秒切；无参数 = 回到上一版）
+scripts/pipeline/rollback.sh [release-id] [--dry-run]
 
 # 全链路状态（只读）
 scripts/pipeline/status.sh
