@@ -134,10 +134,18 @@ describe("buildAssignmentGroups", () => {
 
 describe("formatRelative", () => {
   const now = Date.parse("2026-09-07T10:00:00+08:00");
+  // formatRelative 用运行环境的本地时区渲染 HH:mm，期望值必须随时区推导（CI 为 UTC），
+  // 否则重蹈 run 36318236966 的时区依赖失败。today/tomorrow 前缀在这些时间点上与时区无关。
+  const hhmm = (e: number) => {
+    const d = new Date(e);
+    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  };
   it("today", () => {
-    expect(formatRelative(Date.parse("2026-09-07T14:50:00+08:00"), now)).toBe("today 14:50");
+    const e = Date.parse("2026-09-07T14:50:00+08:00");
+    expect(formatRelative(e, now)).toBe(`today ${hhmm(e)}`);
   });
   it("tomorrow", () => {
-    expect(formatRelative(Date.parse("2026-09-08T14:50:00+08:00"), now)).toBe("tomorrow 14:50");
+    const e = Date.parse("2026-09-08T14:50:00+08:00");
+    expect(formatRelative(e, now)).toBe(`tomorrow ${hhmm(e)}`);
   });
 });

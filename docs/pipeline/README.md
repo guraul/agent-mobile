@@ -33,7 +33,8 @@ scripts/pipeline/new-task.sh 12
 # 开 PR（在 worktree 目录内运行）
 cd .worktrees/12-xxx && ../../scripts/pipeline/open-pr.sh
 
-# 合并（用户 review 通过后；在 worktree 内或指定 PR 号）
+# 合并（用户 review 通过后；⚠️ 必须从主工作区运行或先 cd 出 worktree——
+#   merge-pr.sh 会删除 worktree，shell 停在里面会被连根带走）
 scripts/pipeline/merge-pr.sh            # 自动识别当前分支的 PR
 scripts/pipeline/merge-pr.sh 34         # 指定 PR 号
 scripts/pipeline/merge-pr.sh --force    # CI 失败时强行合并（慎用）

@@ -79,11 +79,14 @@ GitHub Issue/Card（任务入口）
 - [ ] Projects board + issue #1 挂板（Status: In Progress）——等待 gh token 补 `project` scope（`gh auth refresh -s project,read:project`）
 - [ ] 用户 review 本 PR → squash merge → 首次 Actions 自动部署验证（进入阶段 3）
 
-### ⏳ 阶段 3：端到端演练（未开始）
+### 🔨 阶段 3：端到端演练（进行中）
 
-- [ ] 全流程演练：真实 issue → worktree → PR → review → merge → 自动部署 → 线上验证
-- [ ] 回滚演练一次
+- [x] 事件复盘：PR #2 merge 触发首次 deploy-web（run 36318236966）——push 触发 ✓、质量门拦截 ✓、issue #1 自动关闭 ✓、服务器未被触碰 ✓；vitest 失败根因 = `projection.test.ts` 硬编码 +08:00 期望（CI 为 UTC）
+- [x] 修复 issue [#3](https://github.com/guraul/agent-mobile/issues/3)：期望值随时区推导（本 PR）；worktree 内 tsc + 129 测试全过，`TZ=UTC` 单跑该文件 14/14 过（模拟 CI 条件）
+- [ ] PR review → merge → deploy-web 转绿 + 服务器 releases/run-* 与 9928 验证
+- [ ] 回滚演练一次（rollback.sh 对真实 releases 秒切）
 - [ ] BFF `next dev` → `next build + next start` 生产化
+- [ ] Projects board 建板挂卡（gh project scope 已生效）
 - [ ] 手册/知识库终稿核对
 
 ## 四、变更记录
@@ -93,3 +96,4 @@ GitHub Issue/Card（任务入口）
 | 2026-09-27 | 建档：记录阶段 0/S 完成情况与全部决策 D1-D8 |
 | 2026-09-27 | 阶段 1 开工 |
 | 2026-09-27 | 阶段 1 完成：6 脚本 + 手册 + 路由实测通过；issue #1（Phase 2 任务）已建 |
+| 2026-09-27 | 阶段 2 完成（PR #2 merged cf10139）；首次 deploy-web 被时区测试拦截（流程按设计工作）；阶段 3 开工，issue #3 修复时区依赖（本 PR） |
