@@ -75,8 +75,8 @@ GitHub Issue/Card（任务入口）
 - [x] `scripts/pipeline/deploy.sh` 升级为 releases 布局（rsync 到 releases/manual-<ts> → 切软链 → 保留 5 版）
 - [x] `scripts/pipeline/rollback.sh` 升级为任意 release 秒切（对真实服务器演练：正确列出 legacy-20260927 并拒绝无上一版回滚）
 - [x] 部署专用 SSH 密钥对（ed25519，仅 Actions→服务器）→ 服务器 authorized_keys + 两仓库 `DEPLOY_SSH_KEY` Secrets；本地临时私钥已删除
-- [ ] `family-finance` 仓库 `deploy.yml`（main push 自主部署：服务器 git fetch + pnpm install + restart bff-19234）
-- [ ] Projects board + issue #1 挂板（Status: In Progress）
+- [x] `family-finance` 仓库 `deploy.yml`（main push 自主部署：服务器 git fetch + pnpm install + restart bff-19234 + 健康检查）——**已推送并实测通过**（首次运行 1m35s，服务器 checkout 已由 Actions 同步至 `ed3fce5`，bff-19234 active）
+- [ ] Projects board + issue #1 挂板（Status: In Progress）——等待 gh token 补 `project` scope（`gh auth refresh -s project,read:project`）
 - [ ] 用户 review 本 PR → squash merge → 首次 Actions 自动部署验证（进入阶段 3）
 
 ### ⏳ 阶段 3：端到端演练（未开始）
