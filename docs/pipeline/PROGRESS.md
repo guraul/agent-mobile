@@ -68,14 +68,16 @@ GitHub Issue/Card（任务入口）
 - [x] 实测：6 个脚本语法检查全过；`status.sh` 全链路实跑 ✓；`new-task.sh` 用真实 issue #1 演练 ✓（建/删 worktree 幂等）；`deploy.sh --dry-run` 序列核对 ✓
 - 备注：`open-pr.sh` 将在阶段 2/3 的真实 PR 流程中首次实跑；issue [#1](https://github.com/guraul/agent-mobile/issues/1) 已创建，即 Phase 2 的正式任务
 
-### ⏳ 阶段 2：CI/CD（未开始）
+### 🔨 阶段 2：CI/CD（进行中，本 PR）
 
-- [ ] `deploy-web.yml`（main push + paths `agent-mobile-app/**`：tsc/test → expo export → rsync → 原子切换 → restart）
-- [ ] 服务器 releases/<id> + current 软链布局（unit 指向 current，回滚=切软链）
-- [ ] `family-finance` 仓库 `deploy.yml`（main push 自主部署）
-- [ ] 部署专用 SSH 密钥对 + GitHub Secrets（不重用个人钥匙）
-- [ ] Projects board（Backlog/In progress/Review/Done）+ issue #1 挂板
-- [ ] concurrency 锁防并发部署
+- [x] 服务器 releases/<id> 软链布局过渡完成：`dist → releases/legacy-20260927`（硬链接快照，线上无中断验证 200）
+- [x] `.github/workflows/deploy-web.yml`（main push + paths `agent-mobile-app/**`：tsc/test → expo export → rsync → 切软链 → restart → 线上验证；concurrency 锁；workflow_dispatch 手动入口）
+- [x] `scripts/pipeline/deploy.sh` 升级为 releases 布局（rsync 到 releases/manual-<ts> → 切软链 → 保留 5 版）
+- [x] `scripts/pipeline/rollback.sh` 升级为任意 release 秒切（对真实服务器演练：正确列出 legacy-20260927 并拒绝无上一版回滚）
+- [x] 部署专用 SSH 密钥对（ed25519，仅 Actions→服务器）→ 服务器 authorized_keys + 两仓库 `DEPLOY_SSH_KEY` Secrets；本地临时私钥已删除
+- [ ] `family-finance` 仓库 `deploy.yml`（main push 自主部署：服务器 git fetch + pnpm install + restart bff-19234）
+- [ ] Projects board + issue #1 挂板（Status: In Progress）
+- [ ] 用户 review 本 PR → squash merge → 首次 Actions 自动部署验证（进入阶段 3）
 
 ### ⏳ 阶段 3：端到端演练（未开始）
 

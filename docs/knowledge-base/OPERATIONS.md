@@ -75,22 +75,27 @@ node test/bff-e2e.mjs      # 登录 → 横幅消失 → 打开项目 → 动态
 
 - 构建注入 BFF 地址：`EXPO_PUBLIC_OPENCODE_URL=http://127.0.0.1:19235 pnpm exec expo export --platform web --clear`（**必须 `--clear`**，否则 env 不注入）。
 
-## Web 预览部署（手机浏览器，静态产物）
+## Web 部署（手机浏览器，静态产物）
 
-> **9928 端口现状（2026-09-27 起）**：由 systemd `serve-9928.service` 托管 **agent-mobile-app 静态版**（enabled 开机自启；showcase2-9928.service 已删除退役）。
-> 重新部署 = 重跑 export 覆盖 `agent-mobile-app/dist` + `systemctl restart serve-9928`（server 上目录 `/root/project/agent-mobile/agent-mobile-app`）。
+> **部署方式（2026-09-27 起，Pipeline Phase 2）**：**主路径 = GitHub Actions 自动部署**（`.github/workflows/deploy-web.yml`：main push 且 `agent-mobile-app/**` 变更 → tsc/test → expo export → rsync → 切软链 → restart → 线上验证）。
+> **手动兜底** = `scripts/pipeline/deploy.sh`；**回滚** = `scripts/pipeline/rollback.sh`（releases 任意秒切）。手册见 `docs/pipeline/README.md`。
+>
+> **服务器布局**：`/root/project/agent-mobile/agent-mobile-app/` 下 `releases/<id>/` 为产物目录（保留最近 5 版），`dist` 是指向当前版本的软链；`serve-9928.service` 托管（enabled 开机自启），重启才刷新 gzipCache。
 > **BFF CORS 允许列表只放行 9928 的三个 origin**（`106.13.181.13`/`127.0.0.1`/`localhost`，见 family-finance `lib/cors.ts`），
 > 静态版换端口浏览器端会全被 CORS 拦——所以换端口前必须先改 BFF CORS 允许列表。
 
 ```bash
-cd agent-mobile-app
-pnpm exec expo export --platform web --clear   # 产出 dist/（index/talk/memory/me/assignments.html 等；--clear 必须，否则 env 不注入）
-# 服务器侧：rsync dist → /root/project/agent-mobile/agent-mobile-app/dist 后 systemctl restart serve-9928
+# 自动部署：merge 到 main 即触发（actions 页面可见进度），无需手动操作
+# 手动兜底 / 本地验证：
+scripts/pipeline/deploy.sh --dry-run   # 预演命令序列
+scripts/pipeline/deploy.sh             # tsc + test → export(--clear) → rsync releases/manual-<ts> → 切软链 → restart
+scripts/pipeline/rollback.sh           # 回滚到上一版 / 指定 release
+scripts/pipeline/status.sh             # 全链路状态
 ```
 
-- 服务地址：`http://<公网IP>:9928`（公网 IP 参考 `curl ifconfig.me`）
-- serve-static.mjs 特性：gzip（bundle 3MB→0.5MB）、`Cache-Control: no-store`（防浏览器缓存）
-- **重新部署 = 重跑 export + 重启服务**：`pnpm exec expo export --platform web --clear` 后**必须**重启服务（`systemctl restart serve-9928`）。`gzipCache` 按路径缓存 gzipped 字节，dist 文件覆盖后仍返回旧 bundle——`Cache-Control: no-store` 只防浏览器缓存，防不了服务端 gzipCache（见 CONVENTIONS）
+- 服务地址：`http://106.13.181.13:9928`（Pulse 首页在 /；/memory /me 重定向到 /）
+- serve-static.mjs 特性：gzip（bundle 3MB→0.5MB）、`Cache-Control: no-store`（防浏览器缓存）；ROOT 硬编码指向 dist（软链可穿透）
+- **gzipCache 陷阱**：任何方式替换产物后**必须** `systemctl restart serve-9928`（deploy.sh / workflow 已内置）——`gzipCache` 按路径缓存 gzipped 字节，不重启返回旧 bundle（见 CONVENTIONS）
 - 进程管理（2026-09-27 全部收编 systemd，均 enabled 开机自启）：`serve-9928.service`（主应用静态版）/ `bff-19234.service`（family-finance BFF）/ `opencode-4096.service`（opencode server）。服务器 node = v24.21.0（nodesource apt）。
 
 ## Expo Go 真机预览（备用方案，9928 端口）
