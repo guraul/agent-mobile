@@ -79,15 +79,16 @@ GitHub Issue/Card（任务入口）
 - [ ] Projects board + issue #1 挂板（Status: In Progress）——等待 gh token 补 `project` scope（`gh auth refresh -s project,read:project`）
 - [ ] 用户 review 本 PR → squash merge → 首次 Actions 自动部署验证（进入阶段 3）
 
-### 🔨 阶段 3：端到端演练（进行中）
+### ✅ 阶段 3：端到端演练（2026-09-27 完成）
 
 - [x] 事件复盘：PR #2 merge 触发首次 deploy-web（run 36318236966）——push 触发 ✓、质量门拦截 ✓、issue #1 自动关闭 ✓、服务器未被触碰 ✓；vitest 失败根因 = `projection.test.ts` 硬编码 +08:00 期望（CI 为 UTC）
-- [x] 修复 issue [#3](https://github.com/guraul/agent-mobile/issues/3)：期望值随时区推导（本 PR）；worktree 内 tsc + 129 测试全过，`TZ=UTC` 单跑该文件 14/14 过（模拟 CI 条件）
-- [ ] PR review → merge → deploy-web 转绿 + 服务器 releases/run-* 与 9928 验证
-- [ ] 回滚演练一次（rollback.sh 对真实 releases 秒切）
-- [ ] BFF `next dev` → `next build + next start` 生产化
-- [ ] Projects board 建板挂卡（gh project scope 已生效）
-- [ ] 手册/知识库终稿核对
+- [x] 修复 issue [#3](https://github.com/guraul/agent-mobile/issues/3)（PR #4 merged）：期望值随时区推导；`TZ=UTC` 单跑 14/14 过（模拟 CI 条件）
+- [x] **deploy-web 首次全绿**（run 36321209576，10 步全过）：线上 release `run-36321209576-1d82c41`，外部 9928=200
+- [x] 回滚演练：rollback.sh 切回 legacy-20260927（200）→ 指定切回新版（200），秒级切换
+- [x] Projects board："Agent Mobile Delivery"（project #1）建成，issue #3 挂 In Progress；默认三列 Todo/In Progress/Done（GraphQL 不支持改选项，加列需网页设置）
+- [x] **BFF 生产化**（family-finance issue #2，PR #3/#4/#5）：next dev → next build + next start。三次失败复盘：① 逐文件 rsync 传 91M 的 .next（86M 是 webpack cache）断连 → 改 tar 排除 cache + 重试；② 服务器 pnpm install --prod 无 TTY 中止 → CI=true；③ BUILD_ID 解压后消失（机制未定）→ 依赖安装挪到产物解压之前（PR #5）。期间生产由手工恢复并保持 307，内存 1.1Gi→726Mi
+- [x] 手册补 merge-pr.sh 必须从主工作区运行的警告（worktree 曾被连根删除卡死会话）
+- [ ] family-finance PR #5（顺序修复）merge 后自动重跑一次，确认顺序修复后的首次全自动生产部署
 
 ## 四、变更记录
 
@@ -97,3 +98,4 @@ GitHub Issue/Card（任务入口）
 | 2026-09-27 | 阶段 1 开工 |
 | 2026-09-27 | 阶段 1 完成：6 脚本 + 手册 + 路由实测通过；issue #1（Phase 2 任务）已建 |
 | 2026-09-27 | 阶段 2 完成（PR #2 merged cf10139）；首次 deploy-web 被时区测试拦截（流程按设计工作）；阶段 3 开工，issue #3 修复时区依赖（本 PR） |
+| 2026-09-27 | 阶段 3 完成：deploy-web 全绿、回滚演练通过、board 建成、BFF 生产化落地（merge-pr.sh 自 merge-pr.sh #4 起均从主工作区执行） |
