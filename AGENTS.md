@@ -46,7 +46,7 @@
 4. **勿移除打字机限速 / FlatList `extraData`**：`revealChars` 逐字揭示依赖 `extraData={revealChars}`，移除会导致整块弹出；轮询兜底与打字机冲突，勿同时启用。
 5. **勿改组件硬编码颜色/字号/间距**：必须走 `src/theme/`，否则破坏主题一致性。勿改 `StatusType` 取值集合。
 6. **敏感凭据不入库**：`EXPO_TOKEN`、`EXPO_PUBLIC_OPENCODE_*`（BFF 侧）等不写入代码/文档/提交。手机端不持有 opencode 凭证。
-7. **9928 端口归属（2026-09-21 起）**：9928 当前由 **showcase2** 占用（systemd `showcase2-9928.service`；showcase2 源码已从仓库删除——设计已移植进主应用，git 历史可查，服务器上的服务仍在运行待 pipeline 阶段退役）。部署生产应用需先 `systemctl stop showcase2-9928.service` 让出端口，再用 `agent-mobile-app/scripts/serve-static.mjs`（端口硬编码 9928）或 `serve-9928.service`（已 disable）。部署流程 = `pnpm exec expo export --platform web --clear`（`--clear` 必须，否则 env 不注入）→ 重启服务（gzipCache 会缓存旧 bundle，不重启则改动"没生效"）。若切回 Expo Go Metro（`expo-metro-9928`），改代码热重载无需重建。**BFF CORS 允许列表只放行 9928 的三个 origin**（见 `family-finance lib/cors.ts`），静态版换端口会全被 CORS 拦——换端口前必须先改 BFF CORS。
+7. **9928 端口归属（2026-09-27 起）**：9928 由 systemd **`serve-9928.service`** 托管 **agent-mobile-app 静态版**（enabled 开机自启；showcase2-9928.service 已删除退役，其设计已移植进主应用）。部署流程 = `pnpm exec expo export --platform web --clear`（`--clear` 必须，否则 env 不注入）→ 产物放服务器 `agent-mobile-app/dist` → `systemctl restart serve-9928`（gzipCache 会缓存旧 bundle，不重启则改动"没生效"）。若切回 Expo Go Metro（`expo-metro-9928`，disabled 备用），改代码热重载无需重建。**BFF CORS 允许列表只放行 9928 的三个 origin**（见 `family-finance lib/cors.ts`），静态版换端口会全被 CORS 拦——换端口前必须先改 BFF CORS。
 8. **临时测试脚本 / 截图 / 日志统一放仓库根 `test/` 目录**，勿散落 /tmp。`test/` 已加入 `.gitignore` 不入库，需要留存的结果写进知识库或脚本化进 `agent-mobile-app/scripts/`。
 9. **仓库根的历史遗留目录 `src/`（设计期源码）、`showcase/`（静态原型）、`showcase2/`（Showcase 应用）已于 2026-09-27 删除**（showcase2 设计已移植进 `agent-mobile-app`，其余淘汰；需要时查 git 历史）。运行态代码只在 `agent-mobile-app/`。
 10. **图片/PDF 一律走 vision-reader 子代理，主模型禁止直接 `read` 图片或 PDF 文件路径**：主模型 `deepseek-v4-flash`（volcengine-plan）不支持图片输入，直接 `read` 会把图片带进请求历史，服务端每次返回 `Model do not support image input`，导致对话卡死在重复报错。读图时只把文件路径交给 vision-reader（`task` + `subagent_type: "vision-reader"`），主模型请求里绝不携带图片附件。
@@ -71,9 +71,9 @@ pnpm exec tsc --noEmit     # 类型检查
 pnpm e2e                   # Playwright E2E（含发消息，需确认）
 pnpm e2e:nosend            # E2E 跳过发消息步骤
 
-# Web 静态版（生产应用，9928 端口；当前 9928 由 showcase2 占用，需先停）
+# Web 静态版（生产应用，9928 端口；serve-9928.service 托管，见强制规定 7）
 EXPO_PUBLIC_OPENCODE_URL=http://106.13.181.13:19234 pnpm exec expo export --platform web --clear
-systemctl stop showcase2-9928.service   # 先让出 9928
+# 产物 dist/ 同步到服务器 /root/project/agent-mobile/agent-mobile-app/dist，然后：
 systemctl restart serve-9928            # 部署：gzipCache 需重启才生效（见强制规定 7）
 # 手机/电脑浏览器打开 http://106.13.181.13:9928（Pulse 首页在 /；/memory /me 重定向到 /）
 
@@ -82,4 +82,4 @@ systemctl start expo-metro-9928     # Metro dev server（9928，热重载）
 # 手机 Expo Go 手动输入 exp://106.13.181.13:9928
 ```
 
-**环境与端口**：手机/浏览器端走 BFF（`106.13.181.13:19234` 主 / `19235` 阶段2 worktree）；opencode server `127.0.0.1:4096`（仅 BFF 本机可达）；9928 静态服务（现由 showcase2 占用，BFF CORS 只放行 9928 三个 origin）。BFF 代码在 `family-finance/` 仓库（独立 git）。
+**环境与端口**：手机/浏览器端走 BFF（`106.13.181.13:19234` 主，`bff-19234.service`；`19235` 阶段2 worktree，当前未运行）；opencode server `127.0.0.1:4096`（仅 BFF 本机可达，`opencode-4096.service`）；9928 静态服务（`serve-9928.service` 托管主应用，BFF CORS 只放行 9928 三个 origin）。服务器三个服务均已收编 systemd 且开机自启（2026-09-27）。BFF 代码在 `family-finance/` 仓库（独立 git，私有）。

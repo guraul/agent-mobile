@@ -141,8 +141,8 @@ agent-mobile/                                  # git 根仓库
         └── theme/                             # colors/typography/spacing/radius/motion/icons/shadows
 ```
 
-> **9928 端口现状**：当前由 showcase2 占用（systemd `showcase2-9928.service`；其源码已从仓库删除，服务器上的服务仍在运行，待 pipeline 阶段退役）。
-> `agent-mobile-app/scripts/serve-static.mjs` 端口硬编码 9928，跑生产 dist 前需先停 showcase2 服务。
+> **9928 端口现状**：由 `serve-9928.service` 托管 agent-mobile-app 静态版（2026-09-27 起 systemd 接管，开机自启；showcase2-9928.service 已删除）。
+> `agent-mobile-app/scripts/serve-static.mjs` 端口硬编码 9928；重新部署 = 覆盖 dist + `systemctl restart serve-9928`。
 
 ## 模块依赖关系
 
@@ -207,7 +207,7 @@ family-finance BFF (106.13.181.13:19234)，JWT，全部为 projection（canonica
 | 跑 E2E | `pnpm e2e` / `pnpm e2e:nosend`（见 OPERATIONS.md） |
 | 写临时测试脚本/存截图 | `agent-mobile/test/`（勿放 /tmp） |
 | 排查 opencode 机制（auto compact 等） | 源码在 `/root/project/opencode-src`（仓库外，含 .git 历史） |
-| 预览 web 版 | `pnpm exec expo export --platform web` + `scripts/serve-static.mjs`（端口 9928，需先停 showcase2 服务，见 OPERATIONS.md） |
+| 预览 web 版 | `pnpm exec expo export --platform web` + `scripts/serve-static.mjs`（端口 9928，`serve-9928.service` 托管，见 OPERATIONS.md） |
 | 打 APK | `eas build -p android --profile preview`（见 OPERATIONS.md） |
 | 下载/分发 APK | `eas build:download --build-id <id>` → 覆盖 `test/download/pulse.apk` → `apk-download-9928.service`（备用） |
 | 改应用元信息（包名/名称/主题色） | `agent-mobile-app/app.json` |

@@ -1,6 +1,6 @@
 # OPERATIONS.md —— 构建与运维
 
-> 最后更新：2026-09-27 · commit：仓库瘦身（showcase2 源码已删除，设计并入主应用；9928 端口现状说明更新）
+> 最后更新：2026-09-27 · commit：服务器整备——9928/BFF/opencode 全部收编 systemd（serve-9928 / bff-19234 / opencode-4096），showcase2-9928 退役，node 升至 24.21.0，磁盘 81%→77%
 
 ## 环境变量清单
 
@@ -77,23 +77,21 @@ node test/bff-e2e.mjs      # 登录 → 横幅消失 → 打开项目 → 动态
 
 ## Web 预览部署（手机浏览器，静态产物）
 
-> **9928 端口现状（2026-09-21）**：当前由 **showcase2** 占用（systemd `showcase2-9928.service`；showcase2 源码已从仓库删除——设计已移植进主应用，服务器上的服务仍在运行，待 pipeline 阶段退役）。
-> 部署生产应用需先 `systemctl stop showcase2-9928.service`，再用 `agent-mobile-app/scripts/serve-static.mjs`
-> （端口硬编码 9928）或 systemd `serve-9928.service`（已 disable）。
+> **9928 端口现状（2026-09-27 起）**：由 systemd `serve-9928.service` 托管 **agent-mobile-app 静态版**（enabled 开机自启；showcase2-9928.service 已删除退役）。
+> 重新部署 = 重跑 export 覆盖 `agent-mobile-app/dist` + `systemctl restart serve-9928`（server 上目录 `/root/project/agent-mobile/agent-mobile-app`）。
 > **BFF CORS 允许列表只放行 9928 的三个 origin**（`106.13.181.13`/`127.0.0.1`/`localhost`，见 family-finance `lib/cors.ts`），
 > 静态版换端口浏览器端会全被 CORS 拦——所以换端口前必须先改 BFF CORS 允许列表。
 
 ```bash
 cd agent-mobile-app
 pnpm exec expo export --platform web --clear   # 产出 dist/（index/talk/memory/me/assignments.html 等；--clear 必须，否则 env 不注入）
-systemctl stop showcase2-9928.service          # 让出 9928
-node scripts/serve-static.mjs                  # gzip + /→index.html + 无扩展名/[id].html 回退
+# 服务器侧：rsync dist → /root/project/agent-mobile/agent-mobile-app/dist 后 systemctl restart serve-9928
 ```
 
 - 服务地址：`http://<公网IP>:9928`（公网 IP 参考 `curl ifconfig.me`）
 - serve-static.mjs 特性：gzip（bundle 3MB→0.5MB）、`Cache-Control: no-store`（防浏览器缓存）
-- **重新部署 = 重跑 export + 重启服务**：`pnpm exec expo export --platform web --clear` 后**必须** `pkill -f serve-static.mjs && node scripts/serve-static.mjs` 重启。`gzipCache` 按路径缓存 gzipped 字节，dist 文件覆盖后仍返回旧 bundle——`Cache-Control: no-store` 只防浏览器缓存，防不了服务端 gzipCache（见 CONVENTIONS）
-- 进程管理：systemd 单元 `serve-9928.service`（已 disable）；恢复 `systemctl start serve-9928`。showcase2 的单元是 `showcase2-9928.service`。
+- **重新部署 = 重跑 export + 重启服务**：`pnpm exec expo export --platform web --clear` 后**必须**重启服务（`systemctl restart serve-9928`）。`gzipCache` 按路径缓存 gzipped 字节，dist 文件覆盖后仍返回旧 bundle——`Cache-Control: no-store` 只防浏览器缓存，防不了服务端 gzipCache（见 CONVENTIONS）
+- 进程管理（2026-09-27 全部收编 systemd，均 enabled 开机自启）：`serve-9928.service`（主应用静态版）/ `bff-19234.service`（family-finance BFF）/ `opencode-4096.service`（opencode server）。服务器 node = v24.21.0（nodesource apt）。
 
 ## Expo Go 真机预览（备用方案，9928 端口）
 
