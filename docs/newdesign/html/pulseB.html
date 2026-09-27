@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pulse B — current layout · Supporting card groups</title>
+<style>
+  /* ============================================================
+     Pulse B — 当前 agent-mobile Pulse 布局移植进 pulse.html 骨架。
+     方案 B：SupportingList 各语义微组包卡片
+     （Needs you 一张、Suggested 一张、Running+Market 合一张），
+     Noticed 用 ghost 虚线卡。dock 完全沿用 pulse.html（仅去字距）；
+     无 AIOrb，AIStatus 圆点 = pulse.html 右侧呼吸气泡（net-ball）。
+     字阶统一为 7 token：display 26/400 · page-title 24/700 · title 17/700 ·
+     body 15/400 · body-strong 15/600 · caption 12/400 · label 12/600，
+     全整数字号，无大写、无字距。
+     文案分层："needs you" 仅 Featured 独占（永远只有一件，无 lead 文字）；
+     整卡点击 → pulseB-review.html（Review/Discuss 动作收进详情页，
+     首页卡内不再放动作 chips）；授权职责与全部项目入口均不常驻首页
+     （用户决策 2026-09-26：Taking care/Duties/More projects 均已删，
+     改为 chat 内查询，chat 改版时讨论）；
+     在场文案 aiVoice 仅离线/全空渲染。
+     Supporting 合并为一张 Schedule 风格绿卡 "In motion"：绿底 #B2D7B5、
+     条目 #C8EBCB、组标签占时间位（11.5px #233323）、条目标题 14/600
+     #101710，字值取自 pulse.html Today's Schedule；组图标为 13px 线性
+     描边（eye/lightbulb/activity/trending-up，#233323），与日历图标同族。
+     所有数据为 mock；无后台连接。
+     ============================================================ */
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  :root {
+    --cream: #F7F5DC;
+    --green-card: #B2D7B5;
+    --green-inner: #C8EBCB;
+    --black: #0A0A0A;
+    --peach: #F3BA8F;
+    --text-gray: #9C9C9C;
+    --row-gray: #F0F0F0;
+    --ink: #0D0D0D;
+    --accent: #8B5CF6;
+    --accent-deep: #6D4FD8;
+    --amber: #E5A13A;
+    --green: #5CBB63;
+    --up-red: #E5484D;
+  }
+
+  body {
+    background: #000;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", "Segoe UI", Arial, sans-serif;
+    padding: 40px 0;
+  }
+
+  /* ===================== PHONE FRAME ===================== */
+  .phone {
+    position: relative;
+    width: 424px;
+    height: 884px;
+    background: #463E4B;
+    border-radius: 68px;
+    padding: 15px;
+    box-shadow:
+      0 0 0 2px #5C5262,
+      0 0 0 5px #2C262F,
+      0 30px 80px rgba(0,0,0,.9);
+    flex-shrink: 0;
+  }
+  .phone::before {
+    content: "";
+    position: absolute;
+    left: -6px; top: 190px;
+    width: 6px; height: 110px;
+    background: #3B3440;
+    border-radius: 3px 0 0 3px;
+    box-shadow: 0 132px 0 #3B3440;
+  }
+  .phone::after {
+    content: "";
+    position: absolute;
+    right: -6px; top: 260px;
+    width: 6px; height: 92px;
+    background: #3B3440;
+    border-radius: 0 3px 3px 0;
+  }
+
+  .screen {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: var(--cream);
+    border-radius: 54px;
+    overflow: hidden;
+    padding: 0 25px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .top-fixed { flex: none; }
+
+  .content {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    /* 顶部 14px：白卡贴住问候（渐隐收窄到 10px，白卡不受虚化影响） */
+    padding: 14px 0 128px;
+    scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0px, #000 10px, #000 calc(100% - 118px), transparent calc(100% - 24px));
+    mask-image: linear-gradient(to bottom, transparent 0px, #000 10px, #000 calc(100% - 118px), transparent calc(100% - 24px));
+  }
+  .content::-webkit-scrollbar { display: none; }
+
+  /* ===================== STATUS BAR ===================== */
+  .statusbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 50px;
+    padding-top: 6px;
+    position: relative;
+  }
+  .statusbar .time {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: .2px;
+    width: 70px;
+  }
+  .statusbar .icons {
+    width: 70px;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 5px;
+  }
+  .island {
+    position: absolute;
+    left: 50%; top: 12px;
+    transform: translateX(-50%);
+    width: 122px; height: 36px;
+    background: #000;
+    border-radius: 20px;
+  }
+  .island::after {
+    content: "";
+    position: absolute;
+    right: 10px; top: 50%;
+    transform: translateY(-50%);
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #2A2A3A 0%, #101018 45%, #000 100%);
+  }
+
+  /* ===================== APP HEADER =====================
+     当前 Header：左 AIOrb + AIStatus，中标题 "Pulse"。
+     （按需求：不放 Settings 齿轮）*/
+  .app-header {
+    margin-top: 10px;
+    height: 44px;
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  .header-left { display: flex; align-items: center; gap: 10px; }
+  .app-title {
+    position: absolute;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--ink);
+    user-select: none;
+  }
+
+  /* AIStatus — label token：12/600，与组标签同款，无大写无字距 */
+  .presence {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent-deep);
+  }
+  .presence .pdot {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: #5CBB63;
+    animation: net-breathe 2.4s ease-in-out infinite;
+  }
+  @keyframes net-breathe {
+    0%, 100% { transform: scale(1);    box-shadow: 0 0 0 0 rgba(92,187,99,.45); }
+    50%      { transform: scale(1.35); box-shadow: 0 0 0 6px rgba(92,187,99,0); }
+  }
+
+  /* ===================== PINNED HERO ===================== */
+  .greeting {
+    margin-top: 8px;
+    font-size: 26px;
+    line-height: 1.24;
+    font-weight: 400;
+    color: var(--ink);
+  }
+  /* aiVoice（在场层）——仅离线/全空时渲染；本稿有内容，故不出现 */
+  .ai-voice {
+    margin-top: 7px;
+    font-size: 15px;
+    line-height: 1.5;
+    color: #6F6F6F;
+  }
+
+  /* ===================== SHARED ATOMS ===================== */
+  .stack { display: flex; flex-direction: column; gap: 14px; }
+
+  .card { border-radius: 24px; padding: 13px; }
+  .card.white { background: #FFFFFF; }
+  .card.green { background: var(--green-card); }
+  .card.ghost { background: transparent; border: 1.5px dashed var(--green-card); }
+
+  .group-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #7C8577;
+    margin-bottom: 4px;
+  }
+
+  .dot { width: 6px; height: 6px; border-radius: 3px; flex-shrink: 0; }
+  .dot.amber  { background: var(--amber); }
+  .dot.violet { background: var(--accent); }
+  .dot.green  { background: var(--green); }
+
+  .chip {
+    height: 30px;
+    padding: 0 14px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid rgba(0,0,0,.08);
+    background: #FFFFFF;
+    color: #3A3A3A;
+    white-space: nowrap;
+    flex-shrink: 0;
+    cursor: pointer;
+    user-select: none;
+    text-decoration: none;
+  }
+  .chip.review {
+    background: rgba(139,92,246,.10);
+    border-color: rgba(139,92,246,.38);
+    color: var(--accent-deep);
+    font-weight: 600;
+  }
+  .text-action {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--accent-deep);
+    white-space: nowrap;
+    flex-shrink: 0;
+    cursor: pointer;
+    user-select: none;
+  }
+  .text-action.quiet { color: var(--text-gray); }
+  a.text-action { text-decoration: none; }
+
+  /* ===================== FEATURED ===================== */
+  .featured-card { display: flex; flex-direction: column; gap: 8px; }
+  .feat-head { display: flex; align-items: flex-start; gap: 10px; }
+  .feat-icon { flex-shrink: 0; margin-top: 3px; }
+  .feat-title { font-size: 17px; font-weight: 700; color: var(--ink); flex: 1; }
+  .feat-why {
+    font-size: 15px;
+    line-height: 1.5;
+    color: #2A2A2A;
+    background: var(--row-gray);
+    border-radius: 14px;
+    padding: 10px 14px;
+  }
+  .feat-meta { font-size: 12px; color: var(--text-gray); }
+  a.featured-card { text-decoration: none; color: inherit; }
+
+  /* ====== SUPPORTING（合并为 Schedule 风格绿卡；样式取自 pulse.html Today's Schedule） ====== */
+  .card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .card-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .card-title .bracket { font-weight: 400; }
+  .sched-item { background: var(--green-inner); border-radius: 15px; padding: 8px 12px; }
+  .sched-item + .sched-item { margin-top: 9px; }
+  .sched-time {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11.5px;
+    color: #233323;
+    margin-bottom: 2px;
+  }
+  .sched-title-row { display: flex; align-items: center; gap: 10px; }
+  .sched-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #101710;
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  a.sched-title { text-decoration: none; color: #101710; }
+  .row-actions { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+  .sched-meta { font-size: 11.5px; color: #4A5D4A; flex-shrink: 0; }
+  .sched-meta.up { color: var(--up-red); font-weight: 600; }
+  .sched-item .text-action.quiet { color: #4A5D4A; }
+
+  /* ===================== NOTICED ===================== */
+  .section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2px;
+  }
+  .section-head .group-label { margin-bottom: 0; }
+  .nrow {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 11px 2px;
+    min-height: 44px;
+  }
+  .nrow .fact { flex: 1; min-width: 0; font-size: 15px; color: #2A2A2A; }
+  .nrow .time { font-size: 12px; color: var(--text-gray); flex-shrink: 0; margin-top: 2px; }
+  a.nrow { text-decoration: none; }
+  .noticed-card .nrow + .nrow { border-top: 1px solid rgba(0,0,0,.05); }
+
+  /* ===================== DOCK ===================== */
+  .dock {
+    position: absolute;
+    left: 25px;
+    right: 25px;
+    bottom: 50px;
+    height: 62px;
+    z-index: 10;
+  }
+  .dock-pill {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    border: none;
+    border-radius: 31px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform .15s ease;
+    font-family: inherit;
+  }
+  .dock-pill:active { transform: scale(.97); }
+  a.dock-pill { text-decoration: none; }
+  .dock-text {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #FFFFFF;
+    font-size: 15px;
+    font-weight: 600;
+    user-select: none;
+  }
+  .dock-text .arrow {
+    font-size: 17px;
+    color: var(--peach);
+    transition: transform .2s ease;
+  }
+  .dock-pill:hover .arrow { transform: translateX(3px); }
+  .dock-fab {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: var(--peach);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 0 3px rgba(243,186,143,.3);
+  }
+
+  /* ===================== HOME INDICATOR ===================== */
+  .home-indicator {
+    position: absolute;
+    bottom: 9px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 145px;
+    height: 5px;
+    background: #000;
+    border-radius: 3px;
+    z-index: 20;
+  }
+</style>
+</head>
+<body>
+
+<!-- SVG defs: status bar icons (shared) -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <g id="ic-signal">
+      <rect x="0" y="8" width="3" height="4" rx="1" fill="#000"/>
+      <rect x="5" y="5.5" width="3" height="6.5" rx="1" fill="#000"/>
+      <rect x="10" y="3" width="3" height="9" rx="1" fill="#000"/>
+      <rect x="15" y="0" width="3" height="12" rx="1" fill="#000"/>
+    </g>
+    <g id="ic-wifi" fill="#000">
+      <path d="M8.5 9.6c.9 0 1.7.4 2.3 1L8.5 13l-2.3-2.4c.6-.6 1.4-1 2.3-1Z"/>
+      <path d="M8.5 5.2c2 0 3.9.8 5.3 2.2l-1.6 1.6a5.4 5.4 0 0 0-7.4 0L3.2 7.4a7.5 7.5 0 0 1 5.3-2.2Z"/>
+      <path d="M8.5.8c3.2 0 6.2 1.3 8.4 3.4l-1.6 1.6a9.6 9.6 0 0 0-13.6 0L.1 4.2A11.9 11.9 0 0 1 8.5.8Z"/>
+    </g>
+  </defs>
+</svg>
+
+<div class="phone">
+  <div class="screen">
+
+    <!-- FIXED TOP -->
+    <div class="top-fixed">
+      <!-- STATUS BAR -->
+      <div class="statusbar">
+        <span class="time">19:27</span>
+        <div class="island"></div>
+        <div class="icons">
+          <svg width="19" height="12" viewBox="0 0 19 12"><use href="#ic-signal"/></svg>
+          <svg width="17" height="12" viewBox="0 0 17 13"><use href="#ic-wifi"/></svg>
+          <svg width="27" height="13" viewBox="0 0 27 13">
+            <rect x="0.5" y="0.5" width="23" height="12" rx="3.5" fill="none" stroke="#000" stroke-opacity=".4"/>
+            <rect x="2" y="2" width="20" height="9" rx="2" fill="#000"/>
+            <path d="M25.5 4.5v4a2.2 2.2 0 0 0 0-4Z" fill="#000" fill-opacity=".4"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- APP HEADER：左 breathing ball + status，中标题（无 Settings、无 AIOrb） -->
+      <div class="app-header">
+        <div class="header-left">
+          <span class="presence"><span class="pdot"></span>Attentive</span>
+        </div>
+        <span class="app-title">Pulse</span>
+      </div>
+
+      <!-- PINNED HERO（aiVoice 仅离线/全空时渲染，本稿有内容故不出现） -->
+      <h1 class="greeting">Good evening</h1>
+    </div>
+
+    <!-- SCROLLABLE CONTENT -->
+    <div class="content">
+      <div class="stack">
+
+        <!-- FEATURED (≤1)：永远只有一件，无需 lead 文字；整卡点击 → 详情页 -->
+        <section>
+          <a class="card white featured-card" href="pulseB-review.html">
+            <div class="feat-head">
+              <svg class="feat-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/>
+                <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
+              </svg>
+              <span class="feat-title">Estimate alert on PZ0526</span>
+            </div>
+            <p class="feat-why">Estimate has stayed above your alert line (1.31) for two sessions.</p>
+            <p class="feat-meta">Market · 5m ago</p>
+          </a>
+        </section>
+
+        <!-- SUPPORTING ×≤4（合并为 Schedule 风格绿卡，组标签占时间位；样式取自 pulse.html Today's Schedule） -->
+        <section>
+          <div class="card green">
+            <div class="card-head">
+              <span class="card-title"><span class="bracket">[</span> In motion <span class="bracket">]</span></span>
+            </div>
+
+            <div class="sched-item">
+              <div class="sched-time">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#233323" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+                To review
+              </div>
+              <div class="sched-title-row">
+                <a class="sched-title" href="chatcode.html">Deploy failed on agent-mobile</a>
+                <a class="chip review" href="pulseB-review.html">Review</a>
+              </div>
+            </div>
+
+            <div class="sched-item">
+              <div class="sched-time">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#233323" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5.76.76 1.23 1.52 1.41 2.5"/>
+                  <path d="M9 18h6"/>
+                  <path d="M10 22h4"/>
+                </svg>
+                Suggested
+              </div>
+              <div class="sched-title-row">
+                <a class="sched-title" href="chat.html">Rebalance the fund watchlist weekly</a>
+                <span class="row-actions">
+                  <span class="chip review">Confirm</span>
+                  <span class="text-action quiet">Dismiss</span>
+                </span>
+              </div>
+            </div>
+
+            <div class="sched-item">
+              <div class="sched-time">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#233323" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                </svg>
+                Running
+              </div>
+              <div class="sched-title-row">
+                <a class="sched-title" href="chatcode.html">agent-mobile</a>
+                <span class="sched-meta">Running</span>
+              </div>
+            </div>
+
+            <div class="sched-item">
+              <div class="sched-time">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#233323" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M22 7 13.5 15.5 8.5 10.5 2 17"/>
+                  <path d="M16 7h6v6"/>
+                </svg>
+                Market
+              </div>
+              <div class="sched-title-row">
+                <a class="sched-title" href="pulseB-sheet-fund.html">Pulse Money Fund</a>
+                <span class="sched-meta up">+0.52%</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- NOTICED ×≤5（ghost 卡） -->
+        <section class="card ghost noticed-card">
+          <div class="section-head">
+            <p class="group-label">Noticed</p>
+              <a class="text-action" href="pulseB-sheet-noticed-list.html">See All</a>
+          </div>
+          <a class="nrow" href="pulseB-sheet-noticed.html"><span class="dot green"></span><span class="fact">PZ0526 estimate crossed 1.3081</span><span class="time">5m</span></a>
+          <a class="nrow" href="pulseB-sheet-noticed.html"><span class="dot green"></span><span class="fact">Market opened 12 minutes ago</span><span class="time">12m</span></a>
+          <a class="nrow" href="pulseB-sheet-noticed.html"><span class="dot green"></span><span class="fact">agent-mobile session idle for 20 minutes</span><span class="time">20m</span></a>
+          <a class="nrow" href="pulseB-sheet-noticed.html"><span class="dot green"></span><span class="fact">Watchlist sync finished</span><span class="time">1h</span></a>
+          <a class="nrow" href="pulseB-sheet-noticed.html"><span class="dot green"></span><span class="fact">A proposal on your watchlist expires in 2 hours</span><span class="time">2h</span></a>
+        </section>
+
+      </div>
+    </div>
+
+    <!-- DOCK -->
+    <div class="dock">
+      <a class="dock-pill" href="chat.html">
+        <span class="dock-text">Start New Chat <span class="arrow">&#8594;</span></span>
+        <span class="dock-fab">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5c-1.6 0-3.1-.4-4.4-1.2L3 20l1.2-5.1A8.5 8.5 0 1 1 21 11.5Z"/>
+            <path d="M8.5 10.5h7M8.5 13.5h4.5"/>
+          </svg>
+        </span>
+      </a>
+    </div>
+
+    <!-- HOME INDICATOR -->
+    <div class="home-indicator"></div>
+
+  </div>
+</div>
+
+</body>
+</html>

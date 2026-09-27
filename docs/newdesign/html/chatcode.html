@@ -1,0 +1,2181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pulse — Code Chat</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  :root {
+    --cream: #F7F5DC;
+    --bubble-user: #F7F3D3;
+    --bubble-ai: #F1F1F1;
+    --peach: #F3BA8F;
+    --green-check: #5CBB63;
+    --text-gray: #9C9C9C;
+    --ink: #111;
+    --tech-surface: #FBF9EC;
+    --tech-border: rgba(13,13,13,.12);
+    --dark-surface: #322B24;
+    --danger: #C4574A;
+    --warn: #D9A13B;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
+  body {
+    background: #000;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", "Segoe UI", Arial, sans-serif;
+    padding: 40px 0;
+  }
+
+  button { font-family: inherit; border: none; background: none; cursor: pointer; color: inherit; }
+  .ic { width: 20px; height: 20px; flex: none; display: block; }
+  .hide { display: none !important; }
+
+  /* ===================== PHONE FRAME ===================== */
+  .phone {
+    position: relative;
+    width: 424px;
+    height: 884px;
+    background: #463E4B;
+    border-radius: 68px;
+    padding: 15px;
+    box-shadow:
+      0 0 0 2px #5C5262,
+      0 0 0 5px #2C262F,
+      0 30px 80px rgba(0,0,0,.9);
+    flex-shrink: 0;
+  }
+  .phone::before {
+    content: "";
+    position: absolute;
+    left: -6px; top: 190px;
+    width: 6px; height: 110px;
+    background: #3B3440;
+    border-radius: 3px 0 0 3px;
+    box-shadow: 0 132px 0 #3B3440;
+  }
+  .phone::after {
+    content: "";
+    position: absolute;
+    right: -6px; top: 260px;
+    width: 6px; height: 92px;
+    background: #3B3440;
+    border-radius: 0 3px 3px 0;
+  }
+
+  .screen {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: var(--cream);
+    border-radius: 54px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    touch-action: manipulation;
+    user-select: none;
+  }
+
+  /* ===================== STATUS BAR ===================== */
+  .statusbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 50px;
+    padding: 6px 25px 0;
+    position: relative;
+    flex: none;
+  }
+  .statusbar .time {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: .2px;
+    width: 70px;
+  }
+  .statusbar .icons {
+    width: 70px;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 5px;
+  }
+  .island {
+    position: absolute;
+    left: 50%; top: 12px;
+    transform: translateX(-50%);
+    width: 122px; height: 36px;
+    background: #000;
+    border-radius: 20px;
+  }
+  .island::after {
+    content: "";
+    position: absolute;
+    right: 10px; top: 50%;
+    transform: translateY(-50%);
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #2A2A3A 0%, #101018 45%, #000 100%);
+  }
+
+  /* ===================== HEADER (OpenChamber mobile style) ===================== */
+  .oc-header {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 54px;
+    padding: 0 14px;
+    position: relative;
+    z-index: 30;
+  }
+  .hbtn {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #1A1A1A;
+    position: relative;
+    flex: none;
+    transition: transform .12s ease, background .15s;
+  }
+  .hbtn:active { transform: scale(.9); background: rgba(13,13,13,.06); }
+  .hbtn .warn-dot {
+    position: absolute;
+    top: 5px; right: 5px;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--warn);
+    border: 1.5px solid var(--cream);
+  }
+  .session-title-btn {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    height: 40px;
+    border-radius: 20px;
+    padding: 0 10px;
+    transition: background .15s;
+  }
+  .session-title-btn:active { background: rgba(13,13,13,.06); }
+  .session-title-btn .t {
+    font-size: 16px;
+    font-weight: 700;
+    color: #0D0D0D;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .session-title-btn .chev { width: 16px; height: 16px; color: rgba(13,13,13,.55); transition: transform .2s ease; flex: none; }
+  .session-title-btn.open .chev { transform: rotate(180deg); }
+
+  /* popovers under header */
+  .popover {
+    position: absolute;
+    top: 106px;
+    z-index: 35;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 18px 50px rgba(0,0,0,.22);
+    opacity: 0;
+    transform: translateY(-6px) scale(.98);
+    pointer-events: none;
+    transition: opacity .16s ease, transform .16s ease;
+    overflow: hidden;
+  }
+  .popover.show { opacity: 1; transform: none; pointer-events: auto; }
+  .popover-switcher { left: 50%; width: 308px; margin-left: -154px; padding: 6px; }
+  .popover-switcher .sw-row {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 9px 10px;
+    border-radius: 12px;
+    text-align: left;
+  }
+  .popover-switcher .sw-row:active { background: var(--tech-surface); }
+  .popover-switcher .sw-main { flex: 1; min-width: 0; }
+  .popover-switcher .sw-title { font-size: 13.5px; font-weight: 600; color: #1A1A1A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .popover-switcher .sw-sub { font-size: 11.5px; color: var(--text-gray); margin-top: 2px; }
+  .popover-switcher .sw-meta { font-size: 11px; color: var(--text-gray); flex: none; }
+  .popover-switcher .sw-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--peach); flex: none; }
+
+  .popover-meta { right: 12px; width: 262px; padding: 14px 14px 12px; }
+  .popover-meta h5 { font-size: 11px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: var(--text-gray); margin-bottom: 8px; }
+  .ctx-bar { height: 7px; border-radius: 4px; background: #EFEDE0; overflow: hidden; margin: 6px 0 4px; }
+  .ctx-bar i { display: block; height: 100%; width: 32%; border-radius: 4px; background: var(--peach); }
+  .meta-line { display: flex; justify-content: space-between; font-size: 12.5px; color: #1A1A1A; margin-top: 7px; }
+  .meta-line b { font-weight: 600; }
+  .meta-line .k { color: var(--text-gray); }
+
+  /* ===================== CHAT AREA ===================== */
+  .chat-area {
+    flex: 1 1 auto;
+    min-height: 0;
+    background: #FFFFFF;
+    border-radius: 30px;
+    overflow-y: auto;
+    padding: 18px 18px 24px;
+    scrollbar-width: none;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    z-index: 1;
+  }
+  .chat-area::-webkit-scrollbar { display: none; }
+
+  .msg-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 7px;
+  }
+  .msg-row.user { justify-content: flex-end; }
+  .msg-row.ai { justify-content: flex-start; }
+  .msg-col { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; max-width: 82%; }
+
+  .bubble {
+    padding: 11px 13px;
+    font-size: 14.5px;
+    line-height: 1.45;
+    color: #1A1A1A;
+    border-radius: 16px;
+    max-width: 100%;
+    user-select: text;
+  }
+  .msg-row.user .bubble { background: var(--bubble-user); max-width: 76%; }
+  .msg-col .bubble { background: var(--bubble-ai); }
+
+  .check-badge {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: #F5F5D5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-bottom: 2px;
+  }
+  .check-badge .ic { width: 12px; height: 12px; color: var(--green-check); }
+
+  .ai-orb {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    align-self: flex-end;
+    margin-bottom: 2px;
+    background: radial-gradient(circle at 50% 50%,
+      #241708 0%, #4A2E12 30%, #B97B3F 48%, #F3BA8F 62%, rgba(243,186,143,.0) 72%);
+    box-shadow: 0 0 10px 2px rgba(243,186,143,.55);
+  }
+  .ai-orb.busy { animation: orbPulse 1.6s ease-in-out infinite; }
+  @keyframes orbPulse {
+    0%, 100% { box-shadow: 0 0 8px 2px rgba(243,186,143,.45); }
+    50% { box-shadow: 0 0 16px 5px rgba(243,186,143,.85); }
+  }
+
+  .msg-meta {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: var(--text-gray);
+    margin-top: 5px;
+    padding-left: 2px;
+  }
+  .msg-meta .pdot { width: 10px; height: 10px; border-radius: 50%; background: var(--peach); flex: none; }
+
+  /* compact technical surfaces (OpenChamber tool activity, warm skin) */
+  .tech-card {
+    background: var(--tech-surface);
+    border: 1px solid var(--tech-border);
+    border-radius: 14px;
+    padding: 9px 11px;
+    margin-top: 8px;
+    width: 100%;
+  }
+  .tech-head {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    width: 100%;
+    text-align: left;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #3A3A32;
+  }
+  .tech-head .chev { width: 14px; height: 14px; color: rgba(13,13,13,.45); transition: transform .2s; flex: none; }
+  .tech-card.open .tech-head .chev { transform: rotate(90deg); }
+  .tech-head .badge {
+    margin-left: auto;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--text-gray);
+    background: #fff;
+    border: 1px solid var(--tech-border);
+    border-radius: 999px;
+    padding: 2px 8px;
+    flex: none;
+  }
+  .tool-rows { display: none; flex-direction: column; margin-top: 7px; }
+  .tech-card.open .tool-rows { display: flex; }
+  .tool-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 4px;
+    border-top: 1px solid rgba(13,13,13,.06);
+    width: 100%;
+    text-align: left;
+    font-size: 12px;
+    color: #4A4A42;
+    min-height: 32px;
+  }
+  .tool-row .ic { width: 15px; height: 15px; color: rgba(13,13,13,.5); flex: none; }
+  .tool-row .tn { font-weight: 600; color: #1A1A1A; flex: none; }
+  .tool-row .tt {
+    flex: 1; min-width: 0;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: #6B6B60;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .tool-row .st { flex: none; display: flex; align-items: center; }
+  .tool-row .st .ic { width: 14px; height: 14px; color: var(--green-check); }
+  .tool-row .diffstat { font-family: var(--mono); font-size: 10.5px; flex: none; }
+  .diffstat .a { color: #5F8D3D; }
+  .diffstat .d { color: var(--danger); }
+
+  .spinner {
+    width: 13px; height: 13px;
+    border-radius: 50%;
+    border: 2px solid rgba(243,186,143,.4);
+    border-top-color: #C97B45;
+    animation: spin .8s linear infinite;
+    flex: none;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* thinking block */
+  .think-card {
+    background: transparent;
+    border: 1px dashed rgba(13,13,13,.18);
+    border-radius: 14px;
+    padding: 8px 11px;
+    margin-top: 8px;
+    width: 100%;
+  }
+  .think-body {
+    display: none;
+    font-size: 12.5px;
+    font-style: italic;
+    color: #6B6B63;
+    line-height: 1.5;
+    margin-top: 6px;
+  }
+  .think-card.open .think-body { display: block; }
+
+  /* code / diff card */
+  .code-card {
+    background: var(--dark-surface);
+    border-radius: 14px;
+    margin-top: 8px;
+    width: 100%;
+    overflow: hidden;
+  }
+  .code-card .code-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: #B8AB93;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+  }
+  .code-card .code-head .lang {
+    margin-left: auto;
+    font-size: 10px;
+    background: rgba(255,255,255,.09);
+    border-radius: 999px;
+    padding: 2px 8px;
+  }
+  .code-body { padding: 9px 0 10px; overflow-x: auto; scrollbar-width: none; }
+  .code-body::-webkit-scrollbar { display: none; }
+  .code-line {
+    font-family: var(--mono);
+    font-size: 11px;
+    line-height: 1.75;
+    white-space: pre;
+    color: #EDE3CE;
+    padding: 0 12px 0 8px;
+    display: flex;
+  }
+  .code-line .sign { width: 14px; flex: none; opacity: .7; }
+  .code-line.del { color: #F0A69A; background: rgba(196,87,74,.16); }
+  .code-line.add { color: #B5D6A5; background: rgba(95,141,61,.18); }
+
+  /* permission dock card */
+  .perm-card {
+    background: #fff;
+    border: 1.5px solid var(--peach);
+    border-radius: 14px;
+    padding: 11px 12px;
+    margin-top: 8px;
+    width: 100%;
+  }
+  .perm-title {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 12.5px; font-weight: 700; color: #1A1A1A;
+  }
+  .perm-title .ic { width: 15px; height: 15px; color: #C97B45; }
+  .perm-title .subagent {
+    margin-left: auto;
+    font-size: 10px; font-weight: 600;
+    color: #8A6A4A;
+    background: #F8EDDD;
+    border-radius: 999px;
+    padding: 2px 8px;
+  }
+  .perm-cmd {
+    margin-top: 8px;
+    background: var(--tech-surface);
+    border: 1px solid var(--tech-border);
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: #4A4436;
+    white-space: nowrap; overflow-x: auto; scrollbar-width: none;
+  }
+  .perm-cmd::-webkit-scrollbar { display: none; }
+  .perm-actions { display: flex; gap: 8px; margin-top: 9px; }
+  .perm-btn {
+    flex: 1;
+    height: 36px;
+    border-radius: 18px;
+    font-size: 13px;
+    font-weight: 600;
+    transition: transform .12s ease, opacity .15s;
+  }
+  .perm-btn:active { transform: scale(.96); opacity: .85; }
+  .perm-btn.allow { background: var(--peach); color: #111; }
+  .perm-btn.deny { background: transparent; border: 1.5px solid rgba(13,13,13,.25); color: #1A1A1A; }
+  .perm-resolved {
+    margin-top: 8px;
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 600;
+  }
+  .perm-resolved.ok { color: #5F8D3D; }
+  .perm-resolved.no { color: var(--danger); }
+  .perm-resolved .ic { width: 14px; height: 14px; }
+
+  /* ===================== COMPOSER SLOT ===================== */
+  .composer-slot {
+    flex: none;
+    position: relative;
+    padding: 10px 25px 24px;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* floating status row */
+  .status-row {
+    position: absolute;
+    left: 25px; right: 25px;
+    bottom: calc(100% - 6px);
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    background: rgba(255,255,253,.92);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(13,13,13,.14);
+    border-radius: 999px;
+    padding: 8px 10px 8px 14px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.10);
+    opacity: 0;
+    transform: translateY(8px);
+    pointer-events: none;
+    transition: opacity .2s ease, transform .2s ease;
+  }
+  .status-row.show { opacity: 1; transform: none; pointer-events: auto; }
+  .status-row .st-text { flex: 1; font-size: 12.5px; font-weight: 600; color: #4A4436; }
+  .status-row .stop-mini {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: rgba(196,87,74,.12);
+    color: var(--danger);
+    display: flex; align-items: center; justify-content: center;
+    flex: none;
+  }
+  .status-row .stop-mini .ic { width: 13px; height: 13px; }
+
+  /* queued chips + suggestion */
+  .float-panel { display: flex; flex-direction: column; gap: 6px; }
+  .q-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255,255,253,.95);
+    border: 1px solid rgba(13,13,13,.16);
+    border-radius: 14px;
+    padding: 7px 10px;
+  }
+  .q-chip .drag { color: rgba(13,13,13,.35); flex: none; }
+  .q-chip .drag .ic { width: 14px; height: 14px; }
+  .q-chip .q-text {
+    flex: 1; min-width: 0;
+    font-size: 12.5px; color: #1A1A1A;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .q-chip .q-btn {
+    font-size: 12px; font-weight: 700; color: #8A5A2B;
+    padding: 5px 9px; border-radius: 999px; flex: none;
+    background: #F8EDDD;
+  }
+  .sugg-chip {
+    align-self: flex-start;
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 600; color: #6B5232;
+    background: #F8EDDD;
+    border-radius: 999px;
+    padding: 7px 12px;
+    max-width: 100%;
+  }
+  .sugg-chip .ic { width: 13px; height: 13px; color: #C97B45; flex: none; }
+  .sugg-chip span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* collapsed pill composer */
+  .pill-wrap { display: flex; align-items: flex-end; gap: 8px; }
+  .input-pill {
+    flex: 1;
+    min-width: 0;
+    background: var(--cream);
+    border: 3px solid #0D0D0D;
+    border-radius: 29px;
+    display: flex;
+    flex-direction: column;
+    padding: 0 8px;
+  }
+  .pill-main { display: flex; align-items: center; gap: 4px; height: 52px; }
+  .round-btn {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: transparent;
+    border: 1.5px solid rgba(13,13,13,.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #111;
+    flex: none;
+    transition: transform .15s ease;
+  }
+  .round-btn:active { transform: scale(.88); }
+  .pill-preview {
+    flex: 1; min-width: 0;
+    height: 52px;
+    display: flex; align-items: center;
+    text-align: left;
+    font-size: 15px;
+    color: rgba(13,13,13,.45);
+    padding: 0 10px;
+    background: none;
+    white-space: nowrap; overflow: hidden;
+  }
+  .pill-preview.has-draft { color: #111; }
+  .send-btn {
+    width: 58px; height: 58px;
+    border-radius: 50%;
+    background: var(--peach);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #111;
+    flex: none;
+    transition: transform .15s ease, background .2s;
+  }
+  .send-btn:active { transform: scale(.92); }
+  .send-btn.stop { background: #E5988B; }
+  .queue-fab {
+    width: 46px; height: 46px;
+    border-radius: 50%;
+    background: rgba(255,255,253,.95);
+    border: 1.5px solid rgba(13,13,13,.35);
+    display: flex; align-items: center; justify-content: center;
+    color: #111;
+    flex: none;
+    transition: transform .15s ease;
+  }
+  .queue-fab:active { transform: scale(.9); }
+
+  /* model / agent row */
+  .pill-sub { display: flex; align-items: center; gap: 8px; padding: 0 6px 7px; }
+  .ma-btn {
+    display: flex; align-items: center; gap: 6px;
+    height: 26px;
+    border-radius: 999px;
+    padding: 0 10px;
+    font-size: 12px; font-weight: 600;
+    color: #1A1A1A;
+    background: rgba(13,13,13,.06);
+  }
+  .ma-btn:active { transform: scale(.95); }
+  .ma-btn .pdot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .pill-sub .spacer { flex: 1; }
+
+  /* expanded composer */
+  .composer-box {
+    background: var(--cream);
+    border: 3px solid #0D0D0D;
+    border-radius: 24px;
+    padding: 10px 10px 8px;
+    display: flex;
+    flex-direction: column;
+  }
+  .composer-box textarea {
+    border: none; outline: none; background: transparent;
+    resize: none;
+    font-family: inherit;
+    font-size: 15px;
+    line-height: 1.4;
+    color: #111;
+    min-height: 72px;
+    max-height: 200px;
+    padding: 4px 8px;
+    user-select: text;
+  }
+  .composer-box textarea::placeholder { color: rgba(13,13,13,.4); }
+  .composer-footer { display: flex; align-items: center; gap: 6px; padding: 2px 4px 0; }
+  .composer-footer .count { font-size: 11px; color: var(--text-gray); margin-left: 4px; }
+  .composer-footer .spacer { flex: 1; }
+  .composer-send {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    background: var(--peach);
+    display: flex; align-items: center; justify-content: center;
+    color: #111;
+    transition: transform .15s ease, background .2s;
+  }
+  .composer-send:active { transform: scale(.92); }
+  .composer-send.stop { background: #E5988B; }
+
+  /* ===================== OVERLAY / DRAWERS ===================== */
+  .backdrop {
+    position: absolute; inset: 0;
+    background: rgba(20,16,24,.35);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .28s ease;
+    z-index: 40;
+  }
+  .backdrop.show { opacity: 1; pointer-events: auto; }
+
+  .drawer {
+    position: absolute;
+    top: 0; bottom: 0;
+    z-index: 45;
+    background: var(--cream);
+    display: flex;
+    flex-direction: column;
+    visibility: hidden;
+    transition: transform .32s cubic-bezier(.32,.72,.24,1), visibility 0s .32s;
+  }
+  .drawer-left {
+    left: 0;
+    width: 306px;
+    border-radius: 0 30px 30px 0;
+    transform: translateX(-105%);
+    box-shadow: 24px 0 48px rgba(0,0,0,.18);
+  }
+  .drawer-left.open { transform: none; }
+  .drawer-right {
+    right: 0;
+    width: 356px;
+    border-radius: 30px 0 0 30px;
+    transform: translateX(105%);
+    box-shadow: -24px 0 48px rgba(0,0,0,.18);
+  }
+  .drawer.open { visibility: visible; transition: transform .32s cubic-bezier(.32,.72,.24,1), visibility 0s 0s; }
+  .drawer-right.open { transform: none; }
+
+  .drawer-head {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 58px 14px 10px;
+  }
+  .drawer-title { font-size: 17px; font-weight: 700; color: #0D0D0D; }
+  .search-box {
+    flex: 1; min-width: 0;
+    display: flex; align-items: center; gap: 6px;
+    background: #fff;
+    border: 1.5px solid rgba(13,13,13,.2);
+    border-radius: 999px;
+    height: 36px;
+    padding: 0 12px;
+  }
+  .search-box .ic { width: 15px; height: 15px; color: rgba(13,13,13,.45); }
+  .search-box input {
+    flex: 1; min-width: 0;
+    border: none; outline: none; background: transparent;
+    font-family: inherit; font-size: 13px; color: #111;
+    user-select: text;
+  }
+  .search-box input::placeholder { color: rgba(13,13,13,.4); }
+
+  .drawer-body { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 10px 12px; scrollbar-width: none; }
+  .drawer-body::-webkit-scrollbar { display: none; }
+
+  /* sessions list */
+  .proj-head {
+    display: flex; align-items: center; gap: 7px;
+    padding: 10px 6px 5px;
+    font-size: 12px; font-weight: 700;
+    letter-spacing: .4px;
+    color: #6B6B5A;
+    text-transform: uppercase;
+  }
+  .proj-head .ic { width: 14px; height: 14px; }
+  .proj-head .new-mini {
+    margin-left: auto;
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: #1A1A1A;
+    background: rgba(13,13,13,.07);
+  }
+  .proj-head .new-mini .ic { width: 14px; height: 14px; }
+  .wt-row {
+    display: flex; align-items: center; gap: 7px;
+    padding: 6px 8px 6px 14px;
+    font-size: 12px; color: #8A6A4A;
+    font-weight: 600;
+  }
+  .wt-row .ic { width: 13px; height: 13px; }
+
+  .sess-swipe { position: relative; overflow: hidden; border-radius: 14px; margin: 3px 0; }
+  .sess-actions {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    width: 192px;
+    display: flex;
+    align-items: stretch;
+    gap: 4px;
+    padding: 0;
+  }
+  .sess-actions button {
+    flex: 1;
+    border-radius: 14px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    font-size: 9.5px; font-weight: 600;
+    color: #fff;
+  }
+  .sess-actions .ic { width: 16px; height: 16px; }
+  .sess-actions .a-del { background: var(--danger); }
+  .sess-actions .a-arch { background: #B08A52; }
+  .sess-actions .a-ren { background: #8A8A72; }
+  .sess-actions .a-ai { background: #C97B45; }
+  .sess-row {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    background: #FDFCF0;
+    border: 1px solid rgba(13,13,13,.09);
+    border-radius: 14px;
+    padding: 10px 10px;
+    min-height: 48px;
+    touch-action: pan-y;
+    transition: transform .18s ease;
+  }
+  .sess-row.dragging { transition: none; }
+  .sess-row .s-main { flex: 1; min-width: 0; }
+  .sess-row .s-title { font-size: 13.5px; font-weight: 600; color: #1A1A1A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sess-row .s-sub { font-size: 11px; color: var(--text-gray); margin-top: 2px; }
+  .sess-row .s-state { flex: none; display: flex; align-items: center; width: 16px; }
+  .sess-row .unread { width: 8px; height: 8px; border-radius: 50%; background: var(--peach); }
+  .sess-row.active { border-color: rgba(201,123,69,.6); background: #FBF3E4; }
+  .sess-row.removing { transition: height .25s ease, opacity .25s ease, margin .25s ease; overflow: hidden; }
+
+  .drawer-foot {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px 22px;
+    border-top: 1px solid rgba(13,13,13,.1);
+  }
+  .inst-pill {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11.5px; font-weight: 600; color: #4A4436;
+    background: #fff;
+    border: 1px solid rgba(13,13,13,.14);
+    border-radius: 999px;
+    padding: 7px 11px;
+    min-width: 0;
+  }
+  .inst-pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green-check); flex: none; }
+  .drawer-foot .spacer { flex: 1; }
+  .foot-btn {
+    width: 34px; height: 34px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: #3A3A32;
+  }
+  .foot-btn:active { background: rgba(13,13,13,.07); }
+
+  /* workspace drawer */
+  .ws-tabs {
+    flex: none;
+    display: flex;
+    gap: 4px;
+    padding: 6px 12px 10px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .ws-tabs::-webkit-scrollbar { display: none; }
+  .ws-tab {
+    display: flex; align-items: center; gap: 6px;
+    height: 34px;
+    border-radius: 999px;
+    padding: 0 10px;
+    font-size: 12.5px; font-weight: 600;
+    color: #4A4A42;
+    background: rgba(13,13,13,.05);
+    flex: none;
+  }
+  .ws-tab .ic { width: 16px; height: 16px; }
+  .ws-tab .lbl { display: none; }
+  .ws-tab.on { background: #0D0D0D; color: var(--cream); }
+  .ws-tab.on .lbl { display: inline; }
+  .ws-panel { display: none; flex: 1; min-height: 0; overflow-y: auto; padding: 4px 14px 20px; scrollbar-width: none; flex-direction: column; gap: 8px; }
+  .ws-panel::-webkit-scrollbar { display: none; }
+  .ws-panel.on { display: flex; }
+
+  .ws-card {
+    background: #FDFCF0;
+    border: 1px solid rgba(13,13,13,.09);
+    border-radius: 14px;
+    padding: 10px 12px;
+  }
+  .ws-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 2px;
+    font-size: 12.5px; color: #1A1A1A;
+    border-top: 1px solid rgba(13,13,13,.06);
+    width: 100%; text-align: left;
+  }
+  .ws-row:first-of-type { border-top: none; }
+  .ws-row .ic { width: 15px; height: 15px; color: rgba(13,13,13,.5); flex: none; }
+  .ws-row .fname { flex: 1; min-width: 0; font-family: var(--mono); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ws-row .diffstat { font-family: var(--mono); font-size: 10.5px; flex: none; }
+  .ws-branch {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; font-weight: 700; color: #1A1A1A;
+    padding: 2px 2px 8px;
+  }
+  .ws-branch .ic { width: 15px; height: 15px; }
+  .ws-branch .ahead { font-size: 11px; font-weight: 600; color: #8A6A4A; }
+  .ws-branch .sync { margin-left: auto; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #1A1A1A; background: rgba(13,13,13,.06); }
+  .ws-branch .sync .ic { width: 14px; height: 14px; }
+  .commit-box { display: flex; gap: 8px; margin-top: 4px; }
+  .commit-box input {
+    flex: 1; min-width: 0;
+    height: 40px;
+    background: #fff;
+    border: 1.5px solid rgba(13,13,13,.25);
+    border-radius: 20px;
+    padding: 0 14px;
+    font-family: inherit; font-size: 13px; color: #111;
+    outline: none;
+    user-select: text;
+  }
+  .commit-box input::placeholder { color: rgba(13,13,13,.4); }
+  .commit-box button {
+    height: 40px; padding: 0 16px;
+    border-radius: 20px;
+    background: var(--peach);
+    font-size: 13px; font-weight: 700; color: #111;
+  }
+  .filetree { font-family: var(--mono); font-size: 11.5px; }
+  .filetree .ft-row { display: flex; align-items: center; gap: 7px; padding: 6px 4px; color: #3A3A32; }
+  .filetree .ft-row .ic { width: 14px; height: 14px; color: rgba(13,13,13,.5); }
+  .filetree .indent1 { padding-left: 20px; }
+  .filetree .indent2 { padding-left: 36px; }
+  .term-view {
+    background: var(--dark-surface);
+    border-radius: 14px;
+    padding: 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    line-height: 1.7;
+    color: #EDE3CE;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .term-view::-webkit-scrollbar { display: none; }
+  .term-view .p { color: #B5D6A5; }
+  .term-view .dim { color: #8A7E68; }
+  .cursor-blink { display: inline-block; width: 7px; height: 13px; background: var(--peach); vertical-align: -2px; animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .note-card {
+    background: #FBF3D9;
+    border: 1px solid rgba(13,13,13,.1);
+    border-radius: 14px;
+    padding: 10px 12px;
+  }
+  .note-card h6 { font-size: 12.5px; font-weight: 700; color: #1A1A1A; display: flex; align-items: center; gap: 6px; }
+  .note-card h6 .ic { width: 14px; height: 14px; color: #C97B45; }
+  .note-card p { font-size: 12px; color: #6B6B5A; margin-top: 4px; line-height: 1.5; }
+  .mcp-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .mcp-dot.ok { background: var(--green-check); }
+  .mcp-dot.off { background: #C9C5B8; }
+
+  /* ===================== BOTTOM SHEETS ===================== */
+  .sheet {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    z-index: 50;
+    background: #fff;
+    border-radius: 24px 24px 0 0;
+    max-height: 72%;
+    display: flex;
+    flex-direction: column;
+    transform: translateY(105%);
+    visibility: hidden;
+    transition: transform .3s cubic-bezier(.32,.72,.24,1), visibility 0s .3s;
+    box-shadow: 0 -18px 50px rgba(0,0,0,.25);
+  }
+  .sheet.open { transform: none; visibility: visible; transition: transform .3s cubic-bezier(.32,.72,.24,1), visibility 0s 0s; }
+  .sheet-head {
+    flex: none;
+    display: flex; align-items: center;
+    padding: 14px 18px 8px;
+  }
+  .sheet-head h4 { font-size: 16px; font-weight: 700; color: #0D0D0D; flex: 1; }
+  .sheet-head .x {
+    width: 30px; height: 30px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: #1A1A1A;
+    background: rgba(13,13,13,.06);
+  }
+  .sheet-head .x .ic { width: 15px; height: 15px; }
+  .sheet-body { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 10px 26px; scrollbar-width: none; }
+  .sheet-body::-webkit-scrollbar { display: none; }
+
+  .sheet-search { margin: 0 8px 8px; }
+  .grp-label {
+    font-size: 11px; font-weight: 700; letter-spacing: .8px;
+    text-transform: uppercase; color: var(--text-gray);
+    padding: 10px 10px 4px;
+  }
+  .pick-row {
+    display: flex; align-items: center; gap: 10px;
+    width: 100%; text-align: left;
+    padding: 11px 12px;
+    border-radius: 14px;
+  }
+  .pick-row:active { background: var(--tech-surface); }
+  .pick-row .pdot { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+  .pick-row .p-main { flex: 1; min-width: 0; }
+  .pick-row .p-name { display: block; font-size: 14px; font-weight: 600; color: #1A1A1A; }
+  .pick-row .p-desc { display: block; font-size: 11.5px; color: var(--text-gray); margin-top: 2px; }
+  .pick-row .p-end { flex: none; display: flex; align-items: center; gap: 6px; color: var(--text-gray); }
+  .pick-row .p-end .ic { width: 15px; height: 15px; }
+  .pick-row .p-end .star.on { color: #D9A13B; }
+  .pick-row.sel .p-name { color: #8A5A2B; }
+  .pick-row .check-on { color: #C97B45; }
+
+  .toolout-view {
+    margin: 4px 8px 8px;
+    background: var(--dark-surface);
+    border-radius: 14px;
+    padding: 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    line-height: 1.7;
+    color: #EDE3CE;
+    white-space: pre-wrap;
+    word-break: break-word;
+    user-select: text;
+  }
+  .toolout-view .dim { color: #8A7E68; }
+
+  /* toast */
+  .toast {
+    position: absolute;
+    top: 116px; left: 50%;
+    transform: translateX(-50%) translateY(-8px);
+    z-index: 60;
+    background: #2F2A33;
+    color: var(--cream);
+    font-size: 12.5px; font-weight: 600;
+    border-radius: 999px;
+    padding: 9px 16px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s ease, transform .2s ease;
+    white-space: nowrap;
+    box-shadow: 0 10px 30px rgba(0,0,0,.3);
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%); }
+</style>
+</head>
+<body>
+
+<!-- ============ ICON SYMBOLS ============ -->
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="i-list" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h10M4 18h16"/></symbol>
+  <symbol id="i-chev-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="i-chev-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></symbol>
+  <symbol id="i-gauge" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 12l3.5-3.5"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-ruler" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17.5 17.5 3l3.5 3.5L6.5 21zM8 13l1.5 1.5M11 10l1.5 1.5M14 7l1.5 1.5"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 3v14M3 10h14"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3 10 14M21 3l-7 18-4-7-7-4 18-7Z"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2.5"/></symbol>
+  <symbol id="i-clip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.4 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></symbol>
+  <symbol id="i-queue" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3 10 14M21 3l-7 18-4-7-7-4 18-7Z"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.8-3.8"/></symbol>
+  <symbol id="i-sort" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 8h14M7 12h10M10 16h4"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></symbol>
+  <symbol id="i-branch" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6" cy="5" r="2.4"/><circle cx="6" cy="19" r="2.4"/><circle cx="18" cy="8" r="2.4"/><path d="M6 7.4v9.2M18 10.4c0 3-2.5 4.6-6 4.6-2 0-3.6.5-4.6 1.6"/></symbol>
+  <symbol id="i-msg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-8 8H4l2.2-2.6A8 8 0 1 1 21 12Z"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6.5 7l1 12a1.5 1.5 0 0 0 1.5 1.4h6a1.5 1.5 0 0 0 1.5-1.4l1-12M10 11v6M14 11v6"/></symbol>
+  <symbol id="i-arch" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="5" rx="1.5"/><path d="M5 9v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9M10 13h4"/></symbol>
+  <symbol id="i-aa" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 18 7 6l5 12M3.8 14h6.4M14 18l4-10 4 10M15.4 15h5.2"/></symbol>
+  <symbol id="i-sparkle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.6L19.5 10l-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.4Z"/><path d="M18.5 15.5l.9 2.6 2.6.9-2.6.9-.9 2.6-.9-2.6-2.6-.9 2.6-.9Z"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5 9.5 18 20 6.5"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5"/></symbol>
+  <symbol id="i-term" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="m7 9 3.5 3L7 15M12.5 15H17"/></symbol>
+  <symbol id="i-note" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9l-7 7H6a2 2 0 0 1-2-2Z"/><path d="M13 21v-4a2 2 0 0 1 2-2h4"/></symbol>
+  <symbol id="i-plug" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-6 6v0a6 6 0 0 1-6-6ZM12 17v4"/></symbol>
+  <symbol id="i-grip" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7.5 3v5.5c0 4.6-3.2 8-7.5 9.5-4.3-1.5-7.5-4.9-7.5-9.5V6Z"/><path d="M9 12l2 2 4-4.5"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4 2.8 19.5h18.4Z"/><path d="M12 10v4M12 17.2v.1"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="m12 3.5 2.6 5.4 5.9.8-4.3 4.1 1 5.9-5.2-2.8-5.2 2.8 1-5.9L3.5 9.7l5.9-.8Z"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 6.3M20 5v6h-6"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v2.6M12 18.6v2.6M2.8 12h2.6M18.6 12h2.6M5.5 5.5l1.8 1.8M16.7 16.7l1.8 1.8M18.5 5.5l-1.8 1.8M7.3 16.7l-1.8 1.8"/></symbol>
+  <symbol id="i-pie" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12A9 9 0 1 1 12 3v9Z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15Z"/></symbol>
+</svg>
+
+<div class="phone">
+  <div class="screen" id="screen">
+
+    <!-- STATUS BAR -->
+    <div class="statusbar">
+      <span class="time">19:27</span>
+      <div class="island"></div>
+      <div class="icons">
+        <svg width="19" height="12" viewBox="0 0 19 12" fill="#000">
+          <rect x="0" y="8" width="3" height="4" rx="1"/>
+          <rect x="5" y="5.5" width="3" height="6.5" rx="1"/>
+          <rect x="10" y="3" width="3" height="9" rx="1"/>
+          <rect x="15" y="0" width="3" height="12" rx="1"/>
+        </svg>
+        <svg width="17" height="12" viewBox="0 0 17 12" fill="#000">
+          <path d="M8.5 9.6c.9 0 1.7.4 2.3 1L8.5 13l-2.3-2.4c.6-.6 1.4-1 2.3-1Z"/>
+          <path d="M8.5 5.2c2 0 3.9.8 5.3 2.2l-1.6 1.6a5.4 5.4 0 0 0-7.4 0L3.2 7.4a7.5 7.5 0 0 1 5.3-2.2Z"/>
+          <path d="M8.5.8c3.2 0 6.2 1.3 8.4 3.4l-1.6 1.6a9.6 9.6 0 0 0-13.6 0L.1 4.2A11.9 11.9 0 0 1 8.5.8Z"/>
+        </svg>
+        <svg width="27" height="13" viewBox="0 0 27 13">
+          <rect x="0.5" y="0.5" width="23" height="12" rx="3.5" fill="none" stroke="#000" stroke-opacity=".4"/>
+          <rect x="2" y="2" width="20" height="9" rx="2" fill="#000"/>
+          <path d="M25.5 4.5v4a2.2 2.2 0 0 0 0-4Z" fill="#000" fill-opacity=".4"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- HEADER -->
+    <div class="oc-header">
+      <button class="hbtn" id="sessionsBtn" title="Sessions">
+        <svg class="ic"><use href="#i-list"/></svg>
+      </button>
+      <button class="session-title-btn" id="sessionTitleBtn">
+        <span class="t" id="sessionTitle">Fix login redirect</span>
+        <svg class="ic chev"><use href="#i-chev-down"/></svg>
+      </button>
+      <button class="hbtn" id="metaBtn" title="Session info">
+        <svg class="ic"><use href="#i-gauge"/></svg>
+      </button>
+      <button class="hbtn" id="workspaceBtn" title="Workspace">
+        <svg class="ic"><use href="#i-ruler"/></svg>
+        <span class="warn-dot"></span>
+      </button>
+    </div>
+
+    <!-- SESSION SWITCHER POPOVER -->
+    <div class="popover popover-switcher" id="switcherPop">
+      <button class="sw-row" data-title="Fix login redirect">
+        <span class="sw-dot"></span>
+        <span class="sw-main">
+          <span class="sw-title">Fix login redirect</span>
+          <span class="sw-sub">agent-mobile · main</span>
+        </span>
+        <span class="sw-meta"><span class="spinner" style="display:inline-block;vertical-align:-2px;"></span></span>
+      </button>
+      <button class="sw-row" data-title="Pulse orbit animation">
+        <span class="sw-dot" style="visibility:hidden"></span>
+        <span class="sw-main">
+          <span class="sw-title">Pulse orbit animation</span>
+          <span class="sw-sub">agent-mobile · main</span>
+        </span>
+        <span class="sw-meta">2h</span>
+      </button>
+      <button class="sw-row" data-title="Theme token migration">
+        <span class="sw-dot" style="visibility:hidden"></span>
+        <span class="sw-main">
+          <span class="sw-title">Theme token migration</span>
+          <span class="sw-sub">agent-mobile · main</span>
+        </span>
+        <span class="sw-meta">Tue</span>
+      </button>
+      <button class="sw-row" data-title="BFF CORS audit">
+        <span class="sw-dot" style="visibility:hidden"></span>
+        <span class="sw-main">
+          <span class="sw-title">BFF CORS audit</span>
+          <span class="sw-sub">family-finance · main</span>
+        </span>
+        <span class="sw-meta">1d</span>
+      </button>
+    </div>
+
+    <!-- SESSION METADATA POPOVER -->
+    <div class="popover popover-meta" id="metaPop">
+      <h5>Context</h5>
+      <div class="meta-line"><span class="k">Window</span><b>32% used</b></div>
+      <div class="ctx-bar"><i></i></div>
+      <div class="meta-line"><span class="k">Tokens</span><b>41.2k / 128k</b></div>
+      <h5 style="margin-top:12px">Session</h5>
+      <div class="meta-line"><span class="k">Model</span><b id="metaModel">GLM-4.7 · zai</b></div>
+      <div class="meta-line"><span class="k">Agent</span><b id="metaAgent">build</b></div>
+      <div class="meta-line"><span class="k">Duration</span><b>12m 32s</b></div>
+    </div>
+
+    <!-- CHAT AREA -->
+    <div class="chat-area" id="chat-area">
+
+      <!-- 1 user -->
+      <div class="msg-row user">
+        <div class="bubble">The login button redirects to /dashboard even when auth fails. Can you fix it?</div>
+        <span class="check-badge"></span>
+      </div>
+
+      <!-- 2 ai: text + tool group + text + diff -->
+      <div class="msg-row ai">
+        <span class="ai-orb"></span>
+        <div class="msg-col">
+          <div class="bubble">I'll trace the redirect logic first.</div>
+          <div class="bubble" style="padding:8px 10px 10px; background:transparent;">
+            <div class="tech-card" data-toolcard>
+              <button class="tech-head" data-toggle>
+                <svg class="ic chev"><use href="#i-chev-right"/></svg>
+                Worked for 18s
+                <span class="badge">3 steps</span>
+              </button>
+              <div class="tool-rows">
+                <button class="tool-row" data-tool="Read" data-target="src/auth/login.ts">
+                  <svg class="ic"><use href="#i-file"/></svg>
+                  <span class="tn">Read</span><span class="tt">src/auth/login.ts</span>
+                  <span class="st"><svg class="ic"><use href="#i-check"/></svg></span>
+                </button>
+                <button class="tool-row" data-tool="Grep" data-target="redirect( in src/">
+                  <svg class="ic"><use href="#i-search"/></svg>
+                  <span class="tn">Grep</span><span class="tt">redirect( — 4 matches</span>
+                  <span class="st"><svg class="ic"><use href="#i-check"/></svg></span>
+                </button>
+                <button class="tool-row" data-tool="Edit" data-target="src/auth/login.ts">
+                  <svg class="ic"><use href="#i-aa"/></svg>
+                  <span class="tn">Edit</span><span class="tt">src/auth/login.ts</span>
+                  <span class="diffstat"><span class="a">+12</span> <span class="d">−3</span></span>
+                  <span class="st"><svg class="ic"><use href="#i-check"/></svg></span>
+                </button>
+              </div>
+            </div>
+            <div class="tech-card" data-toolcard style="margin-top:6px; display:none;" id="liveToolCard">
+              <button class="tech-head" data-toggle>
+                <svg class="ic chev"><use href="#i-chev-right"/></svg>
+                <span id="liveToolLabel">Working…</span>
+              </button>
+              <div class="tool-rows" id="liveToolRows"></div>
+            </div>
+          </div>
+          <div class="bubble">Found it — <b>login()</b> redirected before awaiting the server response. I've added an early return for non-OK responses.</div>
+          <div class="bubble" style="padding:8px 10px 10px; background:transparent;">
+            <div class="code-card">
+              <div class="code-head">
+                <svg class="ic" style="width:13px;height:13px;"><use href="#i-file"/></svg>
+                src/auth/login.ts
+                <span class="lang">ts</span>
+              </div>
+              <div class="code-body">
+                <div class="code-line del"><span class="sign">−</span>async function login(form) {</div>
+                <div class="code-line del"><span class="sign">−</span>  redirect('/dashboard')</div>
+                <div class="code-line del"><span class="sign">−</span>  return api.login(form)</div>
+                <div class="code-line del"><span class="sign">−</span>}</div>
+                <div class="code-line add"><span class="sign">+</span>async function login(form) {</div>
+                <div class="code-line add"><span class="sign">+</span>  const res = await api.login(form)</div>
+                <div class="code-line add"><span class="sign">+</span>  if (!res.ok) return showError(res)</div>
+                <div class="code-line add"><span class="sign">+</span>  redirect('/dashboard')</div>
+                <div class="code-line add"><span class="sign">+</span>}</div>
+              </div>
+            </div>
+          </div>
+          <div class="msg-meta"><span class="pdot"></span> GLM-4.7 · build · 24s</div>
+        </div>
+      </div>
+
+      <!-- 3 user -->
+      <div class="msg-row user">
+        <div class="bubble">Run the tests too.</div>
+        <span class="check-badge"></span>
+      </div>
+
+      <!-- 4 ai: thinking + permission -->
+      <div class="msg-row ai">
+        <span class="ai-orb busy" id="permOrb"></span>
+        <div class="msg-col">
+          <div class="bubble" style="padding:8px 10px 10px; background:transparent;">
+            <div class="think-card" data-toolcard>
+              <button class="tech-head" data-toggle>
+                <svg class="ic chev"><use href="#i-chev-right"/></svg>
+                Thought for 6s
+              </button>
+              <div class="think-body">The user wants the test suite run before I hand back. That needs command permission — I'll request to run the auth tests only, to keep it small.</div>
+            </div>
+            <div class="perm-card" id="permCard">
+              <div class="perm-title">
+                <svg class="ic"><use href="#i-shield"/></svg>
+                Permission requested
+                <span class="subagent">build agent</span>
+              </div>
+              <div class="perm-cmd">pnpm vitest run src/auth</div>
+              <div class="perm-actions" id="permActions">
+                <button class="perm-btn deny" data-perm="deny">Deny</button>
+                <button class="perm-btn allow" data-perm="allow">Allow</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- COMPOSER SLOT -->
+    <div class="composer-slot">
+
+      <!-- floating status row -->
+      <div class="status-row" id="statusRow">
+        <span class="spinner"></span>
+        <span class="st-text" id="statusText">Companion is working…</span>
+        <button class="stop-mini" id="statusStop" title="Stop">
+          <svg class="ic"><use href="#i-stop"/></svg>
+        </button>
+      </div>
+
+      <!-- queued chips + suggestion -->
+      <div class="float-panel" id="floatPanel">
+        <div class="q-chip" id="seedQueueChip">
+          <span class="drag"><svg class="ic"><use href="#i-grip"/></svg></span>
+          <span class="q-text">Also update the e2e test for failed logins</span>
+          <button class="q-btn" data-q="edit">Edit</button>
+          <button class="q-btn" data-q="send">Send</button>
+        </div>
+        <button class="sugg-chip" id="suggChip">
+          <svg class="ic"><use href="#i-sparkle"/></svg>
+          <span>Add a regression test for failed logins</span>
+        </button>
+      </div>
+
+      <!-- collapsed pill -->
+      <div class="pill-wrap" id="pillWrap">
+        <div class="input-pill">
+          <div class="pill-main">
+            <button class="round-btn" id="attachBtn" title="Attach">
+              <svg class="ic" style="width:18px;height:18px;"><use href="#i-plus"/></svg>
+            </button>
+            <button class="pill-preview" id="pillPreview">Ask anything…</button>
+            <button class="round-btn" id="pillMic" title="Voice input">
+              <svg class="ic" style="width:18px;height:18px;"><use href="#i-mic"/></svg>
+            </button>
+            <button class="round-btn hide" id="pillSend" title="Send" style="background:var(--peach); border-color:transparent;">
+              <svg class="ic" style="width:17px;height:17px;"><use href="#i-send"/></svg>
+            </button>
+            <button class="round-btn hide" id="pillStop" title="Stop" style="border-color:rgba(196,87,74,.5); color:var(--danger); background:rgba(196,87,74,.1);">
+              <svg class="ic" style="width:17px;height:17px;"><use href="#i-stop"/></svg>
+            </button>
+          </div>
+          <div class="pill-sub">
+            <button class="ma-btn" id="modelBtn">
+              <span class="pdot" style="background:var(--peach)"></span>
+              <span id="modelBtnLabel">GLM-4.7</span>
+            </button>
+            <span class="spacer"></span>
+            <button class="ma-btn" id="agentBtn">
+              <span class="pdot" id="agentDot" style="background:#F3BA8F"></span>
+              <span id="agentBtnLabel">build</span>
+            </button>
+          </div>
+        </div>
+        <button class="queue-fab hide" id="queueFab" title="Queue message">
+          <svg class="ic" style="transform:rotate(-90deg);"><use href="#i-queue"/></svg>
+        </button>
+      </div>
+
+      <!-- expanded composer -->
+      <div class="composer-box hide" id="composerBox">
+        <textarea id="composerInput" rows="3" placeholder="Ask anything…"></textarea>
+        <div class="composer-footer">
+          <button class="round-btn" style="width:36px;height:36px;" title="Attach">
+            <svg class="ic" style="width:17px;height:17px;"><use href="#i-plus"/></svg>
+          </button>
+          <span class="count" id="charCount">0</span>
+          <span class="spacer"></span>
+          <button class="round-btn hide" id="composerQueue" title="Queue message" style="width:36px;height:36px;">
+            <svg class="ic" style="width:16px;height:16px;transform:rotate(-90deg);"><use href="#i-queue"/></svg>
+          </button>
+          <button class="round-btn" style="width:36px;height:36px;" title="Voice input">
+            <svg class="ic" style="width:16px;height:16px;"><use href="#i-mic"/></svg>
+          </button>
+          <button class="composer-send" id="composerSend" title="Send">
+            <svg class="ic" style="width:19px;height:19px;"><use href="#i-send"/></svg>
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ===================== SESSIONS DRAWER (left) ===================== -->
+    <div class="backdrop" id="backdrop"></div>
+
+    <div class="drawer drawer-left" id="drawerLeft">
+      <div class="drawer-head">
+        <div class="search-box">
+          <svg class="ic"><use href="#i-search"/></svg>
+          <input type="text" id="sessSearch" placeholder="Search sessions" autocomplete="off">
+        </div>
+        <button class="hbtn" data-toast="Sort options (demo)"><svg class="ic"><use href="#i-sort"/></svg></button>
+        <button class="hbtn" data-toast="New session (demo)"><svg class="ic"><use href="#i-plus"/></svg></button>
+      </div>
+      <div class="drawer-body" id="sessList">
+        <div class="proj-head">
+          <svg class="ic"><use href="#i-folder"/></svg> agent-mobile
+          <button class="new-mini" data-toast="New session in agent-mobile (demo)"><svg class="ic"><use href="#i-plus"/></svg></button>
+        </div>
+        <div class="wt-row"><svg class="ic"><use href="#i-branch"/></svg> main</div>
+
+        <div class="sess-swipe" data-sess="Fix login redirect">
+          <div class="sess-actions">
+            <button class="a-del" data-act="del"><svg class="ic"><use href="#i-trash"/></svg>Delete</button>
+            <button class="a-arch" data-act="arch"><svg class="ic"><use href="#i-arch"/></svg>Archive</button>
+            <button class="a-ren" data-act="ren"><svg class="ic"><use href="#i-aa"/></svg>Rename</button>
+            <button class="a-ai" data-act="ai"><svg class="ic"><use href="#i-sparkle"/></svg>AI</button>
+          </div>
+          <div class="sess-row active" data-title="Fix login redirect">
+            <div class="s-main">
+              <div class="s-title">Fix login redirect</div>
+              <div class="s-sub">main · 12m</div>
+            </div>
+            <span class="s-state"><span class="spinner"></span></span>
+          </div>
+        </div>
+
+        <div class="sess-swipe" data-sess="Pulse orbit animation">
+          <div class="sess-actions">
+            <button class="a-del" data-act="del"><svg class="ic"><use href="#i-trash"/></svg>Delete</button>
+            <button class="a-arch" data-act="arch"><svg class="ic"><use href="#i-arch"/></svg>Archive</button>
+            <button class="a-ren" data-act="ren"><svg class="ic"><use href="#i-aa"/></svg>Rename</button>
+            <button class="a-ai" data-act="ai"><svg class="ic"><use href="#i-sparkle"/></svg>AI</button>
+          </div>
+          <div class="sess-row" data-title="Pulse orbit animation">
+            <div class="s-main">
+              <div class="s-title">Pulse orbit animation</div>
+              <div class="s-sub">main · 2h</div>
+            </div>
+            <span class="s-state"></span>
+          </div>
+        </div>
+
+        <div class="sess-swipe" data-sess="Theme token migration">
+          <div class="sess-actions">
+            <button class="a-del" data-act="del"><svg class="ic"><use href="#i-trash"/></svg>Delete</button>
+            <button class="a-arch" data-act="arch"><svg class="ic"><use href="#i-arch"/></svg>Archive</button>
+            <button class="a-ren" data-act="ren"><svg class="ic"><use href="#i-aa"/></svg>Rename</button>
+            <button class="a-ai" data-act="ai"><svg class="ic"><use href="#i-sparkle"/></svg>AI</button>
+          </div>
+          <div class="sess-row" data-title="Theme token migration">
+            <div class="s-main">
+              <div class="s-title">Theme token migration</div>
+              <div class="s-sub">main · Tue</div>
+            </div>
+            <span class="s-state"><span class="unread"></span></span>
+          </div>
+        </div>
+
+        <div class="proj-head">
+          <svg class="ic"><use href="#i-folder"/></svg> family-finance
+          <button class="new-mini" data-toast="New session in family-finance (demo)"><svg class="ic"><use href="#i-plus"/></svg></button>
+        </div>
+        <div class="wt-row"><svg class="ic"><use href="#i-branch"/></svg> main</div>
+
+        <div class="sess-swipe" data-sess="BFF CORS audit">
+          <div class="sess-actions">
+            <button class="a-del" data-act="del"><svg class="ic"><use href="#i-trash"/></svg>Delete</button>
+            <button class="a-arch" data-act="arch"><svg class="ic"><use href="#i-arch"/></svg>Archive</button>
+            <button class="a-ren" data-act="ren"><svg class="ic"><use href="#i-aa"/></svg>Rename</button>
+            <button class="a-ai" data-act="ai"><svg class="ic"><use href="#i-sparkle"/></svg>AI</button>
+          </div>
+          <div class="sess-row" data-title="BFF CORS audit">
+            <div class="s-main">
+              <div class="s-title">BFF CORS audit</div>
+              <div class="s-sub">main · 1d</div>
+            </div>
+            <span class="s-state"></span>
+          </div>
+        </div>
+
+        <div class="sess-swipe" data-sess="Ledger sync design">
+          <div class="sess-actions">
+            <button class="a-del" data-act="del"><svg class="ic"><use href="#i-trash"/></svg>Delete</button>
+            <button class="a-arch" data-act="arch"><svg class="ic"><use href="#i-arch"/></svg>Archive</button>
+            <button class="a-ren" data-act="ren"><svg class="ic"><use href="#i-aa"/></svg>Rename</button>
+            <button class="a-ai" data-act="ai"><svg class="ic"><use href="#i-sparkle"/></svg>AI</button>
+          </div>
+          <div class="sess-row" data-title="Ledger sync design">
+            <div class="s-main">
+              <div class="s-title">Ledger sync design</div>
+              <div class="s-sub">main · Fri</div>
+            </div>
+            <span class="s-state"></span>
+          </div>
+        </div>
+      </div>
+      <div class="drawer-foot">
+        <button class="inst-pill" data-toast="Instances (demo)"><span class="dot"></span> Mac mini · local</button>
+        <span class="spacer"></span>
+        <button class="foot-btn" data-toast="Usage (demo)"><svg class="ic"><use href="#i-pie"/></svg></button>
+        <button class="foot-btn" data-toast="Settings (demo)"><svg class="ic"><use href="#i-settings"/></svg></button>
+      </div>
+    </div>
+
+    <!-- ===================== WORKSPACE DRAWER (right) ===================== -->
+    <div class="drawer drawer-right" id="drawerRight">
+      <div class="drawer-head">
+        <span class="drawer-title">agent-mobile</span>
+        <span class="spacer" style="flex:1"></span>
+        <button class="hbtn" id="wsClose"><svg class="ic"><use href="#i-x"/></svg></button>
+      </div>
+      <div class="ws-tabs" id="wsTabs">
+        <button class="ws-tab on" data-tab="changes"><svg class="ic"><use href="#i-branch"/></svg><span class="lbl">Changes</span></button>
+        <button class="ws-tab" data-tab="files"><svg class="ic"><use href="#i-file"/></svg><span class="lbl">Files</span></button>
+        <button class="ws-tab" data-tab="terminal"><svg class="ic"><use href="#i-term"/></svg><span class="lbl">Terminal</span></button>
+        <button class="ws-tab" data-tab="notes"><svg class="ic"><use href="#i-note"/></svg><span class="lbl">Notes</span></button>
+        <button class="ws-tab" data-tab="mcp"><svg class="ic"><use href="#i-plug"/></svg><span class="lbl">MCP</span></button>
+      </div>
+
+      <div class="ws-panel on" data-panel="changes">
+        <div class="ws-branch">
+          <svg class="ic"><use href="#i-branch"/></svg> main <span class="ahead">↑2</span>
+          <button class="sync" data-toast="Sync (demo)"><svg class="ic"><use href="#i-refresh"/></svg></button>
+        </div>
+        <div class="ws-card">
+          <button class="ws-row">
+            <svg class="ic"><use href="#i-file"/></svg>
+            <span class="fname">src/auth/login.ts</span>
+            <span class="diffstat"><span class="a">+12</span> <span class="d">−3</span></span>
+          </button>
+          <button class="ws-row">
+            <svg class="ic"><use href="#i-file"/></svg>
+            <span class="fname">src/auth/login.test.ts</span>
+            <span class="diffstat"><span class="a">+8</span> <span class="d">−0</span></span>
+          </button>
+          <button class="ws-row">
+            <svg class="ic"><use href="#i-file"/></svg>
+            <span class="fname">e2e/login.spec.ts</span>
+            <span class="diffstat"><span class="a">+21</span> <span class="d">−0</span></span>
+          </button>
+        </div>
+        <div class="commit-box">
+          <input type="text" placeholder="Commit message…" value="fix: await login before redirect">
+          <button data-toast="Committed 3 files (demo)">Commit</button>
+        </div>
+      </div>
+
+      <div class="ws-panel" data-panel="files">
+        <div class="ws-card filetree">
+          <div class="ft-row"><svg class="ic"><use href="#i-folder"/></svg> agent-mobile-app</div>
+          <div class="ft-row indent1"><svg class="ic"><use href="#i-folder"/></svg> src</div>
+          <div class="ft-row indent2"><svg class="ic"><use href="#i-folder"/></svg> app</div>
+          <div class="ft-row indent2"><svg class="ic"><use href="#i-folder"/></svg> components</div>
+          <div class="ft-row indent2"><svg class="ic"><use href="#i-file"/></svg> index.tsx</div>
+          <div class="ft-row indent2"><svg class="ic"><use href="#i-file"/></svg> talk.tsx</div>
+          <div class="ft-row indent1"><svg class="ic"><use href="#i-file"/></svg> app.json</div>
+          <div class="ft-row indent1"><svg class="ic"><use href="#i-file"/></svg> package.json</div>
+        </div>
+      </div>
+
+      <div class="ws-panel" data-panel="terminal">
+        <div class="term-view">
+<span class="dim">— zsh · agent-mobile-app —</span>
+<span class="p">$</span> pnpm exec tsc --noEmit
+<span class="dim">Done in 4.2s. No errors.</span>
+<span class="p">$</span> pnpm vitest run src/auth
+<span class="dim">✓ src/auth/login.test.ts (8)</span>
+Test Files <span class="p">1 passed</span> (1)
+      Tests <span class="p">42 passed</span> (42)
+<span class="p">$</span> <span class="cursor-blink"></span>
+        </div>
+      </div>
+
+      <div class="ws-panel" data-panel="notes">
+        <div class="note-card">
+          <h6><svg class="ic"><use href="#i-note"/></svg> Preference</h6>
+          <p>Uses pnpm, never npm. Runs tsc + vitest before every handoff.</p>
+        </div>
+        <div class="note-card">
+          <h6><svg class="ic"><use href="#i-note"/></svg> Deploy</h6>
+          <p>Web static build on :9928 — expo export, then restart serve-9928.</p>
+        </div>
+        <div class="note-card">
+          <h6><svg class="ic"><use href="#i-note"/></svg> Context</h6>
+          <p>auth refactor started Tue; keep login() signature stable for e2e.</p>
+        </div>
+      </div>
+
+      <div class="ws-panel" data-panel="mcp">
+        <div class="ws-card">
+          <button class="ws-row">
+            <span class="mcp-dot ok"></span>
+            <span style="flex:1;font-weight:600;">github</span>
+            <span style="font-size:11px;color:var(--text-gray);">12 tools</span>
+          </button>
+          <button class="ws-row">
+            <span class="mcp-dot ok"></span>
+            <span style="flex:1;font-weight:600;">linear</span>
+            <span style="font-size:11px;color:var(--text-gray);">7 tools</span>
+          </button>
+          <button class="ws-row">
+            <span class="mcp-dot off"></span>
+            <span style="flex:1;font-weight:600;">playwright</span>
+            <span style="font-size:11px;color:var(--text-gray);">disconnected</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== BOTTOM SHEETS ===================== -->
+    <div class="sheet" id="modelSheet">
+      <div class="sheet-head">
+        <h4>Model</h4>
+        <button class="x" data-close-sheet><svg class="ic"><use href="#i-x"/></svg></button>
+      </div>
+      <div class="sheet-body" id="modelList">
+        <div class="search-box sheet-search">
+          <svg class="ic"><use href="#i-search"/></svg>
+          <input type="text" placeholder="Search models" autocomplete="off">
+        </div>
+        <div class="grp-label">Recent</div>
+        <button class="pick-row sel" data-model="GLM-4.7" data-provider="zai">
+          <span class="pdot" style="background:var(--peach)"></span>
+          <span class="p-main"><span class="p-name">GLM-4.7</span><span class="p-desc">zai · fast reasoning</span></span>
+          <span class="p-end check-on"><svg class="ic"><use href="#i-check"/></svg></span>
+        </button>
+        <button class="pick-row" data-model="Claude Sonnet 4.5" data-provider="anthropic">
+          <span class="pdot" style="background:#C9A97E"></span>
+          <span class="p-main"><span class="p-name">Claude Sonnet 4.5</span><span class="p-desc">anthropic</span></span>
+          <span class="p-end"></span>
+        </button>
+        <div class="grp-label">zai</div>
+        <button class="pick-row" data-model="GLM-4.7" data-provider="zai">
+          <span class="pdot" style="background:var(--peach)"></span>
+          <span class="p-main"><span class="p-name">GLM-4.7</span><span class="p-desc">zai</span></span>
+          <span class="p-end"><svg class="ic star on"><use href="#i-star"/></svg></span>
+        </button>
+        <button class="pick-row" data-model="GLM-4.5-Air" data-provider="zai">
+          <span class="pdot" style="background:var(--peach)"></span>
+          <span class="p-main"><span class="p-name">GLM-4.5-Air</span><span class="p-desc">zai · lightweight</span></span>
+          <span class="p-end"></span>
+        </button>
+        <div class="grp-label">anthropic</div>
+        <button class="pick-row" data-model="Claude Opus 4.1" data-provider="anthropic">
+          <span class="pdot" style="background:#C9A97E"></span>
+          <span class="p-main"><span class="p-name">Claude Opus 4.1</span><span class="p-desc">anthropic · deep work</span></span>
+          <span class="p-end"></span>
+        </button>
+      </div>
+    </div>
+
+    <div class="sheet" id="agentSheet">
+      <div class="sheet-head">
+        <h4>Agent</h4>
+        <button class="x" data-close-sheet><svg class="ic"><use href="#i-x"/></svg></button>
+      </div>
+      <div class="sheet-body" id="agentList"></div>
+    </div>
+
+    <div class="sheet" id="toolSheet">
+      <div class="sheet-head">
+        <h4 id="toolSheetTitle">Tool output</h4>
+        <button class="x" data-close-sheet><svg class="ic"><use href="#i-x"/></svg></button>
+      </div>
+      <div class="sheet-body">
+        <div class="toolout-view" id="toolSheetBody"></div>
+      </div>
+    </div>
+
+    <!-- toast -->
+    <div class="toast" id="toast"></div>
+
+  </div>
+</div>
+
+<script>
+  const $ = s => document.querySelector(s);
+  const $$ = s => Array.from(document.querySelectorAll(s));
+  const chatArea = $('#chat-area');
+  const screen = $('#screen');
+
+  /* ===================== toast ===================== */
+  let toastTimer = null;
+  function toast(msg) {
+    const t = $('#toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 1600);
+  }
+  $$('[data-toast]').forEach(b => b.addEventListener('click', () => toast(b.dataset.toast)));
+
+  /* ===================== scroll helper ===================== */
+  const scrollBottom = () => { chatArea.scrollTop = chatArea.scrollHeight; };
+  scrollBottom();
+
+  /* ===================== collapsible tech / think cards ===================== */
+  $$('[data-toolcard] .tech-head').forEach(h => {
+    h.addEventListener('click', e => {
+      e.stopPropagation();
+      h.closest('[data-toolcard]').classList.toggle('open');
+    });
+  });
+
+  /* ===================== tool output sheet ===================== */
+  const TOOL_OUT = {
+    Read: ["> src/auth/login.ts", "", "  8  export async function login(form: Credentials) {", "  9    redirect('/dashboard')", " 10    return api.login(form)", " 11  }", "", "(42 lines)"],
+    Grep: ["src/auth/login.ts:9    redirect('/dashboard')", "src/auth/login.ts:31   redirect('/dashboard')", "src/hooks/useAuth.ts:14 redirect(redirectPath)", "", "4 matches in 2 files"],
+    Edit: ["Applied patch to src/auth/login.ts", "", "  hunk 1: await response before redirect", "  +12 lines, −3 lines"],
+    Bash: ["$ pnpm vitest run src/auth", "", "  ✓ login redirects only on ok (12ms)", "  ✓ login shows error on 401 (8ms)", "  ✓ login keeps session (5ms)", "", "  Tests  42 passed (42)"],
+  };
+  $$('.tool-row').forEach(r => {
+    r.addEventListener('click', () => {
+      $('#toolSheetTitle').textContent = r.dataset.tool + ' — ' + (r.dataset.target || '');
+      const body = $('#toolSheetBody');
+      body.textContent = (TOOL_OUT[r.dataset.tool] || ['(no output)']).join('\n');
+      openSheet('toolSheet');
+    });
+  });
+
+  /* ===================== sheets ===================== */
+  function openSheet(id) {
+    closePopovers();
+    $('#backdrop').classList.add('show');
+    $('#' + id).classList.add('open');
+  }
+  function closeSheets() {
+    $$('.sheet').forEach(s => s.classList.remove('open'));
+    if (!anyDrawerOpen()) $('#backdrop').classList.remove('show');
+  }
+  $$('[data-close-sheet]').forEach(b => b.addEventListener('click', closeSheets));
+
+  /* model picker */
+  $('#modelBtn').addEventListener('click', () => openSheet('modelSheet'));
+  $$('#modelList .pick-row').forEach(row => {
+    row.addEventListener('click', () => {
+      $$('#modelList .pick-row').forEach(r => { r.classList.remove('sel'); r.querySelector('.p-end').innerHTML = ''; });
+      row.classList.add('sel');
+      row.querySelector('.p-end').innerHTML = '<svg class="ic check-on"><use href="#i-check"/></svg>';
+      $('#modelBtnLabel').textContent = row.dataset.model;
+      $('#metaModel').textContent = row.dataset.model + ' · ' + row.dataset.provider;
+      closeSheets();
+      toast('Model → ' + row.dataset.model);
+    });
+  });
+
+  /* agent picker + tap-to-cycle */
+  const AGENTS = [
+    { n: 'build',  c: '#F3BA8F', d: 'Implements changes end to end' },
+    { n: 'plan',   c: '#5CBB63', d: 'Explores and proposes a plan' },
+    { n: 'review', c: '#6FA8DC', d: 'Reviews diffs and tests' },
+  ];
+  let agentIdx = 0;
+  const agentList = $('#agentList');
+  AGENTS.forEach((a, i) => {
+    const b = document.createElement('button');
+    b.className = 'pick-row' + (i === agentIdx ? ' sel' : '');
+    b.innerHTML = '<span class="pdot" style="background:' + a.c + '"></span>' +
+      '<span class="p-main"><span class="p-name">' + a.n + '</span><span class="p-desc">' + a.d + '</span></span>' +
+      '<span class="p-end">' + (i === agentIdx ? '<svg class="ic check-on"><use href="#i-check"/></svg>' : '') + '</span>';
+    b.addEventListener('click', () => { setAgent(i); closeSheets(); });
+    agentList.appendChild(b);
+  });
+  function setAgent(i) {
+    agentIdx = i;
+    const a = AGENTS[i];
+    $('#agentBtnLabel').textContent = a.n;
+    $('#agentDot').style.background = a.c;
+    $('#metaAgent').textContent = a.n;
+    $$('#agentList .pick-row').forEach((r, j) => {
+      r.classList.toggle('sel', j === i);
+      r.querySelector('.p-end').innerHTML = j === i ? '<svg class="ic check-on"><use href="#i-check"/></svg>' : '';
+    });
+  }
+  let agentPress = null, agentLong = false;
+  $('#agentBtn').addEventListener('pointerdown', () => {
+    agentLong = false;
+    agentPress = setTimeout(() => { agentLong = true; openSheet('agentSheet'); }, 500);
+  });
+  $('#agentBtn').addEventListener('pointerup', () => {
+    clearTimeout(agentPress);
+    if (!agentLong) { setAgent((agentIdx + 1) % AGENTS.length); toast('Agent → ' + AGENTS[agentIdx].n); }
+  });
+  $('#agentBtn').addEventListener('pointerleave', () => clearTimeout(agentPress));
+
+  /* ===================== header popovers ===================== */
+  const switcherPop = $('#switcherPop'), metaPop = $('#metaPop'), titleBtn = $('#sessionTitleBtn');
+  function closePopovers() {
+    switcherPop.classList.remove('show');
+    metaPop.classList.remove('show');
+    titleBtn.classList.remove('open');
+  }
+  titleBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    const willOpen = !switcherPop.classList.contains('show');
+    closePopovers();
+    if (willOpen) { switcherPop.classList.add('show'); titleBtn.classList.add('open'); }
+  });
+  $('#metaBtn').addEventListener('click', e => {
+    e.stopPropagation();
+    const willOpen = !metaPop.classList.contains('show');
+    closePopovers();
+    if (willOpen) metaPop.classList.add('show');
+  });
+  $$('#switcherPop .sw-row').forEach(r => r.addEventListener('click', () => {
+    $('#sessionTitle').textContent = r.dataset.title;
+    closePopovers();
+    toast('Switched to “' + r.dataset.title + '”');
+  }));
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.popover') && !e.target.closest('#sessionTitleBtn') && !e.target.closest('#metaBtn')) closePopovers();
+  });
+
+  /* ===================== drawers ===================== */
+  const drawerLeft = $('#drawerLeft'), drawerRight = $('#drawerRight'), backdrop = $('#backdrop');
+  function anyDrawerOpen() { return drawerLeft.classList.contains('open') || drawerRight.classList.contains('open'); }
+  function openDrawer(side) {
+    closePopovers(); closeSheets();
+    backdrop.classList.add('show');
+    (side === 'left' ? drawerLeft : drawerRight).classList.add('open');
+  }
+  function closeDrawers() {
+    drawerLeft.classList.remove('open');
+    drawerRight.classList.remove('open');
+    if (!$('.sheet.open')) backdrop.classList.remove('show');
+  }
+  $('#sessionsBtn').addEventListener('click', () => openDrawer('left'));
+  $('#workspaceBtn').addEventListener('click', () => openDrawer('right'));
+  $('#wsClose').addEventListener('click', closeDrawers);
+  backdrop.addEventListener('click', () => { closeDrawers(); closeSheets(); });
+
+  /* session search filter */
+  $('#sessSearch').addEventListener('input', e => {
+    const q = e.target.value.toLowerCase();
+    $$('#sessList .sess-swipe').forEach(sw => {
+      const t = (sw.dataset.sess || '').toLowerCase();
+      sw.style.display = (!q || t.includes(q)) ? '' : 'none';
+    });
+  });
+
+  /* session row swipe actions */
+  $$('#sessList .sess-swipe').forEach(sw => {
+    const row = sw.querySelector('.sess-row');
+    let sx = 0, sy = 0, dx = 0, tracking = false, snapped = false;
+    row.addEventListener('pointerdown', e => {
+      sx = e.clientX; sy = e.clientY; dx = 0; tracking = true;
+      row.classList.add('dragging');
+    });
+    row.addEventListener('pointermove', e => {
+      if (!tracking) return;
+      dx = e.clientX - sx;
+      const dy = e.clientY - sy;
+      if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { tracking = false; row.classList.remove('dragging'); apply(0); return; }
+      const max = 192;
+      let base = snapped ? max : 0;
+      let next = Math.max(0, Math.min(max, base + dx));
+      row.style.transform = 'translateX(' + next + 'px)';
+    });
+    function apply(x) {
+      row.style.transform = 'translateX(' + x + 'px)';
+      snapped = x > 100;
+    }
+    row.addEventListener('pointerup', () => {
+      if (!tracking) return;
+      tracking = false;
+      row.classList.remove('dragging');
+      if (Math.abs(dx) > 8) { apply(dx > 40 ? 192 : 0); dx = 0; }
+      else if (!snapped) {
+        $('#sessionTitle').textContent = row.dataset.title;
+        $$('#sessList .sess-row').forEach(r => r.classList.remove('active'));
+        row.classList.add('active');
+        closeDrawers();
+        toast('Switched to “' + row.dataset.title + '”');
+      }
+    });
+    row.addEventListener('pointercancel', () => { tracking = false; row.classList.remove('dragging'); apply(snapped ? 192 : 0); });
+
+    sw.querySelectorAll('.sess-actions button').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const act = btn.dataset.act;
+        if (act === 'del') {
+          row.classList.add('removing');
+          row.style.height = row.offsetHeight + 'px';
+          requestAnimationFrame(() => {
+            row.style.height = '0px'; row.style.opacity = '0'; row.style.margin = '0'; row.style.transform = 'none';
+          });
+          setTimeout(() => sw.remove(), 280);
+          toast('Session deleted');
+        } else if (act === 'arch') { toast('Session archived'); apply(0); }
+        else if (act === 'ren') { toast('Rename (demo)'); apply(0); }
+        else if (act === 'ai') {
+          apply(0);
+          row.querySelector('.s-title').textContent = '…';
+          setTimeout(() => { row.querySelector('.s-title').textContent = 'Auth redirect regression'; toast('Renamed by AI'); }, 800);
+        }
+      });
+    });
+  });
+
+  /* ===================== edge swipe gestures ===================== */
+  let gest = null;
+  screen.addEventListener('pointerdown', e => {
+    if (e.target.closest('.drawer') || e.target.closest('.sheet') || e.target.closest('.popover')) return;
+    const r = screen.getBoundingClientRect();
+    const x = e.clientX - r.left;
+    gest = null;
+    if (drawerLeft.classList.contains('open')) gest = { t: 'close-left', sx: e.clientX, sy: e.clientY };
+    else if (drawerRight.classList.contains('open')) gest = { t: 'close-right', sx: e.clientX, sy: e.clientY };
+    else if (x < 34) gest = { t: 'left', sx: e.clientX, sy: e.clientY };
+    else if (x > r.width - 34) gest = { t: 'right', sx: e.clientX, sy: e.clientY };
+  });
+  screen.addEventListener('pointerup', e => {
+    if (!gest) return;
+    const dx = e.clientX - gest.sx, dy = e.clientY - gest.sy;
+    const g = gest; gest = null;
+    if (Math.abs(dx) < 64 || Math.abs(dy) > 70) return;
+    if (g.t === 'left' && dx > 0) openDrawer('left');
+    if (g.t === 'right' && dx < 0) openDrawer('right');
+    if (g.t === 'close-left' && dx < 0) closeDrawers();
+    if (g.t === 'close-right' && dx > 0) closeDrawers();
+  });
+
+  /* ===================== workspace tabs ===================== */
+  $$('#wsTabs .ws-tab').forEach(t => t.addEventListener('click', () => {
+    $$('#wsTabs .ws-tab').forEach(x => x.classList.remove('on'));
+    t.classList.add('on');
+    $$('.ws-panel').forEach(p => p.classList.toggle('on', p.dataset.panel === t.dataset.tab));
+  }));
+
+  /* ===================== composer: pill ↔ expanded ===================== */
+  const pillWrap = $('#pillWrap'), composerBox = $('#composerBox'), composerInput = $('#composerInput');
+  const pillPreview = $('#pillPreview');
+  function setExpanded(on) {
+    pillWrap.classList.toggle('hide', on);
+    composerBox.classList.toggle('hide', !on);
+    if (on) { composerInput.value = draft; syncDraftUI(); composerInput.focus(); }
+    else { draft = composerInput.value; syncDraftUI(); }
+  }
+  pillPreview.addEventListener('click', () => setExpanded(true));
+  composerInput.addEventListener('input', () => {
+    draft = composerInput.value;
+    $('#charCount').textContent = draft.length;
+  });
+
+  /* ===================== send / stop / queue / work simulation ===================== */
+  let draft = '';
+  let working = false;
+  let queue = [];
+  let timers = [];
+  let typer = null;
+  let seq = 0;
+
+  function later(fn, ms) { timers.push(setTimeout(fn, ms)); }
+  function clearTimers() { timers.forEach(clearTimeout); timers = []; if (typer) { clearInterval(typer); typer = null; } }
+
+  function syncTail() {
+    $('#pillStop').classList.toggle('hide', !working);
+    $('#pillSend').classList.toggle('hide', working || !draft.trim());
+    $('#pillMic').classList.toggle('hide', working || !!draft.trim());
+  }
+  function syncDraftUI() {
+    const has = draft.trim().length > 0;
+    pillPreview.textContent = has ? draft : 'Ask anything…';
+    pillPreview.classList.toggle('has-draft', has);
+    $('#charCount').textContent = draft.length;
+    $('#queueFab').classList.toggle('hide', !(working && has));
+    syncTail();
+  }
+  function setWorking(on) {
+    working = on;
+    $('#statusRow').classList.toggle('show', on);
+    $('#composerSend').classList.toggle('stop', on);
+    $('#composerSend').innerHTML = on ? '<svg class="ic" style="width:19px;height:19px;"><use href="#i-stop"/></svg>' : '<svg class="ic" style="width:19px;height:19px;"><use href="#i-send"/></svg>';
+    const orbs = $$('.ai-orb');
+    orbs.forEach(o => o.classList.remove('busy'));
+    if (on && orbs.length) orbs[orbs.length - 1].classList.add('busy');
+    $('#composerQueue').classList.toggle('hide', !on);
+    syncDraftUI();
+  }
+
+  function appendUser(text) {
+    const row = document.createElement('div');
+    row.className = 'msg-row user';
+    row.innerHTML = '<div class="bubble"></div><span class="check-badge"></span>';
+    row.querySelector('.bubble').textContent = text;
+    chatArea.appendChild(row);
+    scrollBottom();
+  }
+  function appendAICol() {
+    const row = document.createElement('div');
+    row.className = 'msg-row ai';
+    row.innerHTML = '<span class="ai-orb"></span><div class="msg-col"></div>';
+    chatArea.appendChild(row);
+    scrollBottom();
+    return row.querySelector('.msg-col');
+  }
+  function appendBubble(col, html) {
+    const b = document.createElement('div');
+    b.className = 'bubble';
+    b.innerHTML = html || '';
+    col.appendChild(b);
+    scrollBottom();
+    return b;
+  }
+  function typeInto(el, text, done) {
+    let i = 0;
+    typer = setInterval(() => {
+      el.textContent += text[i++];
+      if (i % 6 === 0) scrollBottom();
+      if (i >= text.length) { clearInterval(typer); typer = null; done && done(); }
+    }, 16);
+  }
+  function appendMeta(col) {
+    const m = document.createElement('div');
+    m.className = 'msg-meta';
+    m.innerHTML = '<span class="pdot"></span> ' + $('#modelBtnLabel').textContent + ' · ' + $('#agentBtnLabel').textContent + ' · 21s';
+    col.appendChild(m);
+    scrollBottom();
+  }
+  function liveToolCard(label) {
+    $('#liveToolCard').style.display = '';
+    $('#liveToolLabel').textContent = label;
+    scrollBottom();
+  }
+
+  /* a generic small work run: status → tool steps → reply */
+  function startWork(userText) {
+    setWorking(true);
+    $('#statusText').textContent = 'Companion is working…';
+    later(() => {
+      const col = appendAICol();
+      appendBubble(col, 'On it — let me look into that.');
+      liveToolCard('Working…');
+      const rows = $('#liveToolRows');
+      rows.innerHTML = '';
+      const steps = [
+        ['i-file', 'Read', 'src/ related files'],
+        ['i-search', 'Grep', '"' + userText.split(' ').slice(0, 2).join(' ') + '"'],
+      ];
+      steps.forEach((s, i) => {
+        later(() => {
+          const r = document.createElement('button');
+          r.className = 'tool-row';
+          r.innerHTML = '<svg class="ic"><use href="#' + s[0] + '"/></svg><span class="tn">' + s[1] +
+            '</span><span class="tt">' + s[2] + '</span><span class="st"><span class="spinner"></span></span>';
+          rows.appendChild(r);
+          $('#liveToolLabel').textContent = s[1] + ' — ' + s[2];
+          scrollBottom();
+          later(() => {
+            r.querySelector('.st').innerHTML = '<svg class="ic"><use href="#i-check"/></svg>';
+            if (i === steps.length - 1) {
+              $('#liveToolLabel').textContent = 'Worked for 14s';
+              later(() => {
+                const b = appendBubble(col, '');
+                typeInto(b, 'Here you go — I checked the code around it and made a small adjustment. Want me to run the tests as well?');
+                later(() => { appendMeta(col); setWorking(false); $('#liveToolCard').style.display = 'none'; runQueue(); }, 400);
+              }, 500);
+            }
+          }, 900);
+        }, i === 0 ? 300 : 1400);
+      });
+    }, 700);
+  }
+
+  function send() {
+    const text = (composerBox.classList.contains('hide') ? draft : composerInput.value).trim();
+    if (!text) return;
+    if (working) { enqueue(text); return; }
+    draft = ''; composerInput.value = ''; syncDraftUI();
+    setExpanded(false);
+    appendUser(text);
+    startWork(text);
+  }
+
+  function enqueue(text) {
+    queue.push(text);
+    draft = ''; composerInput.value = ''; syncDraftUI();
+    setExpanded(false);
+    const chip = document.createElement('div');
+    chip.className = 'q-chip';
+    chip.innerHTML = '<span class="drag"><svg class="ic"><use href="#i-grip"/></svg></span>' +
+      '<span class="q-text"></span><button class="q-btn" data-q="edit">Edit</button><button class="q-btn" data-q="send">Send</button>';
+    chip.querySelector('.q-text').textContent = text;
+    $('#floatPanel').appendChild(chip);
+    bindQueueChip(chip);
+    toast('Queued — will send after the current turn');
+  }
+  function bindQueueChip(chip) {
+    chip.querySelectorAll('.q-btn').forEach(btn => btn.addEventListener('click', () => {
+      const text = chip.querySelector('.q-text').textContent;
+      if (btn.dataset.q === 'edit') { chip.remove(); draft = text; syncDraftUI(); setExpanded(true); }
+      else { chip.remove(); if (!working) { appendUser(text); startWork(text); } else { queue.push(text); } }
+    }));
+  }
+  function runQueue() {
+    const next = queue.shift();
+    if (next) later(() => { appendUser(next); startWork(next); }, 600);
+  }
+  $('#seedQueueChip .q-btn[data-q="send"]').addEventListener('click', e => {
+    e.stopPropagation();
+    const chip = $('#seedQueueChip');
+    const text = chip.querySelector('.q-text').textContent;
+    chip.remove();
+    if (!working) { appendUser(text); startWork(text); } else { enqueue(text); }
+  });
+  $('#seedQueueChip .q-btn[data-q="edit"]').addEventListener('click', e => {
+    e.stopPropagation();
+    const chip = $('#seedQueueChip');
+    draft = chip.querySelector('.q-text').textContent;
+    chip.remove();
+    syncDraftUI();
+    setExpanded(true);
+  });
+
+  function stopWork() {
+    clearTimers();
+    setWorking(false);
+    $('#liveToolCard').style.display = 'none';
+    toast('Stopped');
+  }
+
+  $('#pillStop').addEventListener('click', stopWork);
+  $('#statusStop').addEventListener('click', stopWork);
+  $('#pillSend').addEventListener('click', send);
+  $('#composerSend').addEventListener('click', () => {
+    if (working) { stopWork(); return; }
+    send();
+  });
+
+  /* Escape: collapse composer, then close overlays; tap chat area also dismisses composer */
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    if (!composerBox.classList.contains('hide')) { setExpanded(false); return; }
+    if ($('.sheet.open')) { closeSheets(); return; }
+    if (anyDrawerOpen()) { closeDrawers(); return; }
+    closePopovers();
+  });
+  chatArea.addEventListener('pointerdown', () => {
+    if (!composerBox.classList.contains('hide')) setExpanded(false);
+  });
+
+  /* initial state: waiting for permission on the seeded card */
+  $('#statusText').textContent = 'Waiting for permission…';
+  $('#statusRow').classList.add('show');
+  $('#queueFab').addEventListener('click', () => {
+    const text = draft.trim();
+    if (text) enqueue(text);
+  });
+  $('#composerQueue').addEventListener('click', () => {
+    const text = composerInput.value.trim();
+    if (text) enqueue(text);
+  });
+
+  /* suggestion chip */
+  $('#suggChip').addEventListener('click', () => {
+    draft = 'Add a regression test for failed logins';
+    syncDraftUI();
+    setExpanded(true);
+  });
+
+  /* ===================== permission card ===================== */
+  $('#permCard').addEventListener('click', e => {
+    const btn = e.target.closest('[data-perm]');
+    if (!btn) return;
+    const card = $('#permCard');
+    const allow = btn.dataset.perm === 'allow';
+    card.innerHTML = '<div class="perm-title"><svg class="ic"><use href="#i-shield"/></svg>Permission requested' +
+      '<span class="subagent">build agent</span></div>' +
+      '<div class="perm-cmd">pnpm vitest run src/auth</div>' +
+      '<div class="perm-resolved ' + (allow ? 'ok"><svg class="ic"><use href="#i-check"/></svg> Allowed' : 'no"><svg class="ic"><use href="#i-x"/></svg> Denied') + '</div>';
+    const col = $('#permCard').closest('.msg-col');
+    $('#permOrb').classList.remove('busy');
+    if (allow) {
+      setWorking(true);
+      $('#statusText').textContent = 'Running tests…';
+      later(() => {
+        const tcol = appendAICol();
+        const tb = appendBubble(tcol, '<div class="tech-card open" data-toolcard><button class="tech-head"><svg class="ic chev"><use href="#i-chev-right"/></svg>Worked for 31s<span class="badge">1 step</span></button><div class="tool-rows"><button class="tool-row" data-tool="Bash" data-target="pnpm vitest run src/auth"><svg class="ic"><use href="#i-term"/></svg><span class="tn">Bash</span><span class="tt">pnpm vitest run src/auth</span><span class="st"><svg class="ic"><use href="#i-check"/></svg></span></button></div></div>');
+        tb.style.background = 'transparent';
+        tb.style.padding = '8px 10px 10px';
+        tb.querySelector('.tech-head').addEventListener('click', function () { this.closest('[data-toolcard]').classList.toggle('open'); });
+        tb.querySelector('.tool-row').addEventListener('click', () => {
+          $('#toolSheetTitle').textContent = 'Bash — pnpm vitest run src/auth';
+          $('#toolSheetBody').textContent = TOOL_OUT.Bash.join('\n');
+          openSheet('toolSheet');
+        });
+        later(() => {
+          const b = appendBubble(tcol, '');
+          typeInto(b, 'All 42 tests pass — auth flow is green again. The fix awaits the server response before redirecting.');
+          later(() => { appendMeta(tcol); setWorking(false); runQueue(); }, 400);
+        }, 1200);
+      }, 1600);
+    } else {
+      later(() => {
+        const tcol = appendAICol();
+        const b = appendBubble(tcol, '');
+        typeInto(b, 'Understood — I won\'t run it. Want me to just re-read the failing case instead?');
+        later(() => { appendMeta(tcol); setWorking(false); runQueue(); }, 300);
+      }, 500);
+    }
+  });
+
+  /* Enter to send in expanded composer */
+  composerInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+  });
+
+  syncDraftUI();
+</script>
+
+</body>
+</html>
