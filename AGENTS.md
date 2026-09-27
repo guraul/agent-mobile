@@ -21,6 +21,7 @@
 | 查数据在哪 / 数据怎么流动 | `docs/knowledge-base/DATA.md` |
 | 有没有对外接口（BFF / opencode v1） | `docs/knowledge-base/API.md` |
 | 构建/部署/预览/测试/环境变量 | `docs/knowledge-base/OPERATIONS.md` |
+| **改代码/发版流程、pipeline 脚本** | `docs/pipeline/README.md`（进度台账：`docs/pipeline/PROGRESS.md`；脚本：`scripts/pipeline/`） |
 | 编码约定、历史包袱、修改红线 | `docs/knowledge-base/CONVENTIONS.md` |
 
 **查询流程**（参照 `docs/promptA.md` 维护约定）：先基于知识库定位涉及模块与文件，给出方案；信息不足时再针对性读源码片段，不要全量读码。涉及架构/接口/数据模型变更时，事后同步更新知识库对应文档。
