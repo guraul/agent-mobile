@@ -1,6 +1,8 @@
 # modules/pulse-stream.md —— Pulse 根界面（AI 伴侣 briefing 单表面）
 
-> 最后更新：2026-09-26 · commit：`a1e8e5e`（按源码事实核对：showcase2 移植组件更名 FeaturedItem/SupportingList/PulseNoticed/ActionChips；结构树补登录 banner / More projects / 错误行 / DetailSheet；澄清 ConversationEntry 非 TextInput；修正状态机与 Marquee 残留描述）
+> 最后更新：2026-09-28 · **⚠️ RN 浅色迁移进行中（epic #7，基准 `docs/pipeline/RN_MIGRATION_BRIEF.md`）**：A-D 已完成（light token / 原子 / LightSheet / 浅色骨架+删三样）、E 完成（In motion 绿卡 + Featured 整卡）、F 本 PR（Noticed ghost 卡 + FundSheet/ListSheet 挂 LightSheet）。G（状态+登录 gate）/ H（详情+收尾+删旧值）未完成——本文下述结构树以**迁移前**形态书写，结构树与组件描述在 #H 总同步时重写。
+
+> 2026-09-26 · commit：`a1e8e5e`（按源码事实核对：showcase2 移植组件更名 FeaturedItem/SupportingList/PulseNoticed/ActionChips；结构树补登录 banner / More projects / 错误行 / DetailSheet；澄清 ConversationEntry 非 TextInput；修正状态机与 Marquee 残留描述）
 
 ## ⚠️ Companion UI Migration（2026-09-21 引入，2026-09-26 按 `a1e8e5e` 源码核对，当前形态）
 
