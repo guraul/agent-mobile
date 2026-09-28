@@ -1,23 +1,24 @@
 /**
- * SupportingList — the light information flow below Featured.
- * Semantic micro-groups, never mixed without labels:
- *   NEEDS YOU · n  → amber dot + REVIEW
- *   SUGGESTED · n  → violet dot + CONFIRM (quiet DISMISS)
- *   RUNNING · n    → neutral dot + project status (production extension)
- *   MARKET · n     → fund estimate (production extension)
- * Tapping the statement opens contextual Talk (Discuss).
+ * SupportingList — In motion 绿卡（RN 迁移 #E 浅色重做）。
+ * 四语义组（To review / Suggested / Running / Market，固定顺序，D7 文案红线）
+ * 合流为单张 Schedule 风格绿卡：组标签占时间位（11.5px + 13px 线性图标），
+ * 条目标题 14/600，行内动作收右侧。样式基准 pulseB.html .card.green；
+ * 字值有意偏离 7-token（11.5/14，D1），走 light.ts schedule* token。
+ * props 与旧版兼容（index.tsx / ListSheet 装配零改动）；
+ * Confirm/Reject 仍是 suggestion 唯一推进路径，查看 ≠ 授权（D9）。
  */
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { colors, type, spacing } from '../../theme/companion';
-import { NeedsYouItem, SuggestionItem } from './showcase-types';
-import { InlineChip, TextAction } from './ActionChips';
-import { PressableScale } from './PressableScale';
+import React from "react";
+import { Text, View, StyleSheet } from "react-native";
+import { Eye, Lightbulb, Activity, TrendingUp } from "lucide-react-native";
+import { lightColors, lightTypography, lightRadius, lightSpacing, lightSizes } from "../../theme/light";
+import { NeedsYouItem, SuggestionItem } from "./showcase-types";
+import { LightChip, LightTextAction } from "./LightAtoms";
+import { PressableScale } from "./PressableScale";
 
 export interface RunningRow {
   id: string;
   name: string;
-  status: 'running' | 'idle';
+  status: "running" | "idle";
 }
 
 export interface MarketRow {
@@ -40,6 +41,14 @@ interface Props {
   onOpenMarket?: (row: MarketRow) => void;
 }
 
+/** 组定义（D7 顺序红线：To review → Suggested → Running → Market） */
+const GROUP_LABELS = {
+  review: "To review",
+  suggested: "Suggested",
+  running: "Running",
+  market: "Market",
+} as const;
+
 export function SupportingList({
   needsYou,
   suggestions,
@@ -61,196 +70,209 @@ export function SupportingList({
   if (!hasNeedsYou && !hasSuggestions && !hasRunning && !hasMarket) return null;
 
   return (
-    <View style={styles.wrap}>
-      {hasNeedsYou && (
-        <View style={styles.group}>
-          <Text style={styles.groupLabel}>Needs you · {needsYou.length}</Text>
-          {needsYou.map((item) => (
-            <View key={item.id} style={styles.row} testID={`supporting-ny-${item.id}`}>
+    <View style={styles.card}>
+      <View style={styles.cardHead}>
+        <Text style={styles.cardTitle}>
+          <Text style={styles.bracket}>[</Text> In motion <Text style={styles.bracket}>]</Text>
+        </Text>
+      </View>
+
+      {hasNeedsYou &&
+        needsYou.map((item) => (
+          <View key={item.id} style={styles.item} testID={`supporting-ny-${item.id}`}>
+            <View style={styles.itemTime}>
+              <Eye size={lightSizes.iconInline} color={lightColors.scheduleInk} strokeWidth={1.6} />
+              <Text style={styles.itemTimeLabel}>{GROUP_LABELS.review}</Text>
+            </View>
+            <View style={styles.titleRow}>
               <PressableScale
-                style={styles.tap}
-                scaleTo={0.99}
                 onPress={() => onDiscussNeedsYou(item)}
+                scaleTo={0.99}
+                style={styles.titleTap}
                 testID={`supporting-ny-${item.id}-body`}
               >
-                <View style={[styles.dot, { backgroundColor: colors.attention }]} />
-                <Text style={styles.statement} numberOfLines={2}>
+                <Text style={styles.itemTitle} numberOfLines={1} ellipsizeMode="tail">
                   {item.title}
                 </Text>
               </PressableScale>
-              <View style={styles.rowActions}>
-                <InlineChip
-                  kind="review"
-                  label="Review"
-                  onPress={() => onReview(item)}
-                  testID={`supporting-ny-${item.id}-action`}
-                />
-              </View>
+              <LightChip
+                label="Review"
+                kind="review"
+                onPress={() => onReview(item)}
+                testID={`supporting-ny-${item.id}-action`}
+              />
             </View>
-          ))}
-        </View>
-      )}
+          </View>
+        ))}
 
-      {hasSuggestions && (
-        <View style={styles.group}>
-          <Text style={styles.groupLabel}>Suggested · {suggestions.length}</Text>
-          {suggestions.map((item) => {
-            const confirmed = item.status === 'confirmed';
-            return (
-              <View key={item.id} style={styles.row} testID={`supporting-sg-${item.id}`}>
+      {hasSuggestions &&
+        suggestions.map((item) => {
+          const confirmed = item.status === "confirmed";
+          return (
+            <View key={item.id} style={styles.item} testID={`supporting-sg-${item.id}`}>
+              <View style={styles.itemTime}>
+                <Lightbulb size={lightSizes.iconInline} color={lightColors.scheduleInk} strokeWidth={1.6} />
+                <Text style={styles.itemTimeLabel}>{GROUP_LABELS.suggested}</Text>
+              </View>
+              <View style={styles.titleRow}>
                 <PressableScale
-                  style={styles.tap}
-                  scaleTo={0.99}
                   onPress={() => onDiscussSuggestion(item)}
+                  scaleTo={0.99}
+                  style={styles.titleTap}
                   testID={`supporting-sg-${item.id}-body`}
                 >
-                  <View
-                    style={[
-                      styles.dot,
-                      { backgroundColor: confirmed ? colors.success : colors.accent },
-                    ]}
-                  />
-                  <Text style={styles.statement} numberOfLines={2}>
+                  <Text style={styles.itemTitle} numberOfLines={1} ellipsizeMode="tail">
                     {item.proposal}
                   </Text>
                 </PressableScale>
-                <View style={styles.rowActions}>
-                  {confirmed ? (
-                    <Text style={styles.watching}>Watching</Text>
-                  ) : (
-                    <>
-                      <InlineChip
-                        kind="review"
-                        label="Confirm"
-                        onPress={() => onConfirm(item)}
-                        testID={`supporting-sg-${item.id}-action`}
-                      />
-                      <TextAction
-                        label="Dismiss"
-                        color={colors.textMuted}
-                        onPress={() => onDismiss(item)}
-                        testID={`supporting-sg-${item.id}-quiet`}
-                      />
-                    </>
-                  )}
-                </View>
+                {confirmed ? (
+                  <Text style={styles.watching}>Watching</Text>
+                ) : (
+                  <View style={styles.rowActions}>
+                    <LightChip
+                      label="Confirm"
+                      kind="review"
+                      onPress={() => onConfirm(item)}
+                      testID={`supporting-sg-${item.id}-action`}
+                    />
+                    <LightTextAction
+                      label="Dismiss"
+                      quiet
+                      style={styles.quietInGreen}
+                      onPress={() => onDismiss(item)}
+                      testID={`supporting-sg-${item.id}-quiet`}
+                    />
+                  </View>
+                )}
               </View>
-            );
-          })}
-        </View>
-      )}
+            </View>
+          );
+        })}
 
-      {hasRunning && (
-        <View style={styles.group}>
-          <Text style={styles.groupLabel}>Running · {running.length}</Text>
-          {running.map((row) => (
-            <PressableScale
-              key={row.id}
-              style={styles.plainRow}
-              scaleTo={0.99}
-              onPress={() => onOpenRunning?.(row)}
-              testID={`supporting-run-${row.id}`}
-            >
-              <View
-                style={[
-                  styles.dot,
-                  { backgroundColor: row.status === 'running' ? colors.attention : colors.offline },
-                ]}
-              />
-              <Text style={styles.statement} numberOfLines={1}>
+      {hasRunning &&
+        running.map((row) => (
+          <PressableScale
+            key={row.id}
+            onPress={() => onOpenRunning?.(row)}
+            scaleTo={0.99}
+            style={styles.item}
+            testID={`supporting-run-${row.id}`}
+          >
+            <View style={styles.itemTime}>
+              <Activity size={lightSizes.iconInline} color={lightColors.scheduleInk} strokeWidth={1.6} />
+              <Text style={styles.itemTimeLabel}>{GROUP_LABELS.running}</Text>
+            </View>
+            <View style={styles.titleRow}>
+              <Text style={styles.itemTitle} numberOfLines={1} ellipsizeMode="tail">
                 {row.name}
               </Text>
-              <Text style={styles.rowMeta}>
-                {row.status === 'running' ? 'Running' : 'Idle'}
-              </Text>
-            </PressableScale>
-          ))}
-        </View>
-      )}
+              <Text style={styles.itemMeta}>{row.status === "running" ? "Running" : "Idle"}</Text>
+            </View>
+          </PressableScale>
+        ))}
 
-      {hasMarket && (
-        <View style={styles.group}>
-          <Text style={styles.groupLabel}>Market · {market.length}</Text>
-          {market.map((row) => (
-            <PressableScale
-              key={row.id}
-              style={styles.plainRow}
-              scaleTo={0.99}
-              onPress={() => onOpenMarket?.(row)}
-              testID={`supporting-mkt-${row.id}`}
-            >
-              <View style={[styles.dot, { backgroundColor: colors.noticed }]} />
-              <Text style={styles.statement} numberOfLines={1}>
+      {hasMarket &&
+        market.map((row) => (
+          <PressableScale
+            key={row.id}
+            onPress={() => onOpenMarket?.(row)}
+            scaleTo={0.99}
+            style={styles.item}
+            testID={`supporting-mkt-${row.id}`}
+          >
+            <View style={styles.itemTime}>
+              <TrendingUp size={lightSizes.iconInline} color={lightColors.scheduleInk} strokeWidth={1.6} />
+              <Text style={styles.itemTimeLabel}>{GROUP_LABELS.market}</Text>
+            </View>
+            <View style={styles.titleRow}>
+              <Text style={styles.itemTitle} numberOfLines={1} ellipsizeMode="tail">
                 {row.name}
               </Text>
               {row.changePct !== null && (
                 <Text
                   style={[
-                    styles.rowMeta,
-                    { color: row.changePct >= 0 ? colors.success : colors.danger },
+                    styles.itemMeta,
+                    row.changePct >= 0 ? styles.metaUp : styles.metaDown,
                   ]}
                 >
-                  {row.changePct >= 0 ? '+' : ''}
+                  {row.changePct >= 0 ? "+" : ""}
                   {row.changePct.toFixed(2)}%
                 </Text>
               )}
-            </PressableScale>
-          ))}
-        </View>
-      )}
+            </View>
+          </PressableScale>
+        ))}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: {},
-  group: { marginBottom: spacing.xxl },
-  groupLabel: {
-    ...type.label,
-    color: colors.textLabel,
-    marginBottom: spacing.xs,
+  card: {
+    backgroundColor: lightColors.greenCard,
+    borderRadius: lightRadius.card,
+    padding: lightSpacing.cardPad,
   },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingVertical: spacing.md - 2,
+  cardHead: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10, // mock .card-head
   },
-  plainRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingVertical: spacing.md - 2,
+  cardTitle: {
+    fontSize: lightTypography.title.fontSize,
+    fontWeight: lightTypography.title.fontWeight,
+    lineHeight: lightTypography.title.lineHeight,
+    color: lightColors.ink,
   },
-  tap: {
+  bracket: { fontWeight: "400" }, // mock .card-title .bracket
+  item: {
+    backgroundColor: lightColors.greenInner,
+    borderRadius: lightRadius.inner,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 9, // mock .sched-item + .sched-item（末条多出的 9 由卡片 padding 吸收）
+  },
+  itemTime: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5, // mock .sched-time gap 5
+    marginBottom: 2,
+  },
+  itemTimeLabel: {
+    fontSize: lightTypography.scheduleLabel.fontSize,
+    fontWeight: lightTypography.scheduleLabel.fontWeight,
+    lineHeight: lightTypography.scheduleLabel.lineHeight,
+    color: lightColors.scheduleInk,
+  },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10, // mock .sched-title-row gap 10
+  },
+  titleTap: { flex: 1, minWidth: 0 },
+  itemTitle: {
+    fontSize: lightTypography.scheduleTitle.fontSize,
+    fontWeight: lightTypography.scheduleTitle.fontWeight,
+    lineHeight: lightTypography.scheduleTitle.lineHeight,
+    color: lightColors.rowInk,
     flex: 1,
-    minWidth: 0,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.md,
   },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginTop: 8,
+  rowActions: { flexDirection: "row", alignItems: "center", gap: 14, flexShrink: 0 },
+  quietInGreen: { color: lightColors.scheduleMeta }, // mock .sched-item .text-action.quiet #4A5D4A
+  itemMeta: {
+    fontSize: lightTypography.scheduleMeta.fontSize,
+    fontWeight: lightTypography.scheduleMeta.fontWeight,
+    lineHeight: lightTypography.scheduleMeta.lineHeight,
+    color: lightColors.scheduleMeta,
     flexShrink: 0,
   },
-  statement: { ...type.body, color: colors.textSecondary, flex: 1, minWidth: 0 },
-  rowMeta: {
-    ...type.metadata,
-    color: colors.textMuted,
-    flexShrink: 0,
-  },
-  rowActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    flexShrink: 0,
-  },
+  metaUp: { color: lightColors.upRed, fontWeight: "600" }, // 红涨
+  metaDown: { color: lightColors.green, fontWeight: "600" }, // 绿跌
   watching: {
-    ...type.metadata,
-    color: colors.success,
-    fontVariant: ['tabular-nums'],
+    fontSize: lightTypography.scheduleMeta.fontSize,
+    fontWeight: lightTypography.scheduleMeta.fontWeight,
+    lineHeight: lightTypography.scheduleMeta.lineHeight,
+    color: lightColors.green,
+    flexShrink: 0,
   },
 });

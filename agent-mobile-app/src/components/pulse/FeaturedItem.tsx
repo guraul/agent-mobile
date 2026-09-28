@@ -1,128 +1,88 @@
 /**
- * FeaturedItem — the single strong container on Pulse.
- * Carries exactly the first open Needs You item; hidden when none exists.
- * REVIEW is the primary action; DISCUSS and DEFER stay quiet.
+ * FeaturedItem — the single strong container on Pulse（RN 迁移 #E 浅色重做，D10）。
+ * 整卡可点 → /attention/[id]；无 lead 文字（恒 ≤1）、无行内动作 chips——
+ * Review/Discuss 动作收进详情页（D10）；"needs you" 仅 Featured 独占语义不变。
+ * 样式基准 pulseB.html .featured-card；颜色/字号走 theme/light.ts。
  */
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { colors, type, spacing, radii } from '../../theme/companion';
-import { NeedsYouItem } from './showcase-types';
-import { InlineChip, TextAction } from './ActionChips';
-
-/** Minimal linear alert glyph for the tile (no icon dependency). */
-function AlertGlyph({ size = 20, color = colors.attention }: { size?: number; color?: string }) {
-  return (
-    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      <View
-        style={{
-          width: size * 0.82,
-          height: size * 0.82,
-          borderRadius: size * 0.41,
-          borderWidth: 1.5,
-          borderColor: color,
-        }}
-      />
-      <View
-        style={{
-          position: 'absolute',
-          top: size * 0.18,
-          width: 1.6,
-          height: size * 0.26,
-          borderRadius: 1,
-          backgroundColor: color,
-        }}
-      />
-      <View
-        style={{
-          position: 'absolute',
-          top: size * 0.54,
-          width: 1.8,
-          height: 1.8,
-          borderRadius: 1,
-          backgroundColor: color,
-        }}
-      />
-    </View>
-  );
-}
+import React from "react";
+import { View, Text, StyleSheet } from "react-native";
+import { Bell } from "lucide-react-native";
+import { lightColors, lightTypography, lightRadius, lightSpacing, lightSizes } from "../../theme/light";
+import { PressableScale } from "./PressableScale";
+import { NeedsYouItem } from "./showcase-types";
 
 interface Props {
   item: NeedsYouItem;
   onReview: (item: NeedsYouItem) => void;
-  onDiscuss: (item: NeedsYouItem) => void;
   testID?: string;
 }
 
-export function FeaturedItem({ item, onReview, onDiscuss, testID }: Props) {
+export function FeaturedItem({ item, onReview, testID }: Props) {
   return (
-    <View style={styles.wrap} testID={testID}>
-      <Text style={styles.lead}>One thing needs you</Text>
-
-      <View style={styles.card}>
-        <View style={styles.titleRow}>
-          <View style={styles.tile}>
-            <AlertGlyph />
-          </View>
-          <Text style={styles.title}>{item.title}</Text>
+    <PressableScale
+      onPress={() => onReview(item)}
+      testID={testID}
+      style={styles.card}
+      accessibilityRole="button"
+      accessibilityLabel={`Review: ${item.title}`}
+    >
+      <View style={styles.titleRow}>
+        <View style={styles.iconWrap}>
+          <Bell size={lightSizes.iconFeatured} color={lightColors.amberDeep} strokeWidth={2} />
         </View>
-
-        <Text style={styles.why}>{item.why}</Text>
-        <Text style={styles.meta}>
-          {item.source} · {item.time}
+        <Text style={styles.title} numberOfLines={2}>
+          {item.title}
         </Text>
-
-        <View style={styles.actions}>
-          <InlineChip kind="review" label="Review" onPress={() => onReview(item)} testID={testID ? `${testID}-review` : undefined} />
-          <TextAction
-            label="Discuss"
-            color={colors.textSecondaryBright}
-            onPress={() => onDiscuss(item)}
-            testID={testID ? `${testID}-discuss` : undefined}
-          />
-        </View>
       </View>
-    </View>
+
+      {item.why !== "" && (
+        <View style={styles.whyWrap}>
+          <Text style={styles.why}>{item.why}</Text>
+        </View>
+      )}
+      <Text style={styles.meta}>
+        {item.source} · {item.time}
+      </Text>
+    </PressableScale>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { marginBottom: spacing.xxxl },
-  lead: {
-    ...type.body,
-    fontWeight: '600',
-    color: colors.textSecondaryBright,
-    marginBottom: spacing.md,
-  },
   card: {
-    backgroundColor: colors.surfaceElevated,
-    borderRadius: radii.radiusCard,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.accentBorder,
-    padding: spacing.lg,
-    gap: spacing.sm,
+    backgroundColor: lightColors.white,
+    borderRadius: lightRadius.card,
+    padding: lightSpacing.cardPad,
+    gap: 8, // mock .featured-card gap 8
   },
   titleRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.md,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10, // mock .feat-head gap 10
   },
-  tile: {
-    width: 44,
-    height: 44,
-    borderRadius: radii.radiusTile,
-    backgroundColor: 'rgba(139,92,246,0.14)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(167,139,250,0.25)',
-    alignItems: 'center',
-    justifyContent: 'center',
+  iconWrap: { marginTop: 3, flexShrink: 0 }, // mock .feat-icon margin-top 3
+  title: {
+    fontSize: lightTypography.title.fontSize,
+    fontWeight: lightTypography.title.fontWeight,
+    lineHeight: lightTypography.title.lineHeight,
+    color: lightColors.ink,
+    flex: 1,
   },
-  title: { ...type.heading, color: colors.textPrimary, flex: 1, marginTop: 2 },
-  why: { ...type.bodySmall, color: colors.textSecondary },
-  meta: { ...type.metadata, color: colors.textMuted },
-  actions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.lg,
-    marginTop: spacing.xs,
+  whyWrap: {
+    backgroundColor: lightColors.rowGray,
+    borderRadius: lightRadius.row,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  why: {
+    fontSize: lightTypography.body.fontSize,
+    fontWeight: lightTypography.body.fontWeight,
+    lineHeight: lightTypography.body.lineHeight,
+    color: lightColors.bodyText,
+  },
+  meta: {
+    fontSize: lightTypography.caption.fontSize,
+    fontWeight: lightTypography.caption.fontWeight,
+    lineHeight: lightTypography.caption.lineHeight,
+    color: lightColors.grayText,
   },
 });

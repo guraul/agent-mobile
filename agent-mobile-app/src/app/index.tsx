@@ -432,7 +432,6 @@ export default function PulseScreen() {
               item={toNeedsYou(featured)}
               testID="featured-attention"
               onReview={() => router.push(`/attention/${featured.id}`)}
-              onDiscuss={() => openTalkForAttention(featured)}
             />
           </AnimatedEntry>
         ) : null}
