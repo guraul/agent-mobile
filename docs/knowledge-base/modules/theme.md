@@ -1,6 +1,15 @@
-# modules/theme.md —— 设计 Token（暗色主题）
+# modules/theme.md —— 设计 Token（暗色主题 + 浅色 light 命名空间）
 
-> 最后更新：2026-09-21 · commit：`feat/companion-ui-migration`（Companion UI Migration：accent 琥珀→紫罗兰，新增 hero/label 排版 token 与 accentBorder/border.subtle）
+> 最后更新：2026-09-28 · commit：`feat: #8 light token 命名空间`（RN 迁移 #A：新增 `theme/light.ts` 浅色 token 与 Text light variant，暗色旧值不动）
+
+## ⚠️ 浅色 light 命名空间（2026-09-28 新增，RN 迁移 D1）
+
+pulseB 浅色皮肤（`docs/newdesign/html/pulseB*.html`）迁移引入**新旧共存**：
+
+- **`src/theme/light.ts`**（新）：`lightColors`（pulseB :root 全量收编 + 结构 rgba 色）、`lightTypography`（7-token 字阶 display 26/400 · pageTitle 24/700 · title 17/700 · body 15/400 · bodyStrong 15/600 · caption 12/400 · label 12/600，lineHeight 显式整数；另有绿卡偏移 3 键 scheduleLabel 11.5 / scheduleTitle 14 / scheduleMeta 11.5）、`lightSpacing` / `lightRadius` / `lightSizes` / `lightGradient`（紫渐变三段）+ 聚合对象 `light`。**零 react-native 依赖**（纯数据，vitest 可直接加载；不写 fontFamily——RN Text 默认系统字体即 mock 系统栈）。
+- **`Text` primitive**：`variant` / `color` 扩展 `light*` 前缀键（`lightDisplay`…`lightScheduleMeta` / `lightInk`…），旧键完全兼容；内部按前缀查 light 表。
+- **红线**：浅色页面颜色/字号/间距/圆角一律取自 `light.ts`，禁止硬编码；**勿动**暗色 `theme/companion` 旧值，全部页面切完后（RN 迁移 epic 收尾）删除旧值。
+- 单测：`src/theme/light.test.ts`（字阶完整性 / lineHeight 规则 / 色值快照 / 刻度）。
 
 ## 模块职责
 

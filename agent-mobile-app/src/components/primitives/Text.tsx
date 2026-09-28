@@ -1,6 +1,11 @@
 import React from "react";
 import { Text as RNText, type TextProps as RNTextProps } from "react-native";
 import { typography, colors } from "../../theme";
+import {
+  lightTypography,
+  lightColors,
+  type LightTextStyle,
+} from "../../theme/light";
 
 type TypographyTokenKey =
   | "display"
@@ -49,9 +54,52 @@ const colorMap: Record<ColorToken, string> = {
   idle: colors.status.idle,
 };
 
+/* 浅色字阶（RN 迁移 #8）：light 前缀键 → light token，与旧字阶并存（D1） */
+const lightVariantMap = {
+  lightDisplay: lightTypography.display,
+  lightPageTitle: lightTypography.pageTitle,
+  lightTitle: lightTypography.title,
+  lightBody: lightTypography.body,
+  lightBodyStrong: lightTypography.bodyStrong,
+  lightCaption: lightTypography.caption,
+  lightLabel: lightTypography.label,
+  lightScheduleLabel: lightTypography.scheduleLabel,
+  lightScheduleTitle: lightTypography.scheduleTitle,
+  lightScheduleMeta: lightTypography.scheduleMeta,
+} as const;
+
+type LightVariantKey = keyof typeof lightVariantMap;
+
+/* 浅色色板（文字用色子集）：light 前缀键，与旧 ColorToken 无冲突 */
+const lightColorMap = {
+  lightInk: lightColors.ink,
+  lightBlack: lightColors.black,
+  lightBodyText: lightColors.bodyText,
+  lightSubtle: lightColors.subtleText,
+  lightGray: lightColors.grayText,
+  lightChipText: lightColors.chipText,
+  lightField: lightColors.fieldText,
+  lightGroupLabel: lightColors.groupLabel,
+  lightDockDismiss: lightColors.dockDismiss,
+  lightAccent: lightColors.accent,
+  lightAccentDeep: lightColors.accentDeep,
+  lightAmber: lightColors.amber,
+  lightAmberDeep: lightColors.amberDeep,
+  lightGreen: lightColors.green,
+  lightGreenDeep: lightColors.greenDeep,
+  lightUpRed: lightColors.upRed,
+  lightScheduleInk: lightColors.scheduleInk,
+  lightRowInk: lightColors.rowInk,
+  lightScheduleMeta: lightColors.scheduleMeta,
+  lightPeach: lightColors.peach,
+  lightWhite: lightColors.white,
+} as const;
+
+type LightColorKey = keyof typeof lightColorMap;
+
 export interface TextProps extends Omit<RNTextProps, "style"> {
-  variant?: TypographyTokenKey;
-  color?: ColorToken;
+  variant?: TypographyTokenKey | LightVariantKey;
+  color?: ColorToken | LightColorKey;
   align?: "auto" | "left" | "center" | "right" | "justify";
   numberOfLines?: number;
   ellipsizeMode?: "head" | "middle" | "tail" | "clip";
@@ -71,8 +119,15 @@ export function Text({
   children,
   ...rest
 }: TextProps) {
-  const typeStyle = typography[variant];
-  const textColor = colorMap[color];
+  const isLightVariant = variant in lightVariantMap;
+  const typeStyle: LightTextStyle = isLightVariant
+    ? lightVariantMap[variant as LightVariantKey]
+    : typography[variant as TypographyTokenKey];
+
+  const isLightColor = color in lightColorMap;
+  const textColor = isLightColor
+    ? lightColorMap[color as LightColorKey]
+    : colorMap[color as ColorToken];
 
   return (
     <RNText

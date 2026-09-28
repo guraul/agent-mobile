@@ -10,6 +10,27 @@ import { radius, type RadiusToken } from "./radius";
 import { motion, type Motion } from "./motion";
 import { iconSizes, iconStroke, type IconSizeToken } from "./icons";
 import { shadows, type ShadowToken } from "./shadows";
+import {
+  light,
+  lightColors,
+  lightTypography,
+  lightSpacing,
+  lightRadius,
+  lightSizes,
+  lightGradient,
+  type Light,
+  type LightColorToken,
+  type LightTypographyToken,
+  type LightTextStyle,
+} from "./light";
+
+export { light, lightColors, lightTypography, lightSpacing, lightRadius, lightSizes, lightGradient };
+export type {
+  Light,
+  LightColorToken,
+  LightTypographyToken,
+  LightTextStyle,
+};
 
 export { colors };
 export type { Colors };
@@ -44,3 +65,6 @@ export const theme = {
 } as const;
 
 export type Theme = typeof theme;
+
+/** 浅色命名空间（RN 迁移，D1 新旧共存）：与 theme 并列，勿混入 theme 对象 */
+export type LightTheme = typeof light;
