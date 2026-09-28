@@ -7,11 +7,24 @@
  *   E2E_URL=http://127.0.0.1:9928/pulse node scripts/e2e/pulse-e2e.mjs
  *   E2E_NO_SEND=1 node scripts/e2e/pulse-e2e.mjs  # 跳过发消息步骤
  *
- * 浏览器路径自动探测（优先 headless shell，其次 snap chromium）。
- * 需在项目外依赖 Playwright：从 playwright-skill 的 node_modules 解析。
+ * 浏览器路径自动探测（优先 headless shell，其次 snap chromium / macOS Chrome）。
+ * Playwright 依赖按序解析：本仓 node_modules（pnpm add -D playwright-core）→
+ * 服务器 playwright-skill 路径（向后兼容）。
  */
-import pw from '/root/.claude/skills/playwright-skill/node_modules/playwright-core/index.js';
-const { chromium } = pw;
+import { createRequire } from 'node:module';
+const nodeRequire = createRequire(import.meta.url);
+
+function loadPlaywright() {
+  const candidates = [
+    'playwright-core', // 本仓 devDependency（本地 / CI）
+    '/root/.claude/skills/playwright-skill/node_modules/playwright-core/index.js', // 服务器
+  ];
+  for (const c of candidates) {
+    try { return nodeRequire(c); } catch { /* next */ }
+  }
+  throw new Error('playwright-core 未找到：先 pnpm add -D playwright-core');
+}
+const { chromium } = loadPlaywright();
 
 const E2E_URL = process.env.E2E_URL || 'http://127.0.0.1:9928/'; // Pulse 首页 = /（708dc7b 起路由不再是 /pulse）
 const NO_SEND = !!process.env.E2E_NO_SEND;
@@ -26,12 +39,19 @@ function loadDevCreds() {
     return { user: process.env.E2E_USER, pass: process.env.E2E_PASS };
   }
   const envPaths = [
+    // 本地凭据（用户 home，不入库）：{"user":"...","pass":"..."}
+    process.env.HOME ? `${process.env.HOME}/.pulse-e2e-creds` : null,
     '/root/project/family-finance/packages/web/.env.local',
     '/root/project/family-finance/.env.local',
-  ];
+  ].filter(Boolean);
   for (const p of envPaths) {
     if (!existsSync(p)) continue;
     try {
+      if (p.endsWith('.pulse-e2e-creds')) {
+        const j = JSON.parse(readFileSync(p, 'utf8'));
+        if (j.user && j.pass) return { user: j.user, pass: j.pass };
+        continue;
+      }
       const env = readFileSync(p, 'utf8');
       const user = env.match(/^ADMIN_USERNAME=(.*)$/m)?.[1]?.trim();
       const pass = env.match(/^ADMIN_PASSWORD=(.*)$/m)?.[1]?.trim();
@@ -68,6 +88,7 @@ async function obtainToken() {
 const EXECUTABLE_CANDIDATES = [
   '/root/.cache/ms-playwright/chromium_headless_shell-1228/chrome-headless-shell-linux64/chrome-headless-shell',
   '/snap/bin/chromium',
+  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', // darwin
 ];
 
 function resolveExecutable() {
