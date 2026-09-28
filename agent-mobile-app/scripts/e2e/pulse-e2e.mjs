@@ -140,7 +140,9 @@ async function main() {
   check('Phase 12 Noticed 分组可见 (observation L1)', noticedVisible);
   if (noticedVisible) {
     const noticedText = await noticedItem.innerText().catch(() => '');
-    check('Noticed 条目为 informational 文案（我注意到…）', /我注意到|Noticed/i.test(noticedText), noticedText.slice(0, 60));
+    // fact 是任意语言的 L1 statement（不保证含"我注意到"字样），只断言行有内容；
+    // informational ≠ attention 的语义保护由下方"未混入 Needs you"兜底
+    check('Noticed 条目为 informational 行（有内容）', noticedText.trim().length > 0, noticedText.slice(0, 60));
     // observation L1 不得变成 Attention（Needs you / Featured）
     const needsYouText = await page
       .locator('[data-testid="featured-attention"], [data-testid^="supporting-ny-"]')
