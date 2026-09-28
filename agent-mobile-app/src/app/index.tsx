@@ -11,23 +11,20 @@ import {
 import { Settings } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { BottomSheet, Button, Text } from "@/components";
-import { LinearGradient } from "expo-linear-gradient";
-import { AIOrb } from "@/components/pulse/AIOrb";
-import { AIStatus } from "@/components/pulse/AIStatus";
+import { LightPresenceDot } from "@/components/pulse/LightAtoms";
+import { LightDock } from "@/components/pulse/LightAtoms";
+import { LightTextAction } from "@/components/pulse/LightAtoms";
 import { FeaturedItem } from "@/components/pulse/FeaturedItem";
 import { SupportingList } from "@/components/pulse/SupportingList";
 import { PulseNoticed } from "@/components/pulse/PulseNoticed";
-import { ConversationEntry } from "@/components/pulse/ConversationEntry";
 import { DetailSheet } from "@/components/pulse/DetailSheet";
 import { AnimatedEntry } from "@/components/pulse/AnimatedEntry";
-import { TextAction as ChipTextAction } from "@/components/pulse/ActionChips";
 import type {
   NeedsYouItem,
   SuggestionItem,
   NoticedItem,
   PresenceState,
 } from "@/components/pulse/showcase-types";
-import { backgroundGradient, colors as c2colors } from "@/theme/companion";
 import { ListSheet } from "@/components/pulse/ListSheet";
 import { FundSheet } from "@/components/pulse/FundSheet";
 import { SettingsSheet } from "@/components/pulse/SettingsSheet";
@@ -37,20 +34,19 @@ import { useProjectEvents, type ProjectEvent } from "@/hooks/useProjectEvents";
 import { useL1 } from "@/hooks/useL1";
 import { type L1Statement } from "@/services/l1";
 import { useAttentions } from "@/hooks/useAttentions";
-import { type AttentionItem, type PulseAttentionItem } from "@/services/attention/store";
+import { type PulseAttentionItem } from "@/services/attention/store";
 import { useSuggestions } from "@/hooks/useSuggestions";
 import { type PulseSuggestion } from "@/services/proposal/store";
-import { fetchAttentions } from "@/services/attention/client";
 import { resolveAttentionConversation, MARKET_TALK_DIRECTORY } from "@/services/attention/talk";
-import { fetchAssignments } from "@/services/assignment/client";
-import { buildAssignmentGroups, formatRelative } from "@/services/assignment/projection";
+import { formatRelative } from "@/services/assignment/projection";
 import { KbHit } from "@/services/memory/client";
 import { opencodeClient } from "@/services/opencode-client";
 import { getRuntimeBaseUrl } from "@/services/bff-config";
 import { opencodeConfig } from "@/config/opencode";
 import { loadToken, login, onUnauthorized, getUsername } from "@/services/auth";
 import { classifyRuntimeFailure, runtimeFailureMessage } from "@/services/runtime-presence";
-import { colors, iconStroke, radius, spacing } from "@/theme";
+import { iconStroke } from "@/theme";
+import { lightColors, lightTypography, lightSpacing, lightSizes, lightRadius } from "@/theme/light";
 
 const SUPPORTING_BUDGET = 4;
 const NOTICED_BUDGET = 5;
@@ -161,14 +157,11 @@ export default function PulseScreen() {
   const [loginPass, setLoginPass] = useState("");
   const [loginError, setLoginError] = useState<string | null>(null);
   const [suggestionBusyId, setSuggestionBusyId] = useState<string | null>(null);
-  const [watchingCount, setWatchingCount] = useState(0);
-  const [assignmentsKey, setAssignmentsKey] = useState(0);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [knowledgeOpen, setKnowledgeOpen] = useState(false);
   const [fundsOpen, setFundsOpen] = useState(false);
-  const [projectsOpen, setProjectsOpen] = useState(false);
   const [noticedListOpen, setNoticedListOpen] = useState(false);
   const [overflowOpen, setOverflowOpen] = useState(false);
   const [detailStatement, setDetailStatement] = useState<L1Statement | null>(null);
@@ -199,23 +192,6 @@ export default function PulseScreen() {
     return onUnauthorized(() => setNeedLogin(true));
   }, [refreshProjects]);
 
-  // Watching count = active assignments (Hero presence line). Failure is
-  // non-fatal: the line simply does not render.
-  const refreshWatching = useCallback(async () => {
-    try {
-      await loadToken();
-      const [assignments, attentions] = await Promise.all([fetchAssignments(), fetchAttentions()]);
-      const groups = buildAssignmentGroups(assignments, attentions as AttentionItem[]);
-      setWatchingCount(groups.find((g) => g.key === "active")?.items.length ?? 0);
-    } catch {
-      setWatchingCount(0);
-    }
-  }, []);
-
-  useEffect(() => {
-    refreshWatching();
-  }, [refreshWatching, suggestions.length, openAttentions.length, assignmentsKey]);
-
   // ── runtime presence (companion voice, never raw transport errors) ──────
   const failureKind = useMemo(() => {
     const err = attentionError ?? projectError;
@@ -225,9 +201,8 @@ export default function PulseScreen() {
   }, [attentionError, projectError]);
   const offline = failureKind !== null;
   const presence: PresenceState = offline ? "offline" : openAttentions.length > 0 ? "needs-you" : "attentive";
-  const aiLine = offline
-    ? "I'm having trouble reaching my runtime."
-    : "I've been keeping an eye on things for you.";
+  // Header presence 文字（mock .presence：label 12/600；offline 灰点灰字）
+  const presenceLabel = offline ? "Offline" : presence === "needs-you" ? "Needs you" : "Attentive";
 
   // ── composition ─────────────────────────────────────────────────────────
   const featured = openAttentions[0] ?? null;
@@ -253,6 +228,9 @@ export default function PulseScreen() {
   );
   const visibleNoticed = noticedSorted.slice(0, NOTICED_BUDGET);
   const noticedOverflow = Math.max(0, noticedSorted.length - visibleNoticed.length);
+
+  // 全空 = 在线且 Featured/Supporting/Noticed 均无（D7：aiVoice 仅离线/全空渲染）
+  const isEmptyScreen = !offline && !featured && supporting.length === 0 && visibleNoticed.length === 0;
 
   // ── actions (semantics unchanged; services stay authoritative) ──────────
   const alertRuntimeFailure = (e: unknown) => {
@@ -344,7 +322,6 @@ export default function PulseScreen() {
     try {
       if (action === "confirm") {
         await confirmSuggestion(id);
-        setAssignmentsKey((k) => k + 1);
       } else {
         await rejectSuggestion(id);
       }
@@ -388,53 +365,55 @@ export default function PulseScreen() {
     />
   );
 
-  const comma = greeting.indexOf(",");
-  const heroLine1 = comma > 0 ? greeting.slice(0, comma + 1) : greeting;
-  const heroLine2 = comma > 0 ? greeting.slice(comma + 1).trim() : "";
-
   return (
     <View style={styles.root}>
-      <LinearGradient
-        colors={backgroundGradient.colors}
-        locations={backgroundGradient.locations}
-        start={backgroundGradient.start}
-        end={backgroundGradient.end}
-        style={StyleSheet.absoluteFill}
-      />
-      <LinearGradient
-        colors={["rgba(139,92,246,0.22)", "rgba(139,92,246,0.07)", "transparent"]}
-        locations={[0, 0.45, 1]}
-        style={styles.topGlow}
-        pointerEvents="none"
-      />
-
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={[styles.content, { paddingBottom: 130 }]}
-        showsVerticalScrollIndicator={false}
-      >
+      {/* Pinned 顶区（mock .top-fixed）：Header + Hero 不随内容滚动 */}
+      <View style={styles.topFixed}>
+        {/* Header：左 presence 呼吸点 + 状态文字，中居中标题，右齿轮（D5 过渡期保留） */}
         <View style={styles.header}>
-          <View testID="pulse-orb">
-            <AIOrb state={presence} size="header" />
-          </View>
-          <View style={styles.headerStack}>
-            <View testID="pulse-status">
-              <AIStatus state={presence} />
+          <View style={styles.headerLeft}>
+            <View testID="pulse-orb">
+              <LightPresenceDot online={!offline} />
             </View>
-            <RNText style={styles.appName} testID="pulse-title">Pulse</RNText>
+            <View testID="pulse-status">
+              <RNText style={[styles.presenceLabel, offline && styles.presenceLabelOffline]}>
+                {presenceLabel}
+              </RNText>
+            </View>
           </View>
-          <View style={styles.headerSpacer} />
+          <RNText style={styles.appTitle} testID="pulse-title">
+            Pulse
+          </RNText>
           <Pressable
             onPress={() => setSettingsOpen(true)}
             accessibilityLabel="Settings"
             accessibilityRole="button"
             testID="pulse-settings"
             hitSlop={10}
+            style={styles.headerGear}
           >
-            <Settings color={c2colors.textLabel} size={18} strokeWidth={iconStroke} />
+            <Settings color={lightColors.ink} size={18} strokeWidth={iconStroke} />
           </Pressable>
         </View>
 
+        {/* Hero：单行问候（mock .greeting display 26/400）；aiVoice 仅离线渲染（D7） */}
+        <AnimatedEntry index={0}>
+          <View style={styles.hero}>
+            <RNText style={styles.heroLine}>{greeting}</RNText>
+            {offline ? (
+              <RNText style={styles.aiVoice} testID="pulse-offline-voice">
+                I'm having trouble reaching my runtime.
+              </RNText>
+            ) : null}
+          </View>
+        </AnimatedEntry>
+      </View>
+
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.content, { paddingBottom: lightSpacing.contentBottom }]}
+        showsVerticalScrollIndicator={false}
+      >
         {needLogin ? (
           <Pressable
             onPress={() => setLoginOpen(true)}
@@ -446,21 +425,6 @@ export default function PulseScreen() {
             <Text variant="caption" color="accentBright">未登录 — 点击登录</Text>
           </Pressable>
         ) : null}
-
-        <AnimatedEntry index={0}>
-          <View style={styles.hero}>
-            <RNText style={styles.heroLine}>{heroLine1}</RNText>
-            {heroLine2 !== "" && <RNText style={styles.heroLine}>{heroLine2}</RNText>}
-            <RNText style={styles.aiVoice}>{aiLine}</RNText>
-            {watchingCount > 0 ? (
-              <Pressable onPress={() => router.push("/assignments")} testID="watching-line" hitSlop={6}>
-                <RNText style={styles.watchingLine}>
-                  Watching {watchingCount} thing{watchingCount === 1 ? "" : "s"} for you ›
-                </RNText>
-              </Pressable>
-            ) : null}
-          </View>
-        </AnimatedEntry>
 
         {featured ? (
           <AnimatedEntry index={1}>
@@ -500,20 +464,10 @@ export default function PulseScreen() {
 
         {supportingOverflow > 0 ? (
           <View style={styles.overflowRow}>
-            <ChipTextAction
+            <LightTextAction
               label={`More (${supportingOverflow})`}
               onPress={() => setOverflowOpen(true)}
               testID="supporting-more"
-            />
-          </View>
-        ) : null}
-
-        {otherProjects.length > 0 ? (
-          <View style={styles.overflowRow}>
-            <ChipTextAction
-              label={`More projects (${otherProjects.length})`}
-              onPress={() => setProjectsOpen(true)}
-              testID="supporting-more-projects"
             />
           </View>
         ) : null}
@@ -524,7 +478,7 @@ export default function PulseScreen() {
               <View style={styles.sectionHead}>
                 <RNText style={styles.sectionLabel}>Noticed</RNText>
                 {noticedOverflow > 0 ? (
-                  <ChipTextAction
+                  <LightTextAction
                     label="See All"
                     onPress={() => setNoticedListOpen(true)}
                     testID="noticed-see-all"
@@ -536,10 +490,12 @@ export default function PulseScreen() {
           </AnimatedEntry>
         ) : null}
 
-        {!offline && !featured && supporting.length === 0 && visibleNoticed.length === 0 ? (
-          <RNText style={styles.emptyLine} testID="pulse-empty">
-            Nothing needs you right now.
-          </RNText>
+        {/* 空态（D7）：aiVoice 全空回归 + 安静提示；离线时整屏 aiVoice 已在 Hero 渲染 */}
+        {isEmptyScreen ? (
+          <View testID="pulse-empty">
+            <RNText style={styles.aiVoice}>All's been calm while you were away.</RNText>
+            <RNText style={styles.emptyLine}>Nothing needs you right now.</RNText>
+          </View>
         ) : null}
 
         {suggestionError ? (
@@ -555,8 +511,13 @@ export default function PulseScreen() {
         ) : null}
       </ScrollView>
 
+      {/* Dock（mock .dock）：整颗 pill → /talk，非 TextInput（Pulse 唯一输入 affordance） */}
       <View style={styles.entryDock}>
-        <ConversationEntry onEnter={() => router.push("/talk")} testID="conversation-entry" />
+        <LightDock
+          label="Start New Chat"
+          onPress={() => router.push("/talk")}
+          testID="conversation-entry"
+        />
       </View>
 
       {/* ── contextual sheets ── */}
@@ -625,33 +586,6 @@ export default function PulseScreen() {
         />
       </ListSheet>
 
-      {/* All projects (running + idle) — idle projects stay reachable */}
-      <ListSheet
-        visible={projectsOpen}
-        title="Projects"
-        onClose={() => setProjectsOpen(false)}
-        testID="projects-sheet"
-      >
-        <SupportingList
-          needsYou={[]}
-          suggestions={[]}
-          running={[
-            ...events.map((e) => ({ id: e.id, name: e.name, status: (e.status === "running" ? "running" : "idle") as "running" | "idle" })),
-            ...otherProjects.map((e) => ({ id: e.id, name: e.name, status: "idle" as const })),
-          ]}
-          onReview={() => {}}
-          onDiscussNeedsYou={() => {}}
-          onDiscussSuggestion={() => {}}
-          onConfirm={() => {}}
-          onDismiss={() => {}}
-          onOpenRunning={(row) => {
-            setProjectsOpen(false);
-            const e = [...events, ...otherProjects].find((x) => x.id === row.id);
-            if (e) router.push({ pathname: "/talk", params: { projectPath: e.projectPath } });
-          }}
-        />
-      </ListSheet>
-
       {/* See All — Noticed list */}
       <ListSheet
         visible={noticedListOpen}
@@ -664,7 +598,7 @@ export default function PulseScreen() {
 
       {/* Login (contextual, unchanged semantics) */}
       <BottomSheet visible={loginOpen} onClose={() => setLoginOpen(false)} testID="login-sheet">
-        <View style={{ gap: spacing.sm }}>
+        <View style={{ gap: 8 }}>
           <Text variant="body" color="ink">登录 Pulse</Text>
           <TextInput
             placeholder="账号"
@@ -672,7 +606,7 @@ export default function PulseScreen() {
             onChangeText={setLoginUser}
             autoCapitalize="none"
             style={styles.loginInput}
-            placeholderTextColor={colors.disabled}
+            placeholderTextColor={lightColors.grayText}
           />
           <TextInput
             placeholder="密码"
@@ -680,7 +614,7 @@ export default function PulseScreen() {
             onChangeText={setLoginPass}
             secureTextEntry
             style={styles.loginInput}
-            placeholderTextColor={colors.disabled}
+            placeholderTextColor={lightColors.grayText}
           />
           {loginError ? <Text variant="caption" color="error">{loginError}</Text> : null}
           <Button variant="primary" label="登录" onPress={doLogin} testID="login-submit" />
@@ -691,97 +625,92 @@ export default function PulseScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#0B0A12" },
-  topGlow: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 260,
+  root: { flex: 1, backgroundColor: lightColors.cream },
+  topFixed: {
+    paddingHorizontal: lightSpacing.pageX,
+    paddingTop: 10, // mock .app-header margin-top 10
   },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: 20, paddingTop: 16 },
+  content: { paddingHorizontal: lightSpacing.pageX, paddingTop: lightSpacing.contentTop },
   header: {
+    height: 44, // mock .app-header
+    position: "relative",
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    marginBottom: 24,
   },
-  headerStack: { gap: 2 },
-  headerSpacer: { flex: 1 },
-  appName: {
-    fontSize: 22,
-    lineHeight: 28,
-    fontWeight: "700",
-    letterSpacing: -0.2,
-    color: "#F5F3FA",
+  headerLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
+  presenceLabel: {
+    fontSize: lightTypography.label.fontSize,
+    fontWeight: lightTypography.label.fontWeight,
+    lineHeight: lightTypography.label.lineHeight,
+    color: lightColors.accentDeep,
   },
-  hero: { marginBottom: 28 },
+  presenceLabelOffline: { color: lightColors.grayText },
+  appTitle: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    textAlign: "center",
+    fontSize: lightTypography.pageTitle.fontSize,
+    fontWeight: lightTypography.pageTitle.fontWeight,
+    lineHeight: lightTypography.pageTitle.lineHeight,
+    color: lightColors.ink,
+  },
+  headerGear: { position: "absolute", right: 0 },
+  hero: { marginTop: 8 }, // mock .greeting margin-top 8
   heroLine: {
-    fontSize: 33,
-    lineHeight: 39,
-    fontWeight: "700",
-    letterSpacing: -0.5,
-    color: "#F5F3FA",
+    fontSize: lightTypography.display.fontSize,
+    fontWeight: lightTypography.display.fontWeight,
+    lineHeight: lightTypography.display.lineHeight,
+    color: lightColors.ink,
   },
   aiVoice: {
-    fontSize: 15,
-    lineHeight: 23,
-    fontWeight: "400",
-    color: "#B4AECB",
-    marginTop: 8,
+    fontSize: lightTypography.body.fontSize,
+    fontWeight: lightTypography.body.fontWeight,
+    lineHeight: lightTypography.body.lineHeight,
+    color: lightColors.subtleText,
+    marginTop: 7, // mock .ai-voice
   },
-  watchingLine: {
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: "400",
-    letterSpacing: 0.2,
-    color: "#A78BFA",
-    marginTop: 10,
-  },
-  section: { marginBottom: 36 },
+  section: { marginBottom: 24 },
   sectionHead: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 8,
+    marginBottom: 2, // mock .section-head
   },
   sectionLabel: {
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: "600",
-    letterSpacing: 1.2,
-    textTransform: "uppercase",
-    color: "#857FA3",
+    fontSize: lightTypography.label.fontSize,
+    fontWeight: lightTypography.label.fontWeight,
+    lineHeight: lightTypography.label.lineHeight,
+    color: lightColors.groupLabel,
   },
   overflowRow: { marginBottom: 20 },
   emptyLine: {
     fontSize: 13,
-    lineHeight: 18,
-    color: "#7A7494",
-    marginBottom: 20,
+    lineHeight: 19, // round(13 × 1.45)
+    color: lightColors.subtleText,
+    marginTop: 18, // mock .empty-line
   },
   loginBanner: {
     marginBottom: 16,
     padding: 8,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "rgba(167,139,250,0.12)",
-    backgroundColor: "#171428",
+    borderColor: lightColors.accentBorder,
+    backgroundColor: lightColors.white,
   },
   entryDock: {
     position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(11,10,18,0.9)",
+    left: lightSpacing.pageX,
+    right: lightSpacing.pageX,
+    bottom: lightSizes.dockBottom, // mock .dock bottom 50
   },
   loginInput: {
-    backgroundColor: "#1B1830",
-    borderRadius: 12,
+    backgroundColor: lightColors.rowGray,
+    borderRadius: lightRadius.row,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    color: "#F5F3FA",
+    color: lightColors.ink,
     fontSize: 15,
   },
 });
