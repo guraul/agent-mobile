@@ -1,12 +1,12 @@
 import React from "react";
-import { ScrollView, View } from "react-native";
-import { BottomSheet } from "../navigation/BottomSheet";
-import { Text } from "../primitives/Text";
-import { spacing } from "../../theme";
+import { ScrollView, Text, StyleSheet } from "react-native";
+import { LightSheet } from "./LightSheet";
+import { lightColors, lightTypography } from "../../theme/light";
 
 /**
- * ListSheet — shared contextual overflow surface (More / See All / Projects).
- * Presentation only: the caller keeps canonical ordering and data untouched.
+ * ListSheet — shared contextual overflow surface（RN 迁移 #F 浅色重做）。
+ * 挂 LightSheet 原语；sheet-title 17/700 + 纵向滚动（mock .sheet-scroll max-h 460）。
+ * More / See All 复用；presentation only：调用方保持 canonical 顺序，不改数据。
  */
 export function ListSheet({
   visible,
@@ -22,13 +22,27 @@ export function ListSheet({
   testID?: string;
 }) {
   return (
-    <BottomSheet visible={visible} onClose={onClose} testID={testID}>
-      <View style={{ marginBottom: spacing.sm }}>
-        <Text variant="title" color="ink">{title}</Text>
-      </View>
-      <ScrollView style={{ maxHeight: 440 }} contentContainerStyle={{ gap: spacing.xxs }}>
+    <LightSheet visible={visible} onClose={onClose} testID={testID}>
+      <Text style={styles.title}>{title}</Text>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         {children}
       </ScrollView>
-    </BottomSheet>
+    </LightSheet>
   );
 }
+
+const styles = StyleSheet.create({
+  title: {
+    fontSize: lightTypography.title.fontSize,
+    fontWeight: lightTypography.title.fontWeight,
+    lineHeight: lightTypography.title.lineHeight,
+    color: lightColors.ink,
+    marginBottom: 10, // mock .sheet-title
+  },
+  scroll: { maxHeight: 460 }, // mock .sheet-scroll
+  scrollContent: { gap: 8, paddingBottom: 4 },
+});

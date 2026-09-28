@@ -356,12 +356,13 @@ export default function PulseScreen() {
   };
 
   // ── render helpers ──────────────────────────────────────────────────────
-  const renderNoticedItem = (st: L1Statement) => (
+  const renderNoticedItem = (st: L1Statement, index?: number) => (
     <PulseNoticed
       key={st.id}
       item={toNoticed(st)}
       testID={`noticed-${st.id}`}
       onPress={() => setDetailStatement(st)}
+      style={index !== undefined && index > 0 ? styles.noticedDivider : undefined}
     />
   );
 
@@ -473,6 +474,7 @@ export default function PulseScreen() {
 
         {visibleNoticed.length > 0 ? (
           <AnimatedEntry index={3}>
+            {/* Noticed ghost 卡（mock .card.ghost）：透明底 + 1.5px dashed 绿边 */}
             <View style={styles.section}>
               <View style={styles.sectionHead}>
                 <RNText style={styles.sectionLabel}>Noticed</RNText>
@@ -484,7 +486,7 @@ export default function PulseScreen() {
                   />
                 ) : null}
               </View>
-              <View>{visibleNoticed.map(renderNoticedItem)}</View>
+              <View>{visibleNoticed.map((st, i) => renderNoticedItem(st, i))}</View>
             </View>
           </AnimatedEntry>
         ) : null}
@@ -592,7 +594,7 @@ export default function PulseScreen() {
         onClose={() => setNoticedListOpen(false)}
         testID="noticed-list-sheet"
       >
-        {noticedSorted.map(renderNoticedItem)}
+        {noticedSorted.map((st) => renderNoticedItem(st))}
       </ListSheet>
 
       {/* Login (contextual, unchanged semantics) */}
@@ -670,7 +672,19 @@ const styles = StyleSheet.create({
     color: lightColors.subtleText,
     marginTop: 7, // mock .ai-voice
   },
-  section: { marginBottom: 24 },
+  section: {
+    // mock .card.ghost：透明底 + 1.5px dashed 绿边，圆角 24 padding 13
+    borderWidth: 1.5,
+    borderStyle: "dashed",
+    borderColor: lightColors.greenCard,
+    borderRadius: lightRadius.card,
+    padding: lightSpacing.cardPad,
+    marginBottom: 24,
+  },
+  noticedDivider: {
+    borderTopWidth: 1,
+    borderTopColor: lightColors.divider, // mock rgba(0,0,0,.05)
+  },
   sectionHead: {
     flexDirection: "row",
     alignItems: "center",
