@@ -5,12 +5,12 @@ import {
   ScrollView,
   StyleSheet,
   Text as RNText,
-  TextInput,
   View,
 } from "react-native";
+import { StatusBar } from "expo-status-bar";
 import { Settings } from "lucide-react-native";
 import { useRouter } from "expo-router";
-import { BottomSheet, Button, Text } from "@/components";
+import { Text } from "@/components";
 import { LightPresenceDot } from "@/components/pulse/LightAtoms";
 import { LightDock } from "@/components/pulse/LightAtoms";
 import { LightTextAction } from "@/components/pulse/LightAtoms";
@@ -43,7 +43,7 @@ import { KbHit } from "@/services/memory/client";
 import { opencodeClient } from "@/services/opencode-client";
 import { getRuntimeBaseUrl } from "@/services/bff-config";
 import { opencodeConfig } from "@/config/opencode";
-import { loadToken, login, onUnauthorized, getUsername } from "@/services/auth";
+import { loadToken, onUnauthorized, getUsername } from "@/services/auth";
 import { classifyRuntimeFailure, runtimeFailureMessage } from "@/services/runtime-presence";
 import { iconStroke } from "@/theme";
 import { lightColors, lightTypography, lightSpacing, lightSizes, lightRadius } from "@/theme/light";
@@ -151,11 +151,6 @@ export default function PulseScreen() {
 
   // ── local ui state ──────────────────────────────────────────────────────
   const [greeting, setGreeting] = useState("");
-  const [needLogin, setNeedLogin] = useState(false);
-  const [loginOpen, setLoginOpen] = useState(false);
-  const [loginUser, setLoginUser] = useState("");
-  const [loginPass, setLoginPass] = useState("");
-  const [loginError, setLoginError] = useState<string | null>(null);
   const [suggestionBusyId, setSuggestionBusyId] = useState<string | null>(null);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -185,12 +180,17 @@ export default function PulseScreen() {
     getRuntimeBaseUrl().then((override) => {
       if (override) opencodeConfig.runtimeBaseUrl = override;
       loadToken().then((tok) => {
-        setNeedLogin(!tok);
-        if (tok) refreshProjects();
+        if (!tok) {
+          // D4：未登录 gate 进独立登录页（replace 防 back 回未登录首页）
+          router.replace("/login");
+        } else {
+          refreshProjects();
+        }
       });
     });
-    return onUnauthorized(() => setNeedLogin(true));
-  }, [refreshProjects]);
+    // D4：token 失效（401）同样 gate 回登录页
+    return onUnauthorized(() => router.replace("/login"));
+  }, [refreshProjects, router]);
 
   // ── runtime presence (companion voice, never raw transport errors) ──────
   const failureKind = useMemo(() => {
@@ -330,18 +330,6 @@ export default function PulseScreen() {
     }
   };
 
-  const doLogin = async () => {
-    try {
-      setLoginError(null);
-      await login(loginUser, loginPass);
-      setNeedLogin(false);
-      setLoginOpen(false);
-      refreshProjects();
-    } catch (e) {
-      setLoginError(e instanceof Error ? e.message : String(e));
-    }
-  };
-
   const openDoc = (hit: KbHit) => {
     setKnowledgeOpen(false);
     router.push({ pathname: "/kb/doc", params: { ref: hit.ref, title: hit.title } });
@@ -368,6 +356,7 @@ export default function PulseScreen() {
 
   return (
     <View style={styles.root}>
+      <StatusBar style="dark" />
       {/* Pinned 顶区（mock .top-fixed）：Header + Hero 不随内容滚动 */}
       <View style={styles.topFixed}>
         {/* Header：左 presence 呼吸点 + 状态文字，中居中标题，右齿轮（D5 过渡期保留） */}
@@ -415,18 +404,6 @@ export default function PulseScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: lightSpacing.contentBottom }]}
         showsVerticalScrollIndicator={false}
       >
-        {needLogin ? (
-          <Pressable
-            onPress={() => setLoginOpen(true)}
-            accessibilityRole="button"
-            accessibilityLabel="未登录，点击登录"
-            testID="pulse-login-banner"
-            style={styles.loginBanner}
-          >
-            <Text variant="caption" color="accentBright">未登录 — 点击登录</Text>
-          </Pressable>
-        ) : null}
-
         {featured ? (
           <AnimatedEntry index={1}>
             <FeaturedItem
@@ -500,15 +477,15 @@ export default function PulseScreen() {
         ) : null}
 
         {suggestionError ? (
-          <Text variant="caption" color="error" testID="pulse-suggestion-error">
+          <RNText style={styles.errorLine} testID="pulse-suggestion-error">
             {suggestionError}
-          </Text>
+          </RNText>
         ) : null}
 
         {projectError && !offline ? (
-          <Text variant="caption" color="muted" testID="pulse-error">
+          <RNText style={styles.errorLine} testID="pulse-error">
             {projectError}
-          </Text>
+          </RNText>
         ) : null}
       </ScrollView>
 
@@ -528,8 +505,9 @@ export default function PulseScreen() {
         onOpenMemory={() => setMemoryOpen(true)}
         onOpenKnowledge={() => setKnowledgeOpen(true)}
         onLogin={() => {
+          // D4：登录走独立页
           setSettingsOpen(false);
-          setLoginOpen(true);
+          router.push("/login");
         }}
       />
       <MemorySheet visible={memoryOpen} onClose={() => setMemoryOpen(false)} />
@@ -596,31 +574,6 @@ export default function PulseScreen() {
       >
         {noticedSorted.map((st) => renderNoticedItem(st))}
       </ListSheet>
-
-      {/* Login (contextual, unchanged semantics) */}
-      <BottomSheet visible={loginOpen} onClose={() => setLoginOpen(false)} testID="login-sheet">
-        <View style={{ gap: 8 }}>
-          <Text variant="body" color="ink">登录 Pulse</Text>
-          <TextInput
-            placeholder="账号"
-            value={loginUser}
-            onChangeText={setLoginUser}
-            autoCapitalize="none"
-            style={styles.loginInput}
-            placeholderTextColor={lightColors.grayText}
-          />
-          <TextInput
-            placeholder="密码"
-            value={loginPass}
-            onChangeText={setLoginPass}
-            secureTextEntry
-            style={styles.loginInput}
-            placeholderTextColor={lightColors.grayText}
-          />
-          {loginError ? <Text variant="caption" color="error">{loginError}</Text> : null}
-          <Button variant="primary" label="登录" onPress={doLogin} testID="login-submit" />
-        </View>
-      </BottomSheet>
     </View>
   );
 }
@@ -704,26 +657,19 @@ const styles = StyleSheet.create({
     color: lightColors.subtleText,
     marginTop: 18, // mock .empty-line
   },
-  loginBanner: {
-    marginBottom: 16,
-    padding: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: lightColors.accentBorder,
-    backgroundColor: lightColors.white,
+  errorLine: {
+    // mock .error-line：12 #E5484D 内联错误行
+    fontSize: lightTypography.caption.fontSize,
+    fontWeight: lightTypography.caption.fontWeight,
+    lineHeight: lightTypography.caption.lineHeight,
+    color: lightColors.upRed,
+    marginHorizontal: 2,
+    marginTop: 2,
   },
   entryDock: {
     position: "absolute",
     left: lightSpacing.pageX,
     right: lightSpacing.pageX,
     bottom: lightSizes.dockBottom, // mock .dock bottom 50
-  },
-  loginInput: {
-    backgroundColor: lightColors.rowGray,
-    borderRadius: lightRadius.row,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    color: lightColors.ink,
-    fontSize: 15,
   },
 });
