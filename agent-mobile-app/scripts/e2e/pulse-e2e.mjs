@@ -134,7 +134,8 @@ async function main() {
   check('Pulse 条目可见 (Featured / Supporting)', itemVisible);
 
   // Step 1b: Phase 12 Noticed（observation L1）——informational，不应混入 Needs you
-  const noticedItem = page.locator('[data-testid^="noticed-"]').first();
+  // 排除 noticed-see-all（溢出入口按钮，非条目行；溢出时 first() 会误匹配它）
+  const noticedItem = page.locator('[data-testid^="noticed-"]:not([data-testid="noticed-see-all"])').first();
   const noticedVisible = await noticedItem.isVisible().catch(() => false);
   check('Phase 12 Noticed 分组可见 (observation L1)', noticedVisible);
   if (noticedVisible) {

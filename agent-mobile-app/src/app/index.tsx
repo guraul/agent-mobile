@@ -388,7 +388,7 @@ export default function PulseScreen() {
 
         {/* Hero：单行问候（mock .greeting display 26/400）；aiVoice 仅离线渲染（D7） */}
         <AnimatedEntry index={0}>
-          <View style={styles.hero}>
+          <View style={styles.hero} testID="pulse-hero">
             <RNText style={styles.heroLine}>{greeting}</RNText>
             {offline ? (
               <RNText style={styles.aiVoice} testID="pulse-offline-voice">
