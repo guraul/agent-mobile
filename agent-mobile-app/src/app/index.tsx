@@ -357,6 +357,8 @@ export default function PulseScreen() {
   return (
     <View style={styles.root}>
       <StatusBar style="dark" />
+      {/* 桌面端手机壳：>480 视口居中 480（移动端 width:100% 零变化） */}
+      <View style={styles.shell}>
       {/* Pinned 顶区（mock .top-fixed）：Header + Hero 不随内容滚动 */}
       <View style={styles.topFixed}>
         {/* Header：左 presence 呼吸点 + 状态文字，中居中标题，右齿轮（D5 过渡期保留） */}
@@ -574,12 +576,20 @@ export default function PulseScreen() {
       >
         {noticedSorted.map((st) => renderNoticedItem(st))}
       </ListSheet>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: lightColors.cream },
+  root: { flex: 1, backgroundColor: lightColors.cream, alignItems: "center" },
+  shell: {
+    width: "100%",
+    maxWidth: 480,
+    flex: 1,
+    position: "relative",
+    backgroundColor: lightColors.cream,
+  },
   topFixed: {
     paddingHorizontal: lightSpacing.pageX,
     paddingTop: 10, // mock .app-header margin-top 10

@@ -114,7 +114,8 @@ export default function AttentionDetailScreen() {
   return (
     <View style={s.screen}>
       <StatusBar style="dark" />
-
+      {/* 桌面端手机壳：>480 视口居中 480（移动端 width:100% 零变化） */}
+      <View style={s.shell}>
       {/* Header：back + refresh（mock 无标题栏，保留既有导航语义） */}
       <View style={s.header}>
         <Pressable
@@ -205,6 +206,7 @@ export default function AttentionDetailScreen() {
           }
         />
       </View>
+      </View>
     </View>
   );
 }
@@ -217,7 +219,14 @@ function RNTextError({ children, testID }: { children: React.ReactNode; testID?:
 }
 
 const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: lightColors.cream },
+  screen: { flex: 1, backgroundColor: lightColors.cream, alignItems: "center" },
+  shell: {
+    width: "100%",
+    maxWidth: 480,
+    flex: 1,
+    position: "relative",
+    backgroundColor: lightColors.cream,
+  },
   header: {
     height: 44,
     marginTop: 10,
