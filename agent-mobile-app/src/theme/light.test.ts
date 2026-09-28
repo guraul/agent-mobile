@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   light,
   lightColors,
+  lightShadows,
   lightTypography,
   lightSpacing,
   lightRadius,
@@ -142,6 +143,15 @@ describe("lightSpacing / lightRadius / lightSizes", () => {
   });
 });
 
+describe("lightShadows", () => {
+  it("sheet 顶阴影照抄 mock（0 -8px 30px rgba(0,0,0,.18)）", () => {
+    expect(lightShadows.sheetUp.shadowOffset).toEqual({ width: 0, height: -8 });
+    expect(lightShadows.sheetUp.shadowOpacity).toBe(0.18);
+    expect(lightShadows.sheetUp.shadowRadius).toBe(30);
+    expect(lightShadows.sheetUp.elevation).toBe(8);
+  });
+});
+
 describe("lightGradient / light 聚合", () => {
   it("主行动作紫渐变三段（135deg #A78BFA → #8B5CF6 55% → #6D4FD8）", () => {
     expect(lightGradient.primary).toEqual(["#A78BFA", "#8B5CF6", "#6D4FD8"]);
@@ -149,7 +159,7 @@ describe("lightGradient / light 聚合", () => {
 
   it("light 聚合导出六段完整", () => {
     expect(Object.keys(light).sort()).toEqual(
-      ["colors", "gradient", "radius", "sizes", "spacing", "typography"].sort()
+      ["colors", "gradient", "radius", "shadows", "sizes", "spacing", "typography"].sort()
     );
   });
 });
