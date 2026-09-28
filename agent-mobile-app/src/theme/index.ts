@@ -19,13 +19,32 @@ import {
   lightSizes,
   lightGradient,
   lightShadows,
+  lightChat,
+  lightChatColors,
+  lightChatTypography,
+  lightChatSizes,
+  lightChatOrbStops,
   type Light,
   type LightColorToken,
   type LightTypographyToken,
   type LightTextStyle,
 } from "./light";
 
-export { light, lightColors, lightTypography, lightSpacing, lightRadius, lightSizes, lightGradient, lightShadows };
+export {
+  light,
+  lightColors,
+  lightTypography,
+  lightSpacing,
+  lightRadius,
+  lightSizes,
+  lightGradient,
+  lightShadows,
+  lightChat,
+  lightChatColors,
+  lightChatTypography,
+  lightChatSizes,
+  lightChatOrbStops,
+};
 export type {
   Light,
   LightColorToken,

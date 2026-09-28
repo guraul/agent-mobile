@@ -211,6 +211,86 @@ export const lightShadows = {
   },
 } as const;
 
+/* ------------------------------------------------------------------ */
+/* chat 专属段（chat.html mock，2026-09-29 #29）                         */
+/* cream 画布 + 双气泡 + peach 主行动作（替代 pulseB 的 violet）           */
+/* ------------------------------------------------------------------ */
+
+export const lightChatColors = {
+  bubbleUser: "#F7F3D3", // user 气泡（mock --bubble-user）
+  bubbleAi: "#F1F1F1", // AI 气泡（mock --bubble-ai）
+  chatArea: "#FFFFFF", // 白色聊天区面板（mock .chat-area）
+  badge: "#F5F5D5", // user check-badge 底（mock .check-badge）
+  greenCheck: "#5CBB63", // badge 对勾（mock --green-check，同 lightColors.green）
+  bubbleInk: "#1A1A1A", // 气泡正文（mock .bubble color）
+  peachGlow: "rgba(243,186,143,.55)", // ai-orb 光晕（mock box-shadow）
+  orbHaloOuter: "rgba(243,186,143,.16)", // ai-orb 外圈光晕（分层透明圆）
+  orbHaloInner: "rgba(243,186,143,.26)", // ai-orb 内圈光晕
+  inputBorder: "#0D0D0D", // input pill 3px 描边（mock .input-pill）
+  inputPlaceholder: "rgba(13,13,13,.4)", // mock input::placeholder
+  roundBtnBorder: "rgba(13,13,13,.3)", // round-btn 1.5px 边（mock .round-btn）
+  orbCore: "#241708", // ai-orb 径向核心（mock .ai-orb）
+  orbCore2: "#4A2E12", // 径向 30%
+  orbMid: "#B97B3F", // 径向 48%
+} as const;
+
+export const lightChatTypography = {
+  chatTitle: {
+    // header 居中标题：21/700（mock .chat-title）
+    fontSize: 21,
+    fontWeight: "700" as const,
+    lineHeight: 30, // round(21 × 1.45)
+    letterSpacing: 0,
+  },
+  bubble: {
+    // 气泡正文：14.5/400（mock .bubble 14.5px lh1.45）
+    fontSize: 14.5,
+    fontWeight: "400" as const,
+    lineHeight: 21, // round(14.5 × 1.45)
+    letterSpacing: 0,
+  },
+} as const;
+
+export const lightChatSizes = {
+  bubbleRadius: 16, // mock .bubble border-radius
+  bubbleMaxWidth: "76%" as const, // mock .bubble max-width
+  bubblePadX: 13, // mock .bubble padding 11px 13px
+  bubblePadY: 11,
+  msgGap: 11, // mock .chat-area gap
+  chatAreaRadius: 30, // mock .chat-area
+  chatAreaPadX: 18, // mock .chat-area padding 18px 18px 12px
+  chatAreaPadTop: 18,
+  chatAreaPadBottom: 12,
+  headerHeight: 60, // mock .chat-header
+  orbSize: 24, // mock .ai-orb
+  badgeSize: 20, // mock .check-badge
+  rowGap: 7, // mock .msg-row gap（气泡 ↔ orb/badge）
+  inputPillHeight: 58, // mock .input-pill
+  inputPillRadius: 29,
+  inputPillBorder: 3,
+  roundBtn: 42, // mock .round-btn
+  sendBtn: 58, // mock .send-btn
+  inputBarPadX: 25, // mock .chat-inputbar padding 10px 25px 24px
+  inputBarPadTop: 10,
+  inputBarPadBottom: 24,
+} as const;
+
+/* ai-orb 径向渐变色标（mock .ai-orb radial-gradient；react-native-svg RadialGradient 用） */
+export const lightChatOrbStops = [
+  { offset: "0%", color: lightChatColors.orbCore },
+  { offset: "30%", color: lightChatColors.orbCore2 },
+  { offset: "48%", color: lightChatColors.orbMid },
+  { offset: "62%", color: lightColors.peach },
+  { offset: "72%", color: "rgba(243,186,143,0)" },
+] as const;
+
+export const lightChat = {
+  colors: lightChatColors,
+  typography: lightChatTypography,
+  sizes: lightChatSizes,
+  orbStops: lightChatOrbStops,
+} as const;
+
 /* 浅色命名空间聚合导出 */
 export const light = {
   colors: lightColors,
@@ -220,6 +300,7 @@ export const light = {
   sizes: lightSizes,
   gradient: lightGradient,
   shadows: lightShadows,
+  chat: lightChat,
 } as const;
 
 export type Light = typeof light;

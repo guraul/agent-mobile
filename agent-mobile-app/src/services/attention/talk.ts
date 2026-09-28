@@ -1,6 +1,7 @@
 import { opencodeClient } from "../opencode-client";
 import { engageAttention } from "./client";
 import { classifyRuntimeFailure } from "../runtime-presence";
+import { MARKET_TALK_DIRECTORY } from "../conversation-kind";
 import type { PulseAttentionItem } from "./store";
 
 // Attention → Talk 会话解析（v0.1.1）：从 index.tsx onAttentionPress 抽出的共享路径，
@@ -10,7 +11,7 @@ import type { PulseAttentionItem } from "./store";
 //   其余 → 抛错（Reconstruct 属 PM §4.2，MVP 不自动做）
 // Runtime offline 原样上抛（由调用方按 runtime-presence 呈现 offline 态）。
 
-export const MARKET_TALK_DIRECTORY = "/root/project/family-finance";
+export { MARKET_TALK_DIRECTORY };
 
 export interface ResolvedConversation {
   sessionId: string;

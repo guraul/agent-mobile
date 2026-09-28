@@ -1,14 +1,14 @@
-// Talk workspace 壳（Companion migration）：orb + Pulse 标题（副标题会话名），
-// IconButton 化（Layers 会话切换 / Close），主体为 ChatPanelZ。
+// Talk workspace 壳（浅色 chat.html 形态，#29）：居中 "Pulse — Chat/Code Chat" 标题 +
+// 左返回 / 右 Layers（会话切换）+ Close，主体为 ChatPanelZ（白色聊天区 + inputbar）。
+// 会话切换 BottomSheet 为旧暗色 sheet——#31 统一机械换肤，本批不动。
 import React, { useEffect, useState, useCallback } from "react";
 import { View, Pressable, StyleSheet, ScrollView } from "react-native";
 import { ArrowLeft, Plus, Layers, X } from "lucide-react-native";
-import { Text, Box, Button, IconButton } from "../../index";
-import { AIOrb } from "../../pulse/AIOrb";
-import { AIStatus } from "../../pulse/AIStatus";
-import { colors, spacing, radius } from "../../../theme";
+import { Text, Box, Button } from "../../index";
+import { colors, spacing, radius, iconStroke, lightColors, lightChatSizes } from "../../../theme";
 import { opencodeClient, type OpenCodeSession } from "../../../services/opencode-client";
 import { ChatPanelZ } from "./ChatPanelZ";
+import type { ConversationKind } from "../../../services/conversation-kind";
 import type { EngagedAttentionRef } from "../../../services/attention/store";
 import { BottomSheet } from "../../navigation/BottomSheet";
 
@@ -18,6 +18,8 @@ interface ProjectChatProps {
   onBack?: () => void;
   /** v0.1.1 correction：关闭当前会话视图（Talk → 回 Pulse；不删除会话，Layers 内仍可切回） */
   onClose?: () => void;
+  /** #29 双页分流：directory 判据结果（chat=伴侣 / chatcode=工作台），决定标题形态 */
+  kind?: ConversationKind;
   /** Phase 4：从 Attention 进入时携带（上下文卡 + Mark handled 入口） */
   attention?: EngagedAttentionRef;
   /** Attention 引用的既有 session —— 精确 Resume（PM §8.2/§16.4），优先于"最近会话" */
@@ -40,7 +42,7 @@ function sessionLabel(s: OpenCodeSession): string {
  * Direct chat entry for a project: opens the most recently active session,
  * or an empty chat composer when no session exists yet.
  */
-export function ProjectChatZ({ projectPath, onBack, attention, initialSessionId, autoSendContext, autoContextText, onClose }: ProjectChatProps) {
+export function ProjectChatZ({ projectPath, onBack, kind, attention, initialSessionId, autoSendContext, autoContextText, onClose }: ProjectChatProps) {
   const [session, setSession] = useState<OpenCodeSession | null>(null);
   const [sessions, setSessions] = useState<OpenCodeSession[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -112,32 +114,57 @@ export function ProjectChatZ({ projectPath, onBack, attention, initialSessionId,
       <View style={styles.headerRow}>
         <View style={styles.headerSide}>
           {onBack ? (
-            <IconButton icon={ArrowLeft} onPress={onBack} accessibilityLabel="Back to projects" testID="zcode-sheet-back" />
+            <Pressable
+              onPress={onBack}
+              accessibilityLabel="Back to projects"
+              accessibilityRole="button"
+              testID="zcode-sheet-back"
+              hitSlop={10}
+              style={styles.headerBtn}
+            >
+              <ArrowLeft color={lightColors.ink} size={20} strokeWidth={iconStroke} />
+            </Pressable>
           ) : null}
         </View>
-        <View style={styles.titleWrap}>
-          <Text variant="bodyStrong" color="ink" numberOfLines={1}>
-            Pulse
+        <View style={styles.titleWrap} pointerEvents="none">
+          <Text variant="lightChatTitle" color="lightInk" numberOfLines={1}>
+            {kind === "chatcode" ? "Pulse — Code Chat" : "Pulse — Chat"}
           </Text>
-          <AIStatus state={error ? "offline" : "attentive"} />
         </View>
         <View style={[styles.headerSide, styles.headerRight]}>
-          <IconButton icon={Layers} onPress={openPicker} accessibilityLabel="Switch session" />
+          <Pressable
+            onPress={openPicker}
+            accessibilityLabel="Switch session"
+            accessibilityRole="button"
+            hitSlop={10}
+            style={styles.headerBtn}
+          >
+            <Layers color={lightColors.ink} size={20} strokeWidth={iconStroke} />
+          </Pressable>
           {onClose ? (
-            <IconButton icon={X} onPress={onClose} accessibilityLabel="Close session" testID="zcode-session-close" />
+            <Pressable
+              onPress={onClose}
+              accessibilityLabel="Close session"
+              accessibilityRole="button"
+              testID="zcode-session-close"
+              hitSlop={10}
+              style={styles.headerBtn}
+            >
+              <X color={lightColors.ink} size={20} strokeWidth={iconStroke} />
+            </Pressable>
           ) : null}
         </View>
       </View>
 
       {error ? (
-        <Box padding="sm" backgroundColor="surface.1" rounded="md" margin="sm">
-          <Text variant="caption" color="error">{error}</Text>
+        <Box margin="sm" style={styles.errorBox}>
+          <Text variant="lightCaption" color="lightUpRed">{error}</Text>
         </Box>
       ) : null}
 
       {!ready ? (
         <Box padding="lg">
-          <Text variant="body" color="muted">Loading…</Text>
+          <Text variant="lightBody" color="lightGray">Loading…</Text>
         </Box>
       ) : session ? (
         <View style={styles.flex}>
@@ -145,18 +172,19 @@ export function ProjectChatZ({ projectPath, onBack, attention, initialSessionId,
         </View>
       ) : (
         <Box padding="lg" style={styles.center}>
-          <Text variant="body" color="muted">No session yet for this project.</Text>
-          <Text variant="caption" color="muted">
+          <Text variant="lightBody" color="lightGray">No session yet for this project.</Text>
+          <Text variant="lightCaption" color="lightGray">
             Start a new conversation.
           </Text>
-          <Box margin="md">
-            <Button
-              variant="primary"
-              label="New session"
-              icon={Plus}
-              onPress={createAndOpen}
-            />
-          </Box>
+          <Pressable
+            onPress={createAndOpen}
+            accessibilityRole="button"
+            accessibilityLabel="New session"
+            style={styles.peachBtn}
+          >
+            <Plus color={lightColors.ink} size={16} strokeWidth={2} />
+            <Text variant="lightBodyStrong" color="lightInk">New session</Text>
+          </Pressable>
         </Box>
       )}
 
@@ -195,6 +223,7 @@ export function ProjectChatZ({ projectPath, onBack, attention, initialSessionId,
           )}
         </ScrollView>
         <Box padding="sm" style={styles.pickerFooter}>
+          {/* 老 Button 在暗色 sheet 内（#31 机械换肤时统一处理），保持暗色语言 */}
           <Button variant="primary" label="New session" icon={Plus} onPress={createAndOpen} />
         </Box>
       </BottomSheet>
@@ -204,40 +233,51 @@ export function ProjectChatZ({ projectPath, onBack, attention, initialSessionId,
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  center: { alignItems: "center", justifyContent: "center" },
-  headerSpacer: { width: 40 },
+  center: { alignItems: "center", justifyContent: "center", gap: 6 },
+  // chat.html .chat-header：60px 高，标题居中，两侧操作位
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
-    padding: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(167,139,250,0.12)",
-    backgroundColor: "#0B0A12",
-  },
-  titleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xxs,
+    height: lightChatSizes.headerHeight,
+    paddingHorizontal: 12,
   },
   headerSide: {
     width: 88,
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.xs,
+    gap: 4,
     zIndex: 2,
   },
   headerRight: {
     justifyContent: "flex-end",
   },
-  headerOrb: {
-    marginBottom: 2,
+  headerBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
   },
   titleWrap: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    gap: 2,
+  },
+  errorBox: {
+    backgroundColor: lightColors.rowGray,
+    borderRadius: 8,
+    padding: 10,
+  },
+  // chat.html .see-detail：peach 实心主行动作（chat 语言替代 violet）
+  peachBtn: {
+    marginTop: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    height: 40,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    backgroundColor: lightColors.peach,
   },
   pickerHeader: {
     borderBottomWidth: 1,

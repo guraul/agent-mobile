@@ -1,24 +1,29 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { View, StyleSheet, Alert } from "react-native";
+import { View, StyleSheet, Alert, Pressable } from "react-native";
+import { StatusBar } from "expo-status-bar";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, RefreshCw } from "lucide-react-native";
-import { Text, Box, Button, StatusDot, IconButton } from "@/components";
-import { AIOrb } from "@/components/pulse/AIOrb";
-import { AIStatus } from "@/components/pulse/AIStatus";
-import { colors, spacing } from "@/theme";
+import { Text } from "@/components";
+import { LightPresenceDot } from "@/components/pulse/LightAtoms";
+import { iconStroke, lightColors } from "@/theme";
+import { spacing } from "@/theme";
 import { opencodeClient, type OpenCodeSession } from "@/services/opencode-client";
 import { loadToken } from "@/services/auth";
 import { classifyRuntimeFailure, runtimeFailureMessage } from "@/services/runtime-presence";
+import { resolveConversationKind } from "@/services/conversation-kind";
 import { ProjectChatZ } from "@/components/chat/zcode/ProjectChatZ";
 import type { EngagedAttentionRef } from "@/services/attention/store";
 
 // Talk stack route（v0.1.1 UX correction / Companion migration）：/talk 是
 // contextual conversation workspace，不再是 top-level tab。
 // 进入即处于当前/默认 Agent Session：有最近 session → Resume；没有 → 直接创建并进入。
-// session 的列出/切换/新建完全由 ProjectChatZ 的 Layers picker 承载（OpenCode 原生能力，零重复 IA）。
 // Contextual Talk（Attention/Suggested/Noticed）通过 route params 进入同一 workspace：
 //   sessionId+projectPath → 精确 Resume；attId* → Attention 上下文卡 + Mark handled；
 //   autoContextText → 对话开场（Suggested/Noticed/Sources，无授权语义）。
+//
+// 双页分流（epic #35 C1，2026-09-28 拍板）：单路由 /talk，进页后按会话 directory
+// 运行时分流——绑项目 → chatcode 工作台，market/无项目 → chat 伴侣页。
+// route params 全兼容（判据在运行时，不在跳转前），e2e 零改动。
 
 interface ActiveConversation {
   sessionId?: string;
@@ -108,17 +113,24 @@ export default function TalkScreen() {
   }, [router]);
 
   if (active) {
+    // 分流判据（C1）：directory 是 session 属性，进页才知道 → 运行时判定。
+    // chatcode 壳由 #31 落地；本批两支都渲染浅色 chat 形态，仅标题分流。
+    const kind = resolveConversationKind(active.projectPath);
     return (
       <View style={s.screen}>
-        <ProjectChatZ
-          key={`${active.sessionId ?? "project"}-${active.projectPath}`}
-          projectPath={active.projectPath}
-          initialSessionId={active.sessionId ?? null}
-          attention={active.attention}
-          autoSendContext={active.autoSendContext}
-          autoContextText={active.autoContextText}
-          onClose={close}
-        />
+        <StatusBar style="dark" />
+        <View style={s.shell}>
+          <ProjectChatZ
+            key={`${active.sessionId ?? "project"}-${active.projectPath}`}
+            projectPath={active.projectPath}
+            kind={kind}
+            initialSessionId={active.sessionId ?? null}
+            attention={active.attention}
+            autoSendContext={active.autoSendContext}
+            autoContextText={active.autoContextText}
+            onClose={close}
+          />
+        </View>
       </View>
     );
   }
@@ -129,40 +141,66 @@ export default function TalkScreen() {
 
   return (
     <View style={s.screen}>
-      <View style={s.header}>
-        <IconButton icon={ArrowLeft} onPress={close} accessibilityLabel="Back to Pulse" testID="talk-back" />
-        <View testID="talk-orb"><AIOrb state={offline ? "offline" : "attentive"} size="header" /></View>
-        <View style={s.headerText}>
-          <View testID="talk-status"><AIStatus state={offline ? "offline" : "attentive"} /></View>
-          <Text variant="title" color="ink">Pulse</Text>
+      <StatusBar style="dark" />
+      <View style={s.shell}>
+        <View style={s.header}>
+          <Pressable
+            onPress={close}
+            accessibilityLabel="Back to Pulse"
+            accessibilityRole="button"
+            testID="talk-back"
+            hitSlop={10}
+            style={s.headerBtn}
+          >
+            <ArrowLeft color={lightColors.ink} size={20} strokeWidth={iconStroke} />
+          </Pressable>
+          <View testID="talk-orb" style={s.headerOrb}>
+            <LightPresenceDot online={!offline} />
+          </View>
+          <View testID="talk-status" style={s.headerText}>
+            <Text variant="lightLabel" color="lightAccentDeep">{offline || bffDown ? "Offline" : "Attentive"}</Text>
+            <Text variant="lightChatTitle" color="lightInk">Pulse</Text>
+          </View>
         </View>
-      </View>
-      <View style={s.centerWrap}>
-        {failMsg ? (
-          <Box padding="sm" backgroundColor="surface.1" rounded="md" testID="talk-offline">
-            <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.xs }}>
-              <StatusDot status="error" size={8} accessibilityLabel="AI offline" />
-              <Text variant="bodyStrong" color="ink">{failMsg.title}</Text>
+        <View style={s.centerWrap}>
+          {failMsg ? (
+            <View style={s.failCard} testID="talk-offline">
+              <View style={s.failTitleRow}>
+                <View style={s.errorDot} />
+                <Text variant="lightBodyStrong" color="lightInk">{failMsg.title}</Text>
+              </View>
+              <Text variant="lightCaption" color="lightGray">{failMsg.body}</Text>
+              <Pressable
+                onPress={boot}
+                accessibilityRole="button"
+                accessibilityLabel="Retry"
+                testID="talk-retry"
+                style={s.peachBtn}
+              >
+                <RefreshCw color={lightColors.ink} size={16} strokeWidth={2} />
+                <Text variant="lightBodyStrong" color="lightInk">Retry</Text>
+              </Pressable>
             </View>
-            <Text variant="caption" color="muted">{failMsg.body}</Text>
-            <Box marginTop="sm">
-              <Button variant="secondary" label="Retry" icon={RefreshCw} onPress={boot} testID="talk-retry" />
-            </Box>
-          </Box>
-        ) : (
-          <Box padding="lg">
-            <Text variant="body" color="muted" testID="talk-loading">
+          ) : (
+            <Text variant="lightBody" color="lightGray" testID="talk-loading">
               {booting ? "Loading…" : (error ?? "")}
             </Text>
-          </Box>
-        )}
+          )}
+        </View>
       </View>
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.canvas },
+  // 浅色 boot/offline 屏（#29）：cream 画布 + 手机壳容器（与 index/login/attention 同构）
+  screen: { flex: 1, backgroundColor: lightColors.cream, alignItems: "center" },
+  shell: {
+    width: "100%",
+    maxWidth: 480,
+    flex: 1,
+    backgroundColor: lightColors.cream,
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -171,6 +209,35 @@ const s = StyleSheet.create({
     paddingTop: spacing.sm,
     paddingBottom: spacing.xs,
   },
+  headerBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerOrb: { width: 24, alignItems: "center" },
   headerText: { flex: 1, gap: 2 },
   centerWrap: { flex: 1, justifyContent: "center", padding: spacing.lg, gap: spacing.sm },
+  failCard: {
+    width: "100%",
+    maxWidth: 360,
+    backgroundColor: lightColors.white,
+    borderRadius: 16,
+    padding: spacing.md,
+    gap: 6,
+  },
+  failTitleRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
+  errorDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: lightColors.upRed },
+  peachBtn: {
+    marginTop: 8,
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    height: 40,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    backgroundColor: lightColors.peach,
+  },
 });
