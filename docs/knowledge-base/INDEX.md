@@ -1,6 +1,6 @@
 # Agent Mobile 项目知识库 · 索引总览
 
-> 最后更新：2026-09-27 · commit：仓库瘦身（删除设计期 `src/`、`showcase/`、`showcase2/`——showcase2 设计已移植进主应用；test/ 不再入库；redesign 历史文档归档至 `docs/redesign/archive/`）
+> 最后更新：2026-09-28 · RN 浅色迁移 epic #7 主体完成（PR #16-#23：light token / 原子 / LightSheet / 首页族浅色 + 登录 gate + attention 详情重做；talk/assignments/kb 仍暗色，旧 companion token 保留）。基准 `docs/pipeline/RN_MIGRATION_BRIEF.md`，决策 D1-D10。
 > 维护：见 [CONVENTIONS.md](CONVENTIONS.md)「知识库维护约定」
 
 ## 使用说明

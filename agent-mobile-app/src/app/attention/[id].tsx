@@ -1,19 +1,24 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { View, ScrollView, StyleSheet, Alert } from "react-native";
+import { Pressable, Text, View, ScrollView, StyleSheet, Alert } from "react-native";
+import { StatusBar } from "expo-status-bar";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, RefreshCw } from "lucide-react-native";
-import { colors, spacing } from "@/theme";
-import { ScreenHeader, Text, Card, Button, StatusPill } from "@/components";
+import { iconStroke } from "@/theme";
 import { loadToken } from "@/services/auth";
 import { fetchAttentionDetail, dismissAttention, type AttentionDetail } from "@/services/attention/client";
 import { repairAssignment } from "@/services/assignment/client";
 import { formatRelative } from "@/services/assignment/projection";
 import { resolveAttentionConversation } from "@/services/attention/talk";
 import { classifyRuntimeFailure, runtimeFailureMessage } from "@/services/runtime-presence";
+import { LightDock, LightStatusPill, LightTextAction } from "@/components/pulse/LightAtoms";
+import { lightColors, lightTypography, lightRadius, lightSpacing } from "@/theme/light";
 
-// Attention 详情屏（Phase 9，Part 5）：Attention 行 + evidence 投影 + 关联 responsibility。
-// Viewing ≠ Handling：打开本页不改 state；Open Talk 不自动 handle（engage 也只在用户点击时发生）。
-// Retry/Dismiss 是显式用户动作（走既有 API）。
+// Attention 详情屏（RN 迁移 #H 重做，基准 pulseB-review.html）。
+// 结构：Related responsibility → Evidence → 页脚注；底部紫渐变 dock（Open Talk），
+// Dismiss 弱化态压 pill 左侧（D9：破坏性动作弱化 + Alert 二次确认）。
+// 主卡已删（2026-09-27 设计定稿：title/summary/meta 与首页 Featured 重复）。
+// Viewing ≠ Handling：打开本页不改 state；Open Talk 不自动 handle。
+// Retry（repair 场景）保留，弱化态置于 dock 左侧 Dismiss 旁。
 
 export default function AttentionDetailScreen() {
   const router = useRouter();
@@ -22,9 +27,6 @@ export default function AttentionDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<"retry" | "dismiss" | null>(null);
-  // v0.1.1：真正的 Talk 入口（此前 Open Talk 只是 router.back() 的假动作）。
-  // v0.1.1 correction：路由进入 Talk workspace（不在详情屏本地承载 Chat）。
-  // Resume/Create 语义与 Pulse 一致（resolveAttentionConversation）；Open Talk 不改 Attention state。
 
   const reload = useCallback(async () => {
     if (!id) return;
@@ -93,6 +95,7 @@ export default function AttentionDetailScreen() {
     }
   };
 
+  // D9：Dismiss 破坏性动作 → Alert 二次确认（弱化视觉 + 强确认，双保险）
   const doDismiss = () => {
     Alert.alert("Dismiss this item?", "仅代表显式退出，不影响 responsibility。", [
       { text: "取消", style: "cancel" },
@@ -110,81 +113,213 @@ export default function AttentionDetailScreen() {
 
   return (
     <View style={s.screen}>
-      <ScreenHeader
-        title="Attention"
-        leftIcon={ArrowLeft}
-        onLeftPress={() => router.back()}
-        leftAccessibilityLabel="Back"
-        rightIcon={RefreshCw}
-        onRightPress={reload}
-        rightAccessibilityLabel="Refresh"
-        testID="attention-detail-header"
-      />
+      <StatusBar style="dark" />
+
+      {/* Header：back + refresh（mock 无标题栏，保留既有导航语义） */}
+      <View style={s.header}>
+        <Pressable
+          onPress={() => router.back()}
+          accessibilityLabel="Back"
+          accessibilityRole="button"
+          testID="attention-back"
+          hitSlop={10}
+        >
+          <ArrowLeft size={20} color={lightColors.ink} strokeWidth={iconStroke} />
+        </Pressable>
+        <Pressable
+          onPress={reload}
+          accessibilityLabel="Refresh"
+          accessibilityRole="button"
+          testID="attention-refresh"
+          hitSlop={10}
+        >
+          <RefreshCw size={18} color={lightColors.ink} strokeWidth={iconStroke} />
+        </Pressable>
+      </View>
+
       <ScrollView style={s.scroll} contentContainerStyle={s.content}>
-        {error ? <Text variant="caption" color="error" testID="attention-detail-error">{error}</Text> : null}
-        {loading && !att ? <Text variant="caption" color="muted" testID="attention-detail-loading">Loading…</Text> : null}
+        {error ? (
+          <RNTextError testID="attention-detail-error">{error}</RNTextError>
+        ) : null}
+        {loading && !att ? (
+          <Text style={s.loadingText} testID="attention-detail-loading">Loading…</Text>
+        ) : null}
 
-        {att ? (
+        {att && detail ? (
           <>
-            <Card testID="attention-detail-main" style={s.card}>
-              <Text variant="bodyStrong" color="ink">{att.title}</Text>
-              <Text variant="body" color="body">{att.summary}</Text>
-              <Text variant="caption" color="muted">Created: {formatRelative(att.createdAt)}</Text>
-              <Text variant="caption" color="muted">State: {att.state}</Text>
-              <Text variant="caption" color="muted">Reason: {att.creationReasonKind}</Text>
-            </Card>
-
-            {/* 关联 responsibility（Attention 仍 canonical；此处只读投影） */}
-            {detail?.relatedAssignment ? (
-              <Card testID="attention-related" style={s.card}>
-                <Text variant="title" color="ink">Related responsibility</Text>
-                <Text variant="body" color="body">{detail.relatedAssignment.responsibility}</Text>
+            {/* Related responsibility（只读投影；Attention 仍 canonical） */}
+            {detail.relatedAssignment ? (
+              <View style={s.card} testID="attention-related">
+                <Text style={s.groupLabel}>Related responsibility</Text>
+                <Text style={s.respBody}>{detail.relatedAssignment.responsibility}</Text>
                 <View style={s.kv}>
-                  <Text variant="caption" color="muted">State</Text>
-                  <StatusPill
-                    status={detail.relatedAssignment.state === "active" ? "success" : "idle"}
-                    label={detail.relatedAssignment.state.toUpperCase()}
-                  />
+                  <Text style={s.kvLabel}>State</Text>
+                  <LightStatusPill label={detail.relatedAssignment.state.toUpperCase()} />
                 </View>
-              </Card>
+              </View>
             ) : null}
 
             {/* Evidence 投影（canonical = attention_evidence + product_events） */}
-            <Card testID="attention-evidence" style={s.card}>
-              <Text variant="title" color="ink">Evidence</Text>
-              {detail!.evidence.length === 0 ? <Text variant="caption" color="muted">No supporting events.</Text> : null}
-              {detail!.evidence.map((e) => (
-                <View key={e.id} style={s.evidenceRow}>
-                  <Text variant="caption" color="body">{formatRelative(e.occurredAt)}</Text>
-                  <Text variant="caption" color="muted">{e.type}{e.attempt ? ` · attempt ${e.attempt}` : ""}</Text>
-                  {e.error ? <Text variant="caption" color="error">{e.error}</Text> : null}
+            <View style={s.card} testID="attention-evidence">
+              <Text style={s.groupLabel}>Evidence</Text>
+              {detail.evidence.length === 0 ? (
+                <Text style={s.emptyEvidence}>No supporting events.</Text>
+              ) : (
+                <View style={s.evList}>
+                  {detail.evidence.map((e) => (
+                    <View key={e.id} style={s.evRow}>
+                      <Text style={s.evCap}>
+                        {e.type}{e.attempt ? ` · attempt ${e.attempt}` : ""} · {formatRelative(e.occurredAt)}
+                      </Text>
+                      {e.error ? <Text style={s.evBody}>{e.error}</Text> : null}
+                    </View>
+                  ))}
                 </View>
-              ))}
-            </Card>
+              )}
+            </View>
 
-            {/* Actions：显式用户动作；不自动 handle */}
-            <Card testID="attention-actions" style={s.card}>
-              <Text variant="caption" color="muted">Actions</Text>
-              <View style={s.actions}>
-                {isRepair ? <Button label="Retry" onPress={doRetry} variant="secondary" loading={busy === "retry"} testID="attention-retry" /> : null}
-                <Button label="Dismiss" onPress={doDismiss} variant="ghost" loading={busy === "dismiss"} testID="attention-dismiss" />
-                <Button label="Open Talk" onPress={openTalk} variant="secondary" testID="attention-open-talk" />
-              </View>
-            </Card>
+            {/* 页脚注：只读语义（mock .note） */}
+            <Text style={s.note}>Viewing never changes state.</Text>
           </>
         ) : null}
       </ScrollView>
 
+      {/* 紫渐变 dock：整颗 → Open Talk；Dismiss/Retry 弱化态压左侧（D9） */}
+      <View style={s.dock}>
+        <LightDock
+          label="Open Talk"
+          variant="gradient"
+          onPress={openTalk}
+          testID="attention-open-talk"
+          leading={
+            <>
+              {isRepair ? (
+                <Pressable onPress={doRetry} hitSlop={8} testID="attention-retry" disabled={busy !== null}>
+                  <Text style={s.dockWeak}>{busy === "retry" ? "Retrying…" : "Retry"}</Text>
+                </Pressable>
+              ) : null}
+              <Pressable onPress={doDismiss} hitSlop={8} testID="attention-dismiss" disabled={busy !== null}>
+                <Text style={s.dockWeak}>{busy === "dismiss" ? "Dismissing…" : "Dismiss"}</Text>
+              </Pressable>
+            </>
+          }
+        />
+      </View>
     </View>
   );
 }
 
+/** 详情错误行（testID 容器内联，样式同 mock .error-line） */
+function RNTextError({ children, testID }: { children: React.ReactNode; testID?: string }) {
+  return (
+    <Text style={s.errorLine} testID={testID}>{children}</Text>
+  );
+}
+
 const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.canvas },
+  screen: { flex: 1, backgroundColor: lightColors.cream },
+  header: {
+    height: 44,
+    marginTop: 10,
+    paddingHorizontal: lightSpacing.pageX,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
   scroll: { flex: 1 },
-  content: { padding: spacing.md, gap: spacing.sm, paddingBottom: spacing.xl },
-  card: { gap: spacing.xxs },
-  kv: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
-  actions: { flexDirection: "row", gap: spacing.xs, flexWrap: "wrap" },
-  evidenceRow: { gap: spacing.xxs, paddingVertical: spacing.xs, borderTopWidth: 1, borderTopColor: colors.border.default },
+  content: {
+    paddingHorizontal: lightSpacing.pageX,
+    paddingTop: 16,
+    paddingBottom: 132, // dock 让位（mock .content padding 16px 0 132px）
+    gap: 14, // mock .stack gap
+  },
+  card: {
+    backgroundColor: lightColors.white,
+    borderRadius: lightRadius.card,
+    padding: lightSpacing.cardPad,
+  },
+  groupLabel: {
+    fontSize: lightTypography.label.fontSize,
+    fontWeight: lightTypography.label.fontWeight,
+    lineHeight: lightTypography.label.lineHeight,
+    color: lightColors.groupLabel,
+    marginBottom: 6, // mock .group-label mb 6
+  },
+  respBody: {
+    fontSize: lightTypography.body.fontSize,
+    fontWeight: lightTypography.body.fontWeight,
+    lineHeight: lightTypography.body.lineHeight,
+    color: lightColors.fieldText, // mock .resp-body #1A1A1A
+    marginBottom: 8,
+  },
+  kv: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  kvLabel: {
+    fontSize: lightTypography.caption.fontSize,
+    fontWeight: lightTypography.caption.fontWeight,
+    lineHeight: lightTypography.caption.lineHeight,
+    color: lightColors.grayText,
+  },
+  evList: { gap: 8 },
+  evRow: {
+    backgroundColor: lightColors.rowGray,
+    borderRadius: lightRadius.row,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  evCap: {
+    fontSize: lightTypography.caption.fontSize,
+    fontWeight: lightTypography.caption.fontWeight,
+    lineHeight: lightTypography.caption.lineHeight,
+    color: lightColors.grayText,
+    marginBottom: 2,
+  },
+  evBody: {
+    fontSize: lightTypography.body.fontSize,
+    fontWeight: lightTypography.body.fontWeight,
+    lineHeight: lightTypography.body.lineHeight,
+    color: lightColors.fieldText,
+  },
+  emptyEvidence: {
+    fontSize: lightTypography.caption.fontSize,
+    fontWeight: lightTypography.caption.fontWeight,
+    lineHeight: lightTypography.caption.lineHeight,
+    color: lightColors.grayText,
+  },
+  note: {
+    fontSize: lightTypography.caption.fontSize,
+    fontWeight: lightTypography.caption.fontWeight,
+    lineHeight: lightTypography.caption.lineHeight,
+    color: lightColors.grayText,
+    textAlign: "center", // mock .note 居中
+  },
+  loadingText: {
+    fontSize: lightTypography.caption.fontSize,
+    fontWeight: lightTypography.caption.fontWeight,
+    lineHeight: lightTypography.caption.lineHeight,
+    color: lightColors.grayText,
+  },
+  errorLine: {
+    fontSize: lightTypography.caption.fontSize,
+    fontWeight: lightTypography.caption.fontWeight,
+    lineHeight: lightTypography.caption.lineHeight,
+    color: lightColors.upRed,
+  },
+  dockWeak: {
+    // mock .dock-dismiss：15/600 rgba(255,255,255,.65) 弱化态
+    fontSize: lightTypography.bodyStrong.fontSize,
+    fontWeight: lightTypography.bodyStrong.fontWeight,
+    lineHeight: lightTypography.bodyStrong.lineHeight,
+    color: lightColors.dockDismiss,
+  },
+  dock: {
+    position: "absolute",
+    left: lightSpacing.pageX,
+    right: lightSpacing.pageX,
+    bottom: 50, // mock .dock bottom 50
+  },
 });

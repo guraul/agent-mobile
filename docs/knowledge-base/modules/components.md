@@ -42,9 +42,26 @@
 
 ## 依赖关系
 
-- 依赖：`src/theme/`（colors、spacing、radius、motion、typography）
+- 依赖：`src/theme/`（colors、spacing、radius、motion、typography）与 `src/theme/light.ts`（浅色命名空间，pulse 组件用）
 - 被依赖：所有页面（`app/index.tsx`、`talk.tsx`、`assignments/*`、`attention/[id].tsx`、`kb/doc.tsx`）及 `components/pulse/`
 - 组件间：navigation 组件内部使用 primitives（如 EventItem 用 Box/Text/StatusPill）
+
+## pulse 浅色组件（2026-09-28 RN 迁移 epic #7，基准 pulseB*.html）
+
+浅色页面专用，**深路径 import**（`@/components/pulse/Xxx`，不入 barrel）；全部样式走 `theme/light.ts`；与暗色旧组件并存（D1），旧组件待后续批次（talk/assignments/kb 迁移）后删。
+
+| 文件 | 内容 |
+|---|---|
+| `pulse/LightAtoms.tsx` | LightChip（neutral/review/discuss）/ LightTextAction（+quiet）/ LightDot / LightStatusPill / LightPresenceDot（呼吸点，Reduce Motion 兼容；Header 唯一发光元素）/ LightPrimaryButton（紫渐变）/ LightDock（variant: dark/gradient + leading 弱化动作位） |
+| `pulse/LightSheet.tsx` | 浅色 sheet 原语（scrim + 白卡顶圆角 28 + handle）；动画照搬 BottomSheet web 兼容实现（useNativeDriver:false + visible gate） |
+| `pulse/DetailSheet.tsx` | 重做：挂 LightSheet；只读语义不变（Discuss 唯一出口，chip review） |
+| `pulse/FundSheet.tsx` / `pulse/ListSheet.tsx` | 挂 LightSheet；fund-row 红涨绿跌；ListSheet 滚动 max-h 460 |
+| `pulse/FeaturedItem.tsx` | 整卡 Pressable → /attention/[id]（D10：删 lead/tile/chips，Bell #D97706） |
+| `pulse/SupportingList.tsx` | In motion 绿卡（四组合流，schedule* 偏移 token）；props 兼容（ListSheet 溢出复用） |
+| `pulse/PulseNoticed.tsx` | ghost 卡行浅色（style 透传 divider） |
+| 旧组件保留 | ActionChips / ConversationEntry / AIOrb / AIStatus / 旧 BottomSheet（Settings/Memory/Knowledge sheet 用）——待后续批次删 |
+
+- **BottomSheet/LightSheet web 坑同源**：RN Web 不桥接 `translateY` 插值到 DOM——隐藏必须 `{visible ? ... : null}` 条件渲染（两个 sheet 原语都已内建）。
 
 ## 修改注意事项
 

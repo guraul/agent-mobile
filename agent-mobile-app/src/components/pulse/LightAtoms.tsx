@@ -199,22 +199,42 @@ export function LightPrimaryButton({
 }
 
 /* ------------------------------------------------------------------ */
-/* LightDock —— mock .dock：h62 黑底 pill + 白字 + 桃色箭头 + chat FAB   */
-/* （整颗 pill 可点 → /talk；#D 装配，#H 详情页另有紫渐变变体）          */
+/* LightDock —— mock .dock：h62 pill + 白字 + 桃色箭头 + chat FAB        */
+/* variant "dark"（首页黑底）/ "gradient"（详情页紫渐变，#H）；           */
+/* leading：绝对定位 pill 左侧的弱化动作区（Dismiss/Retry，#H）。         */
+/* 整颗 pill 可点（fab pointerEvents 跟随 pill，mock 同构）。            */
 /* ------------------------------------------------------------------ */
 
 export function LightDock({
   label,
   onPress,
+  variant = "dark",
+  leading,
   testID,
 }: {
   label: string;
   onPress?: () => void;
+  variant?: "dark" | "gradient";
+  leading?: React.ReactNode;
   testID?: string;
 }) {
   return (
     <View style={styles.dockWrap}>
-      <PressableScale onPress={onPress} testID={testID} style={styles.dockPill}>
+      <PressableScale
+        onPress={onPress}
+        testID={testID}
+        style={variant === "gradient" ? styles.dockPillGradient : styles.dockPill}
+      >
+        {variant === "gradient" && (
+          <LinearGradient
+            colors={[...lightGradient.primary]}
+            locations={[0, 0.55, 1]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+        )}
+        {leading ? <View style={styles.dockLeading}>{leading}</View> : null}
         <View style={styles.dockTextRow}>
           <Text style={styles.dockLabel}>{label}</Text>
           <Text style={styles.dockArrow}>{"\u2192"}</Text>
@@ -327,6 +347,23 @@ const styles = StyleSheet.create({
     backgroundColor: lightColors.black,
     alignItems: "center",
     justifyContent: "center",
+  },
+  dockPillGradient: {
+    flex: 1,
+    borderRadius: lightSizes.dockHeight / 2,
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  dockLeading: {
+    position: "absolute",
+    left: 24, // mock .dock-dismiss left 24
+    top: 0,
+    bottom: 0,
+    zIndex: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
   },
   dockTextRow: {
     flexDirection: "row",
