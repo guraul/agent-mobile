@@ -43,10 +43,12 @@ export default function LoginScreen() {
   return (
     <View style={styles.root}>
       <StatusBar style="dark" />
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
+      {/* 桌面端手机壳：>480 视口居中 480（移动端 width:100% 零变化） */}
+      <View style={styles.shell}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+        >
         <RNText style={styles.greeting}>Welcome back</RNText>
         <RNText style={styles.sub}>Sign in to continue.</RNText>
 
@@ -86,12 +88,20 @@ export default function LoginScreen() {
           </RNText>
         </View>
       </ScrollView>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: lightColors.cream },
+  root: { flex: 1, backgroundColor: lightColors.cream, alignItems: "center" },
+  shell: {
+    width: "100%",
+    maxWidth: 480,
+    flex: 1,
+    position: "relative",
+    backgroundColor: lightColors.cream,
+  },
   content: {
     paddingHorizontal: lightSpacing.pageX,
     paddingTop: 14,
