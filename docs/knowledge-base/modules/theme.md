@@ -2,14 +2,15 @@
 
 > 最后更新：2026-09-28 · commit：`feat: #8 light token 命名空间`（RN 迁移 #A：新增 `theme/light.ts` 浅色 token 与 Text light variant，暗色旧值不动）
 
-## ⚠️ 浅色 light 命名空间（2026-09-28 新增，RN 迁移 D1）
+## ⚠️ 浅色 light 命名空间（2026-09-28，RN 迁移 epic #7 已完成 pulse 族/attention/登录）
 
-pulseB 浅色皮肤（`docs/newdesign/html/pulseB*.html`）迁移引入**新旧共存**：
+pulseB 浅色皮肤（`docs/newdesign/html/pulseB*.html`）迁移引入**新旧共存**（D1）：
 
-- **`src/theme/light.ts`**（新）：`lightColors`（pulseB :root 全量收编 + 结构 rgba 色）、`lightTypography`（7-token 字阶 display 26/400 · pageTitle 24/700 · title 17/700 · body 15/400 · bodyStrong 15/600 · caption 12/400 · label 12/600，lineHeight 显式整数；另有绿卡偏移 3 键 scheduleLabel 11.5 / scheduleTitle 14 / scheduleMeta 11.5）、`lightSpacing` / `lightRadius` / `lightSizes` / `lightGradient`（紫渐变三段）+ 聚合对象 `light`。**零 react-native 依赖**（纯数据，vitest 可直接加载；不写 fontFamily——RN Text 默认系统字体即 mock 系统栈）。
-- **`Text` primitive**：`variant` / `color` 扩展 `light*` 前缀键（`lightDisplay`…`lightScheduleMeta` / `lightInk`…），旧键完全兼容；内部按前缀查 light 表。
-- **红线**：浅色页面颜色/字号/间距/圆角一律取自 `light.ts`，禁止硬编码；**勿动**暗色 `theme/companion` 旧值，全部页面切完后（RN 迁移 epic 收尾）删除旧值。
-- 单测：`src/theme/light.test.ts`（字阶完整性 / lineHeight 规则 / 色值快照 / 刻度）。
+- **`src/theme/light.ts`**：`lightColors`（pulseB :root 全量收编 + 结构 rgba 色，31 键）、`lightTypography`（7-token 字阶 display 26/400 · pageTitle 24/700 · title 17/700 · body 15/400 · bodyStrong 15/600 · caption 12/400 · label 12/600，lineHeight 显式整数；绿卡偏移 3 键 scheduleLabel 11.5 / scheduleTitle 14 / scheduleMeta 11.5——有意偏离 7-token 照抄 mock）、`lightSpacing` / `lightRadius` / `lightSizes` / `lightGradient`（紫渐变 135deg 三段）/ `lightShadows`（sheetUp）+ 聚合对象 `light`。**零 react-native 依赖**（纯数据，vitest 可直接加载；不写 fontFamily——RN Text 默认系统字体即 mock 系统栈）。
+- **`Text` primitive**：`variant` / `color` 扩展 `light*` 前缀键（10 variant / 21 color），旧键完全兼容；内部按前缀查 light 表。
+- **已切换页面**（PR #16-#23）：Pulse 首页族（含三 sheet、登录 gate `/login`）、`/attention/[id]` 详情。**未切换**（仍用暗色 `theme/companion`）：talk / assignments / kb / chatcode——**旧值不可删**，待后续批次迁移后清理（epic 收尾清单挂起项：删旧 token、删首页旧齿轮，均依赖 chat 侧就绪）。
+- **红线**：浅色页面颜色/字号/间距/圆角一律取自 `light.ts`，禁止硬编码；勿动暗色旧值。
+- 单测：`src/theme/light.test.ts`（字阶完整性 / lineHeight 规则 / 色值快照 / 刻度 / 渐变 / 阴影）。
 
 ## 模块职责
 

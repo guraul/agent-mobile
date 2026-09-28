@@ -1,12 +1,53 @@
 # modules/pulse-stream.md —— Pulse 根界面（AI 伴侣 briefing 单表面）
 
-> 最后更新：2026-09-28 · **⚠️ RN 浅色迁移进行中（epic #7，基准 `docs/pipeline/RN_MIGRATION_BRIEF.md`）**：A-D 已完成（light token / 原子 / LightSheet / 浅色骨架+删三样）、E 完成（In motion 绿卡 + Featured 整卡）、F 本 PR（Noticed ghost 卡 + FundSheet/ListSheet 挂 LightSheet）。G（状态+登录 gate）/ H（详情+收尾+删旧值）未完成——本文下述结构树以**迁移前**形态书写，结构树与组件描述在 #H 总同步时重写。
+> 最后更新：2026-09-28 · **RN 浅色迁移（epic #7）A-G 完成、H 详情重做完成**（基准 `docs/pipeline/RN_MIGRATION_BRIEF.md`，D1-D10 决策）。当前形态以本节为准；下方 Companion 段及更早内容为历史参考。
 
-> 2026-09-26 · commit：`a1e8e5e`（按源码事实核对：showcase2 移植组件更名 FeaturedItem/SupportingList/PulseNoticed/ActionChips；结构树补登录 banner / More projects / 错误行 / DetailSheet；澄清 ConversationEntry 非 TextInput；修正状态机与 Marquee 残留描述）
+## 当前形态（2026-09-28 浅色 Companion，PR #16-#23）
 
-## ⚠️ Companion UI Migration（2026-09-21 引入，2026-09-26 按 `a1e8e5e` 源码核对，当前形态）
+```
+登录 gate（D4）：未登录 / 401 → router.replace("/login")（独立登录页 app/login.tsx，
+  cream + Welcome back + 白卡 Username/Password + LightPrimaryButton；已登录访问自动 back）
+root（cream #F7F5DC 画布，页面水平 padding 25）
+├── top-fixed（pinned，不随内容滚动）
+│   ├── Header：LightPresenceDot 呼吸点（14px #5CBB63；offline 灰静止）+ presence 文字
+│   │   （Attentive / Needs you / Offline，label 12/600 accent-deep，offline 灰）+
+│   │   绝对居中标题 Pulse（page-title 24/700）+ 旧齿轮 → 旧 SettingsSheet
+│   │   （D5 过渡期保留——唯一有意偏离 mock 之处，等 chat 侧设置面板落地后删）
+│   └── Hero：单行问候（display 26/400 lh1.24；本地时间 + 用户名，React #418 guard 保留）；
+│       aiVoice 仅离线渲染（D7 红线）："I'm having trouble reaching my runtime."
+├── ScrollView 内容区（pt14 / pb128）
+│   ├── Featured（FeaturedItem，≤1）：白卡整卡 Pressable → /attention/[id]（D10：无 lead、
+│   │   无行内 chips——Review/Discuss 收进详情页）；铃铛 16px #D97706 + 标题 17/700 +
+│   │   why 灰底块（15/400 #2A2A2A）+ meta（source · time）
+│   ├── In motion（SupportingList = 单张绿卡 #B2D7B5）：标题 [ In motion ]（方括号 400 字重）+
+│   │   四组条目（#C8EBCB 圆角 15，固定顺序 To review → Suggested → Running → Market，
+│   │   组标签 11.5px #233323 + 13px 线性图标 eye/lightbulb/activity/trending-up；
+│   │   条目标题 14/600 #101710 ellipsis，字值有意偏离 7-token——D1）；
+│   │   行内动作：To review → chip "Review"；Suggested → chip "Confirm" + quiet "Dismiss"
+│   │   （confirmed 只剩绿 Watching）；Running → meta；Market → 涨跌（红涨绿跌）；
+│   │   标题可点路由 D8 判据；≤4 溢出 More (n) → ListSheet；Confirm/Reject 唯一推进路径（D9）
+│   ├── Noticed ghost 卡（透明底 + 1.5px dashed 绿边圆角 24）：组标签 "Noticed" + See All
+│   │   （溢出 → ListSheet）；行 = 绿点 6×6 + fact 15/400 + time 12 gray（min-h 44，
+│   │   行间 divider）；点行 → DetailSheet（只读；Discuss 唯一出口 → /talk）
+│   ├── 空态（D7）：在线且三区全空 → aiVoice "All's been calm while you were away." +
+│   │   "Nothing needs you right now."（pulse-empty）
+│   └── 错误行 ×2（12 #E5484D）：suggestion 错误（pulse-suggestion-error）/ project 错误
+│       （pulse-error，非离线时）
+├── Dock（bottom 50）：LightDock "Start New Chat"（黑底 pill + 白字 + 桃色箭头 +
+│   chat FAB halo）整颗 → /talk（路由参数不变，D8）；**非 TextInput**
+└── Sheets：FundSheet / DetailSheet / ListSheet ×2 → **LightSheet 浅色原语**
+    （scrim rgba(10,10,10,.45) + 白卡顶圆角 28 + handle）；SettingsSheet / MemorySheet /
+    KnowledgeSheet → 旧 BottomSheet 暗色（D5 过渡保留，chat 批次迁移）
+```
 
-Pulse 已从「五分组项目导航 + 全屏聊天 sheet」重写为**单表面 AI briefing**。以下为当前结构，旧分组描述保留在后文作历史参考。
+- **presence 映射不变**：opencode/bff 离线 → offline；openAttentions.length > 0 → needs-you；否则 attentive。
+- **attention 详情**（`/attention/[id]`，pulseB-review 基准）：Related responsibility 卡（resp-body + ACTIVE pill）→ Evidence 卡（ev-row 灰底行：type·attempt·time + error）→ 页脚注 "Viewing never changes state."；底部**紫渐变 dock**（Open Talk，路由 D8）+ 弱化 Dismiss/Retry 压 pill 左侧（D9：Dismiss Alert 二次确认）；**主卡已删**（与 Featured 重复）。
+- **动效**：AnimatedEntry stagger 保留（Reduce Motion 兼容）；呼吸点 reanimated withRepeat（Reduce Motion 兼容）。
+- **预算为硬约束**：Featured ≤1 / Supporting ≤4 / Noticed ≤5。
+- **动作语义红线不变**：查看 ≠ 授权；Confirm/Reject 是 suggestion 唯一推进路径；破坏性动作（Dismiss）弱化 + 二次确认（D9）。
+- **testID 兼容**：pulse-title / pulse-status / pulse-orb / pulse-settings / featured-attention / supporting-ny-/-sg-/-run-/-mkt- / supporting-more / noticed-<id> / noticed-see-all / pulse-empty / pulse-suggestion-error / pulse-error / conversation-entry / fund-row-<code> 全保留；已删：pulse-login-banner、watching-line、supporting-more-projects、attention-detail-main。
+
+## Companion 暗色形态（2026-09-21 引入，迁移前，历史参考）
 
 - **Header**（index.tsx 内联，无独立组件）：左 `AIOrb`（`size="header"`=40，唯一允许的发光元素，testID `pulse-orb`）+ `AIStatus`（`● Attentive` 等，testID `pulse-status`）+ 标题「Pulse」（`pulse-title`）；右 Settings 齿轮（`pulse-settings`）→ SettingsSheet。
 - **登录 banner**：未登录（无 token / 401）时 Hero 上方出现「未登录 — 点击登录」（`pulse-login-banner`）→ 登录 BottomSheet（账号/密码）。
