@@ -18,13 +18,14 @@ import {
   lightRadius,
   lightSizes,
   lightGradient,
+  lightShadows,
   type Light,
   type LightColorToken,
   type LightTypographyToken,
   type LightTextStyle,
 } from "./light";
 
-export { light, lightColors, lightTypography, lightSpacing, lightRadius, lightSizes, lightGradient };
+export { light, lightColors, lightTypography, lightSpacing, lightRadius, lightSizes, lightGradient, lightShadows };
 export type {
   Light,
   LightColorToken,

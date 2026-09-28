@@ -200,6 +200,17 @@ export const lightGradient = {
   primary: ["#A78BFA", "#8B5CF6", "#6D4FD8"] as const,
 } as const;
 
+/* 阴影（mock .sheet box-shadow 0 -8px 30px rgba(0,0,0,.18)；iOS shadow + Android elevation） */
+export const lightShadows = {
+  sheetUp: {
+    elevation: 8,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: -8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 30,
+  },
+} as const;
+
 /* 浅色命名空间聚合导出 */
 export const light = {
   colors: lightColors,
@@ -208,6 +219,7 @@ export const light = {
   radius: lightRadius,
   sizes: lightSizes,
   gradient: lightGradient,
+  shadows: lightShadows,
 } as const;
 
 export type Light = typeof light;
