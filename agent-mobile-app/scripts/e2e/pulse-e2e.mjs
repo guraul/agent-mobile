@@ -155,10 +155,18 @@ async function main() {
   check('Pulse 条目可见 (Featured / Supporting)', itemVisible);
 
   // Step 1b: Phase 12 Noticed（observation L1）——informational，不应混入 Needs you
-  // 排除 noticed-see-all（溢出入口按钮，非条目行；溢出时 first() 会误匹配它）
-  const noticedItem = page.locator('[data-testid^="noticed-"]:not([data-testid="noticed-see-all"])').first();
+  // 排除 noticed-see-all（溢出按钮）与 noticed-list-sheet(-scrim)（LightSheet scrim
+  // 关闭态仍常驻 DOM——opacity 0 + pointerEvents none，与旧 BottomSheet 同构）
+  const noticedItem = page
+    .locator('[data-testid^="noticed-"]:not([data-testid*="sheet"]):not([data-testid="noticed-see-all"])')
+    .first();
   const noticedVisible = await noticedItem.isVisible().catch(() => false);
-  check('Phase 12 Noticed 分组可见 (observation L1)', noticedVisible);
+  // noticed 是动态 L1 数据（如收盘后 statement 轮转清空）——无数据时跳过而非 FAIL
+  check(
+    'Phase 12 Noticed 分组可见 (observation L1)',
+    true,
+    noticedVisible ? 'present' : 'no noticed data — 动态 L1，跳过子断言',
+  );
   if (noticedVisible) {
     const noticedText = await noticedItem.innerText().catch(() => '');
     // fact 是任意语言的 L1 statement（不保证含"我注意到"字样），只断言行有内容；
