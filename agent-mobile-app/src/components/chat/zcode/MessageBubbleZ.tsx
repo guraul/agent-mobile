@@ -5,8 +5,9 @@ import Markdown from "react-native-markdown-display";
 import { Check, Copy } from "lucide-react-native";
 import { Text } from "../../index";
 import { lightColors, lightChatColors, lightChatTypography, lightChatSizes } from "../../../theme";
-import type { DisplayStep } from "../../../services/message-merging";
-import { StepRow } from "./StepRow";
+import type { DisplayStep, ToolStep } from "../../../services/message-merging";
+import { ThinkCard } from "./ThinkCard";
+import { ToolGroupCard } from "./ToolGroupCard";
 import { AiChatOrb } from "./AiChatOrb";
 
 // 气泡排版（chat.html .bubble 基准，#29）：14.5/400 lh21，双气泡配色。
@@ -101,9 +102,20 @@ function CheckBadge() {
   );
 }
 
-export const MessageBubbleZ = React.memo(function MessageBubbleZ({ step }: { step: DisplayStep }) {
-  if (step.kind === "reasoning" || step.kind === "tool") {
-    return <StepRow step={step} />;
+export const MessageBubbleZ = React.memo(function MessageBubbleZ({
+  step,
+  onOpenOutput,
+}: {
+  step: DisplayStep;
+  /** #32：工具行点击 → 打开完整输出 LightSheet（sheet 在 ChatPanelZ 尾部渲染，保层叠正确） */
+  onOpenOutput?: (tool: ToolStep) => void;
+}) {
+  // #32 信息层：thinking 块（think-card）+ 工具折叠组（tech-card，含 diff 代码卡）
+  if (step.kind === "reasoning") {
+    return <ThinkCard text={step.text} />;
+  }
+  if (step.kind === "toolGroup" || step.kind === "tool") {
+    return <ToolGroupCard tools={step.kind === "toolGroup" ? step.tools : [step]} onOpenOutput={onOpenOutput} />;
   }
 
   // User: right-aligned cream-yellow bubble + check-badge（发送状态，chat.html msg-row.user）

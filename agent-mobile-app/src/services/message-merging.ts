@@ -1,16 +1,38 @@
 import type { OpenCodeMessage, OpenCodePart } from "./opencode-client";
+import { extractDiffText } from "./tool-diff";
+
+export type ToolStep = {
+  kind: "tool";
+  id: string;
+  tool: string;
+  status?: string;
+  inputSummary?: string;
+  /** state.title：opencode 工具自带的目标摘要（如文件路径），比 inputSummary 干净 */
+  title?: string;
+  /** state.output：完整工具输出（工具输出 LightSheet 用） */
+  output?: string;
+  /** patch 类工具的 diff 原文（extractDiffText 提取；渲染时再 parseDiff） */
+  diffText?: string;
+  createdAt: number;
+};
 
 export type DisplayStep =
   | { kind: "user";      id: string; text: string; createdAt: number }
   | { kind: "reasoning"; id: string; text?: string; createdAt: number }
-  | { kind: "tool";      id: string; tool: string; status?: string; inputSummary?: string; createdAt: number }
+  | ToolStep
   | { kind: "text";      id: string; text: string; createdAt: number }
-  | { kind: "error";     id: string; text: string; createdAt: number };
+  | { kind: "error";     id: string; text: string; createdAt: number }
+  /** 连续工具调用的呈现分组（groupToolSteps 产出；数据层 step 原样挂 tools 上） */
+  | { kind: "toolGroup"; id: string; tools: ToolStep[]; createdAt: number };
 
 function isTextPart(part: OpenCodePart): part is OpenCodePart & { type: "text"; text?: string } {
   return part.type === "text";
 }
-function isToolPart(part: OpenCodePart): part is OpenCodePart & { type: "tool"; tool?: string; state?: { status?: string }; input?: unknown } {
+function isToolPart(part: OpenCodePart): part is OpenCodePart & {
+  type: "tool"; tool?: string;
+  state?: { status?: string; title?: string; output?: string; metadata?: unknown; input?: unknown };
+  input?: unknown;
+} {
   return part.type === "tool";
 }
 function isReasoningPart(part: OpenCodePart): part is OpenCodePart & { type: "reasoning"; text?: string } {
@@ -84,12 +106,16 @@ export function mergeMessages(
         if (!text) continue;
         out.push({ kind: "text", id: partId, text, createdAt });
       } else if (isToolPart(part)) {
+        const output = typeof part.state?.output === "string" ? part.state.output : undefined;
         out.push({
           kind: "tool",
           id: partId,
           tool: part.tool ?? "tool",
           status: part.state?.status,
           inputSummary: summarizeInput(part.input),
+          title: typeof part.state?.title === "string" ? part.state.title : undefined,
+          output,
+          diffText: extractDiffText({ tool: part.tool, output, metadata: part.state?.metadata }),
           createdAt,
         });
       } else if (isReasoningPart(part)) {
@@ -98,5 +124,24 @@ export function mergeMessages(
     }
   }
 
+  return out;
+}
+
+/**
+ * 把连续的 tool step 合并为一个 toolGroup 呈现组（#32 工具折叠组；mock chatcode.html
+ * 的 tech-card：多此调用同卡，头部带计数）。非 tool step 打断分组。
+ * 纯函数：不修改入参之外的对象；在 recomputeDisplay 里 mergeMessages 之后调用。
+ */
+export function groupToolSteps(steps: DisplayStep[]): DisplayStep[] {
+  const out: DisplayStep[] = [];
+  for (const s of steps) {
+    const last = out[out.length - 1];
+    if (s.kind === "tool") {
+      if (last?.kind === "toolGroup") last.tools.push(s);
+      else out.push({ kind: "toolGroup", id: s.id, tools: [s], createdAt: s.createdAt });
+    } else {
+      out.push(s);
+    }
+  }
   return out;
 }

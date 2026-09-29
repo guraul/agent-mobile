@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { mergeMessages } from "./message-merging";
+import { mergeMessages,
+  groupToolSteps,
+} from "./message-merging";
 import type { OpenCodeMessage } from "./opencode-client";
 
 function msg(id: string, role: "user" | "assistant", parts: unknown[], created = 1000): OpenCodeMessage {
@@ -105,5 +107,41 @@ describe("mergeMessages", () => {
     ]);
     expect(out[0]).toMatchObject({ kind: "tool", tool: "bash" });
     expect((out[0] as { inputSummary?: string }).inputSummary).toBeUndefined();
+  });
+});
+
+describe("groupToolSteps（#32 工具折叠组）", () => {
+  it("连续 tool step 合并为一个 toolGroup，tools 原样透传", () => {
+    const steps = mergeMessages([
+      msg("a1", "assistant", [
+        { type: "tool", tool: "read", input: { filePath: "/a.ts" }, state: { status: "completed", title: "a.ts", output: "content" }, id: "p1" },
+        { type: "tool", tool: "bash", input: "ls", state: { status: "completed" }, id: "p2" },
+        { type: "text", text: "done", id: "p3" },
+        { type: "tool", tool: "bash", input: "pwd", state: { status: "completed" }, id: "p4" },
+      ]),
+    ]);
+    const grouped = groupToolSteps(steps);
+    expect(grouped.map((s) => s.kind)).toEqual(["toolGroup", "text", "toolGroup"]);
+    const g0 = grouped[0] as Extract<typeof grouped[number], { kind: "toolGroup" }>;
+    expect(g0.tools.map((t) => t.id)).toEqual(["p1", "p2"]);
+    expect(g0.tools[0]).toMatchObject({ tool: "read", title: "a.ts", output: "content" });
+    expect(g0.id).toBe("p1");
+  });
+
+  it("tool title/output/diffText 字段透传（#32 信息层）", () => {
+    const diff = "--- a/x.ts\n+++ b/x.ts\n@@ -1 +1 @@\n-a\n+b\n";
+    const out = mergeMessages([
+      msg("a1", "assistant", [
+        { type: "tool", tool: "edit", state: { status: "completed", title: "x.ts", output: "ok", metadata: { diff } }, id: "p1" },
+      ]),
+    ]);
+    expect(out[0]).toMatchObject({ kind: "tool", title: "x.ts", output: "ok", diffText: diff });
+  });
+
+  it("无 state.title/output 时字段为 undefined（旧数据兼容）", () => {
+    const out = mergeMessages([
+      msg("a1", "assistant", [{ type: "tool", tool: "bash", input: "ls", state: { status: "completed" }, id: "p1" }]),
+    ]);
+    expect(out[0]).toMatchObject({ title: undefined, output: undefined, diffText: undefined });
   });
 });

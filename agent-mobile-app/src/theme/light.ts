@@ -233,6 +233,23 @@ export const lightChatColors = {
   orbCore2: "#4A2E12", // 径向 30%
   orbMid: "#B97B3F", // 径向 48%
   peachSubtle: "rgba(243,186,143,.22)", // peach 语义 active 高亮底（model 选中行/session 选中项，#31）
+  /* tech/code 段（chatcode.html，#32 信息层）：工具折叠组 + thinking 块 + diff 代码卡 */
+  techSurface: "#FBF9EC", // tech-card 暖白底（mock --tech-surface）
+  techBorder: "rgba(13,13,13,.12)", // tech-card 细边（mock --tech-border）
+  techHeadText: "#3A3A32", // tech-head 标题字（mock .tech-head）
+  techMono: "#6B6B60", // tool-row mono 摘要字（mock .tool-row .tt）
+  techIcon: "rgba(13,13,13,.5)", // tool-row 图标（mock .tool-row .ic）
+  thinkText: "#6B6B63", // think-body 斜体字（mock .think-body）
+  thinkBorder: "rgba(13,13,13,.18)", // think-card 虚线边（mock .think-card）
+  codeSurface: "#322B24", // code-card 深暖底（mock --dark-surface）
+  codeHeadText: "#B8AB93", // code-head 字（mock .code-head）
+  codeText: "#EDE3CE", // code-line 字（mock .code-line）
+  codeDelText: "#F0A69A", // 删行字（mock .code-line.del）
+  codeDelBg: "rgba(196,87,74,.16)", // 删行底（mock rgba(196,87,74,.16)）
+  codeAddText: "#B5D6A5", // 增行字（mock .code-line.add）
+  codeAddBg: "rgba(95,141,61,.18)", // 增行底（mock rgba(95,141,61,.18)）
+  diffAdd: "#5F8D3D", // diffstat +N（mock .diffstat .a）
+  diffDel: "#C4574A", // diffstat −N / danger（mock .diffstat .d / --danger）
 } as const;
 
 export const lightChatTypography = {
@@ -274,6 +291,7 @@ export const lightChatSizes = {
   inputBarPadX: 25, // mock .chat-inputbar padding 10px 25px 24px
   inputBarPadTop: 10,
   inputBarPadBottom: 24,
+  techRadius: 14, // tech-card / think-card / code-card 圆角（mock 均为 14px）
 } as const;
 
 /* ai-orb 径向渐变色标（mock .ai-orb radial-gradient；react-native-svg RadialGradient 用） */

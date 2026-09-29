@@ -6,12 +6,13 @@ import { colors, spacing } from "../../theme";
 import type { DisplayStep } from "../../services/message-merging";
 
 type ProcessStep = Extract<DisplayStep,
-  { kind: "reasoning" } | { kind: "tool" }>;
+  { kind: "reasoning" } | { kind: "tool" } | { kind: "toolGroup" }>;
 
 function label(step: ProcessStep): string {
   switch (step.kind) {
     case "reasoning": return "思考中…";
     case "tool": return `工具(${step.tool})调用中…`;
+    case "toolGroup": return `工具(${step.tools.length})调用中…`;
   }
 }
 
@@ -21,6 +22,7 @@ function icon(step: ProcessStep) {
   switch (step.kind) {
     case "reasoning": return <Loader color={color} size={size} strokeWidth={2} />;
     case "tool": return <Wrench color={color} size={size} strokeWidth={2} />;
+    case "toolGroup": return <Wrench color={color} size={size} strokeWidth={2} />;
   }
 }
 
