@@ -1,5 +1,6 @@
 import type { OpenCodeMessage, OpenCodePart } from "./opencode-client";
 import { extractDiffText } from "./tool-diff";
+import type { DutyRow, ProjectRow } from "./chat-cards";
 
 export type ToolStep = {
   kind: "tool";
@@ -16,6 +17,11 @@ export type ToolStep = {
   createdAt: number;
 };
 
+/** #30 本地卡片步：斜杠命令（/assignments、/projects）客户端拦截产生，不来自 opencode 消息 */
+export type LocalCardStep =
+  | { kind: "dutiesCard"; id: string; createdAt: number; rows: DutyRow[]; caption: string }
+  | { kind: "projectsCard"; id: string; createdAt: number; rows: ProjectRow[] };
+
 export type DisplayStep =
   | { kind: "user";      id: string; text: string; createdAt: number }
   | { kind: "reasoning"; id: string; text?: string; createdAt: number }
@@ -23,7 +29,8 @@ export type DisplayStep =
   | { kind: "text";      id: string; text: string; createdAt: number }
   | { kind: "error";     id: string; text: string; createdAt: number }
   /** 连续工具调用的呈现分组（groupToolSteps 产出；数据层 step 原样挂 tools 上） */
-  | { kind: "toolGroup"; id: string; tools: ToolStep[]; createdAt: number };
+  | { kind: "toolGroup"; id: string; tools: ToolStep[]; createdAt: number }
+  | LocalCardStep;
 
 function isTextPart(part: OpenCodePart): part is OpenCodePart & { type: "text"; text?: string } {
   return part.type === "text";

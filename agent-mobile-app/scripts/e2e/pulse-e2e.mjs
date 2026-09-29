@@ -246,6 +246,36 @@ async function main() {
     check('流式回复渲染 (含 e2e-ok)', false, '无输入框，跳过');
   }
 
+  // Step 5: 斜杠卡片（#30）——客户端拦截，不进 agent，NO_SEND 模式即可真实验证
+  if (hasTextarea) {
+    const sendCard = async (cmd, marker, label) => {
+      // 完整模式下发送后 composer 自动收起——先确保展开（NO_SEND 模式已展开则跳过）
+      const preview = page.locator('[data-testid="composer-preview"]').first();
+      if (await preview.isVisible().catch(() => false)) {
+        await preview.dispatchEvent('click', { bubbles: true });
+        await page.waitForTimeout(800);
+      }
+      const ta = page.locator('textarea').first();
+      await ta.click();
+      await ta.fill(cmd);
+      await page.waitForTimeout(400);
+      const sendBtn = page.locator('[aria-label="Send"]').first();
+      if ((await sendBtn.count()) > 0) {
+        await sendBtn.dispatchEvent('click', { bubbles: true });
+      } else {
+        await ta.press('Enter');
+      }
+      await page.waitForTimeout(4000);
+      const visible = await page.locator(`text=${marker}`).first().isVisible().catch(() => false);
+      check(label, visible);
+    };
+    await sendCard('/assignments', 'Duties', '斜杠 /assignments → Duties 卡');
+    await sendCard('/projects', 'Projects', '斜杠 /projects → Projects 卡');
+  } else {
+    check('斜杠 /assignments → Duties 卡', false, '无输入框，跳过');
+    check('斜杠 /projects → Projects 卡', false, '无输入框，跳过');
+  }
+
   check('无 JS console/page 错误', errors.length === 0, errors.length ? errors[0] : '');
 
   console.log('\n=== 结果汇总 ===');

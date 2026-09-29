@@ -6,8 +6,11 @@ import { Check, Copy } from "lucide-react-native";
 import { Text } from "../../index";
 import { lightColors, lightChatColors, lightChatTypography, lightChatSizes } from "../../../theme";
 import type { DisplayStep, ToolStep } from "../../../services/message-merging";
+import type { DutyAction, DutyRow } from "../../../services/chat-cards";
 import { ThinkCard } from "./ThinkCard";
 import { ToolGroupCard } from "./ToolGroupCard";
+import { DutiesCard } from "./DutiesCard";
+import { ProjectsCard } from "./ProjectsCard";
 import { AiChatOrb } from "./AiChatOrb";
 
 // 气泡排版（chat.html .bubble 基准，#29）：14.5/400 lh21，双气泡配色。
@@ -105,10 +108,16 @@ function CheckBadge() {
 export const MessageBubbleZ = React.memo(function MessageBubbleZ({
   step,
   onOpenOutput,
+  onCardAction,
+  onOpenProject,
 }: {
   step: DisplayStep;
   /** #32：工具行点击 → 打开完整输出 LightSheet（sheet 在 ChatPanelZ 尾部渲染，保层叠正确） */
   onOpenOutput?: (tool: ToolStep) => void;
+  /** #30：卡片行内动作（Revoke/Retry/Run now/Skip）上抛 ChatPanelZ 调 API + 刷新卡 */
+  onCardAction?: (action: DutyAction, row: DutyRow) => void;
+  /** #30：Projects 卡 Open › → 跳 chatcode 工作台 */
+  onOpenProject?: (path: string) => void;
 }) {
   // #32 信息层：thinking 块（think-card）+ 工具折叠组（tech-card，含 diff 代码卡）
   if (step.kind === "reasoning") {
@@ -116,6 +125,25 @@ export const MessageBubbleZ = React.memo(function MessageBubbleZ({
   }
   if (step.kind === "toolGroup" || step.kind === "tool") {
     return <ToolGroupCard tools={step.kind === "toolGroup" ? step.tools : [step]} onOpenOutput={onOpenOutput} />;
+  }
+
+  // #30 气泡内白卡：斜杠命令触发的本地卡。白卡必须嵌在灰色 AI 气泡壳内（mock .bubble.wide
+  // 底色 --bubble-ai）——白卡直接放白色聊天面板上会完全失去对比（首版审图 FAIL 教训）
+  if (step.kind === "dutiesCard" || step.kind === "projectsCard") {
+    return (
+      <View style={s.rowAi}>
+        <View style={s.orbSlot}>
+          <AiChatOrb />
+        </View>
+        <View style={[s.bubble, s.cardBubble, s.cardCol]}>
+          {step.kind === "dutiesCard" ? (
+            <DutiesCard rows={step.rows} caption={step.caption} onAction={onCardAction} />
+          ) : (
+            <ProjectsCard rows={step.rows} onOpen={onOpenProject} />
+          )}
+        </View>
+      </View>
+    );
   }
 
   // User: right-aligned cream-yellow bubble + check-badge（发送状态，chat.html msg-row.user）
@@ -178,6 +206,14 @@ const s = StyleSheet.create({
     flexShrink: 1,
   },
   orbSlot: { justifyContent: "flex-end", paddingBottom: 2 },
+  // #30 卡片列（mock .bubble.wide max-width 82%）：灰色 AI 气泡壳装白卡
+  cardCol: { maxWidth: "88%", minWidth: 0, flexShrink: 1 },
+  cardBubble: {
+    backgroundColor: lightChatColors.bubbleAi,
+    borderRadius: lightChatSizes.bubbleRadius,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
   badge: {
     backgroundColor: lightChatColors.badge,
     alignItems: "center",
