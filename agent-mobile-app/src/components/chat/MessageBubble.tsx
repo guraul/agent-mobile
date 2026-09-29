@@ -29,6 +29,10 @@ export const MessageBubble = React.memo(function MessageBubble({ step }: { step:
   if (step.kind === "reasoning" || step.kind === "tool" || step.kind === "toolGroup") {
     return <StepChip step={step} />;
   }
+  // #30 本地卡片步不经旧组件（fork 遗留，无路由引用）
+  if (step.kind === "dutiesCard" || step.kind === "projectsCard") {
+    return null;
+  }
 
   if (step.kind === "user") {
     return (

@@ -2,7 +2,8 @@
 // 气泡复制/时间戳 / 状态行 / 圆角输入栏）。数据逻辑（SSE 订阅 / reducer / typewriter /
 // pagination / agents+model prefs）与上游保持一致，上游修复需手动同步；
 // Companion migration：/talk stack route 的唯一聊天渲染层（ProjectChatZ 内嵌）。
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useRouter } from "expo-router";
 import {
   View,
   TextInput,
@@ -49,6 +50,14 @@ import { buildAttentionContext } from "../../../services/attention/context";
 import { handleAttention } from "../../../services/attention/client";
 import { parseAssignmentCommand, executeAssignmentCommand } from "../../../services/assignment/client";
 import {
+  fetchAssignments,
+  revokeAssignment,
+  repairAssignment,
+  compensateAssignment,
+} from "../../../services/assignment/client";
+import { fetchAttentions } from "../../../services/attention/client";
+import { buildDutyRows, buildProjectRows, type DutyAction, type DutyRow } from "../../../services/chat-cards";
+import {
   dequeueFirst,
   enqueueMessage,
   moveQueuedUp,
@@ -94,6 +103,7 @@ interface ChatPanelProps {
 }
 
 export function ChatPanelZ({ sessionID, attention, autoSendContext = false, autoContextText }: ChatPanelProps) {
+  const router = useRouter();
   const [messages, setMessages] = useState<OpenCodeMessage[]>([]);
   const [display, setDisplay] = useState<DisplayStep[]>([]);
   const [input, setInput] = useState("");
@@ -118,6 +128,9 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
   // #32 工具输出查看器：LightSheet 挂在组件尾部渲染（LightSheet 无 zIndex 靠渲染顺序压层）
   const [outputViewer, setOutputViewer] = useState<ToolStep | null>(null);
   const openToolOutput = useCallback((t: ToolStep) => setOutputViewer(t), []);
+  // #30 本地卡片步（/assignments、/projects 斜杠命令产生；session 切换由 key remount 重置）
+  const [localSteps, setLocalSteps] = useState<DisplayStep[]>([]);
+  const [cardBusyId, setCardBusyId] = useState<string | null>(null);
   // #33 交互层：composer 两态（pill 收起 ↔ 展开全高输入）、agent 面板、客户端排队队列
   const [composerExpanded, setComposerExpanded] = useState(false);
   const [agentMenuOpen, setAgentMenuOpen] = useState(false);
@@ -582,9 +595,98 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
     }
   };
 
+  /* ---- #30 气泡内卡片（Duties / Projects）：斜杠命令触发，动作回调后刷新卡 ---- */
+  const DUTIES_CAPTION =
+    "Revoke stops a duty for good. Retry re-runs the failed check; Run now / Skip settle a missed one-time reminder.";
+
+  const refreshDutiesCard = useCallback(async () => {
+    const [assignments, attentions] = await Promise.all([
+      fetchAssignments("active"),
+      fetchAttentions(),
+    ]);
+    const rows = buildDutyRows(assignments, attentions);
+    setLocalSteps((prev) => {
+      const idx = prev.map((x) => x.kind).lastIndexOf("dutiesCard");
+      if (idx === -1) return prev;
+      const next = [...prev];
+      next[idx] = { kind: "dutiesCard", id: next[idx].id, createdAt: next[idx].createdAt, rows, caption: DUTIES_CAPTION };
+      return next;
+    });
+  }, []);
+
+  const pushDutiesCard = useCallback(async () => {
+    try {
+      const [assignments, attentions] = await Promise.all([
+        fetchAssignments("active"),
+        fetchAttentions(),
+      ]);
+      const rows = buildDutyRows(assignments, attentions);
+      setLocalSteps((prev) => [
+        ...prev,
+        { kind: "dutiesCard", id: `card-duty-${Date.now().toString(36)}`, createdAt: Date.now(), rows, caption: DUTIES_CAPTION },
+      ]);
+    } catch (e) {
+      Alert.alert("Duties", e instanceof Error ? e.message : String(e));
+    }
+  }, []);
+
+  const pushProjectsCard = useCallback(async () => {
+    try {
+      const [sessions, status] = await Promise.all([
+        opencodeClient.listSessions(),
+        opencodeClient.getSessionStatus(),
+      ]);
+      const rows = buildProjectRows(sessions, status);
+      setLocalSteps((prev) => [
+        ...prev,
+        { kind: "projectsCard", id: `card-proj-${Date.now().toString(36)}`, createdAt: Date.now(), rows },
+      ]);
+    } catch (e) {
+      Alert.alert("Projects", e instanceof Error ? e.message : String(e));
+    }
+  }, []);
+
+  const handleDutyAction = useCallback(async (action: DutyAction, row: DutyRow) => {
+    setCardBusyId(row.id);
+    try {
+      if (action === "revoke") {
+        const r = await revokeAssignment(row.id);
+        if (!r.transitioned) Alert.alert("Revoke", "该职责已不在 active 状态。");
+      } else if (action === "retry") {
+        await repairAssignment(row.id);
+      } else if (action === "run-now") {
+        await compensateAssignment(row.id, "run-now");
+      } else {
+        await compensateAssignment(row.id, "skip");
+      }
+      await refreshDutiesCard();
+    } catch (e) {
+      Alert.alert("操作失败", e instanceof Error ? e.message : String(e));
+    } finally {
+      setCardBusyId(null);
+    }
+  }, [refreshDutiesCard]);
+
+  const openProject = useCallback((path: string) => {
+    router.push({ pathname: "/talk", params: { projectPath: path } });
+  }, [router]);
+
   const send = async () => {
     const text = input.trim();
     if (!text) return;
+    // #30 斜杠卡片命令（客户端拦截：不进 agent、不进队列、不产生 opencode 消息）
+    if (text === "/assignments") {
+      setInput("");
+      setComposerExpanded(false);
+      void pushDutiesCard();
+      return;
+    }
+    if (text === "/projects") {
+      setInput("");
+      setComposerExpanded(false);
+      void pushProjectsCard();
+      return;
+    }
     // Assignment 命令（Phase 5 最小 Talk 接入）：结构化指令不发给 Agent——
     // /assign → proposal（market 需 /confirm 激活）；/confirm /reject /revoke /assignments → 生命周期动作。
     // 激活语义在 BFF confirmation matrix 把关；这里只做命令路由与结果反馈。
@@ -764,6 +866,10 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
     }
   };
 
+  // #30 本地卡片步追加在消息流尾部（display 身份随 localSteps 变化，FlatList 自动重渲染）
+  // useMemo 必须在条件 return（loading 分支）之前——hooks 顺序红线
+  const listData = useMemo(() => [...display, ...localSteps], [display, localSteps]);
+
   if (loading) {
     return (
       <Box padding="lg">
@@ -798,7 +904,7 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
 
         <FlatList
           ref={listRef}
-          data={display}
+          data={listData}
           extraData={revealChars}
           keyExtractor={(s) => s.id}
           ListHeaderComponent={
@@ -824,7 +930,7 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
             }
             return (
               <View style={{ marginTop: isTurnStart ? lightChatSizes.msgGap + 5 : lightChatSizes.msgGap }}>
-                <MessageBubbleZ step={step} onOpenOutput={openToolOutput} />
+                <MessageBubbleZ step={step} onOpenOutput={openToolOutput} onCardAction={handleDutyAction} onOpenProject={openProject} />
               </View>
             );
           }}
