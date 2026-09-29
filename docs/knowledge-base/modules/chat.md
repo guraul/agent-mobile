@@ -1,6 +1,6 @@
 # modules/chat.md —— 聊天（项目对话 / Talk）
 
-> 最后更新：2026-09-29 · commit：`feat(chat): chatcode 工作台壳 + 弹层浅色化（#31）`（epic #35 第二项；#29 分流骨架 + 浅色形态见下）
+> 最后更新：2026-09-29 · commit：`feat(chat): chatcode 信息层（#32）`（epic #35 第三项：工具折叠组/thinking 块/diff 代码卡；#29 分流、#31 壳+弹层见下）
 >
 > ⚠️ **v0.1.1 变更**：聊天唯一入口 = **Talk stack route**（`src/app/talk.tsx` 薄入口 → `ProjectChatZ`/`ChatPanelZ`）。Pulse 不再承载 chat，只保留底部 Conversation Entry；contextual 会话（Attention/Suggested/Noticed）经 route params 进入 Talk。`ProjectChatZ` 有 `onClose`（X → 回 Pulse）与可选 `onBack`；`ChatPanelZ` 有 `autoContextText`（通用开场消息，无授权语义）与既有 `autoSendContext`（Attention 上下文注入）。Layers（session picker）是 session 列出/切换/新建的唯一 UI，按当前 projectPath 过滤。
 >
@@ -9,6 +9,7 @@
 > - **chat 浅色形态（chat.html 基准）**：cream 画布 + 白色圆角聊天区面板（radius 30）+ 双气泡（AI #F1F1F1 / user #F7F3D3，radius 16，max-width 76%）+ **AiChatOrb**（`zcode/AiChatOrb.tsx`，react-native-svg RadialGradient 还原 mock 径向渐变 + 分层光晕圆）+ user check-badge（20px #F5F5D5 圆 + 绿对勾）+ inputbar（58px 胶囊带 3px ink 描边，内含附件/语音 round-btn 占位 + 42px 圆钮，右侧 58px **peach #F3BA8F 圆形发送键**）+ agent/model 白底细边 pill 行。boot/offline 屏同步浅色（LightPresenceDot + peach Retry）。token 全部在 `light.ts` **chat 专属段**（`lightChatColors/lightChatTypography/lightChatSizes/lightChatOrbStops`），Text 新增 `lightChatTitle` variant。
 > - **呈现层守卫**：零 parts 的 user 消息（历史脏数据）不渲染空气泡+badge（MessageBubbleZ 呈现层判空；mergeMessages 数据层语义不动）。
 > - **chatcode 壳 + 弹层浅色化（#31）**：chatcode 侧（绑项目会话）**无会话选择器**——Layers 按钮不渲染（绑项目最新 session = resume-most-recent）；chat 侧 Layers 保留。model 面板 / question 问答 / permission 弹窗 / session picker 全部从旧暗色 BottomSheet 换 **LightSheet**（白卡 + 灰 scrim）+ light token：active 高亮 `peachSubtle`（providerID+modelID 双匹配逻辑不变），主行动作 peach 实心胶囊（老 `Button` primary 换 Pressable peachPill）、弱化动作透明细边胶囊。**层叠注意：LightSheet 无 zIndex，靠渲染顺序压层——在 ChatPanelZ 里三个 sheet 必须渲染在 inputBar 之后（最后渲染 = 最上层），否则输入区盖在 sheet 上**；ProjectChatZ 的 picker 本就是最后子节点无此问题。已知数据事实：BFF providers 列表可能不含当前 fallback/prefs 模型（如 deepseek: deepseek-v4-flash），此时面板无高亮行（旧行为相同，非 bug）。e2e 新增条件步：`supporting-run-*` 行存在时点击断言 "Pulse — Code Chat" 且 Switch session 按钮不出现（动态数据缺失自动 skip）。
+> - **信息层（#32）**：① **工具折叠组**——`groupToolSteps()`（message-merging.ts，纯函数+单测）把**连续** tool step 合并为 `toolGroup` 呈现组（非 tool step 打断分组），`ToolGroupCard`（tech-card：暖白 #FBF9EC 底，头部 chevron+工具名·摘要+N 项徽章+状态；展开 per-call 行=图标+工具名+mono 目标（state.title 优先）+diffstat/绿勾；行点击→**工具输出 LightSheet**（mono 全文可复制，挂在 ChatPanelZ 尾部渲染保压层））；② **thinking 块**——`ThinkCard`（虚线边框+斜体正文，替代旧 StepRow，已删）；reasoning step 纳入打字机（ChatPanelZ 对 reasoning 同样按 revealChars slice，extraData 机制不变）；③ **diff 代码卡**——`tool-diff.ts`（`extractDiffText`：metadata.diff 优先/looksLikeDiff 启发式兜底；`parseDiff`：unified diff→行类型+增删统计+文件路径；`langFromPath`；全部纯函数+单测），patch 类工具（edit/write 的 `metadata.diff`）在组卡下方渲染深暖底（#322B24）红绿行级着色卡（常显，400 行截断）。⚠️ 坑：lucide 图标不吃 style.transform（会整个消失），旋转 chevron 必须外包 View。已知限制：现库 11 个会话无任何 diff 数据（edit 工具零实例），diff 卡视觉验收为数据依赖项（解析层 23 用例兜底）。
 >
 > ⚠️ **2026-09-21 Companion 视觉迁移**：`USE_ZCODE_CHAT_SHEET` 开关已删除（Talk 是唯一聊天渲染层，无回退分支）；ZCode 组件改为 Companian 视觉——header 左 AIOrb + AIStatus +「Pulse」+ 右会话标题/Layers/Close；AI 消息纯文本无气泡，user 消息 accent.subtle 淡紫气泡，error 为语义色 pill；输入区移除 Mic，输入框与发送键统一 48px。
 

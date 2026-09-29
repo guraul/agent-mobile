@@ -26,7 +26,7 @@ const aiMarkdown = {
 };
 
 export const MessageBubble = React.memo(function MessageBubble({ step }: { step: DisplayStep }) {
-  if (step.kind === "reasoning" || step.kind === "tool") {
+  if (step.kind === "reasoning" || step.kind === "tool" || step.kind === "toolGroup") {
     return <StepChip step={step} />;
   }
 

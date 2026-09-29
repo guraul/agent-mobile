@@ -1,4 +1,4 @@
-// Fork of src/components/chat/ChatPanel.tsx —— ZCode 风格渲染层改造（StepRow 折叠行 /
+// Fork of src/components/chat/ChatPanel.tsx —— ZCode 风格渲染层改造（#32 工具折叠组/工具输出 sheet /
 // 气泡复制/时间戳 / 状态行 / 圆角输入栏）。数据逻辑（SSE 订阅 / reducer / typewriter /
 // pagination / agents+model prefs）与上游保持一致，上游修复需手动同步；
 // Companion migration：/talk stack route 的唯一聊天渲染层（ProjectChatZ 内嵌）。
@@ -7,6 +7,7 @@ import {
   View,
   TextInput,
   Pressable,
+  Text as RNText,
   FlatList,
   ScrollView,
   KeyboardAvoidingView,
@@ -42,7 +43,7 @@ import {
   applyPartDelta,
   nextRevealChars,
 } from "../../../services/message-reducer";
-import { mergeMessages, type DisplayStep } from "../../../services/message-merging";
+import { mergeMessages, groupToolSteps, type DisplayStep, type ToolStep } from "../../../services/message-merging";
 import { loadModelPrefs } from "../../../services/model-prefs";
 import { buildAttentionContext } from "../../../services/attention/context";
 import { handleAttention } from "../../../services/attention/client";
@@ -107,6 +108,9 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
   );
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [modelList, setModelList] = useState<{ providerID: string; modelID: string }[]>([]);
+  // #32 工具输出查看器：LightSheet 挂在组件尾部渲染（LightSheet 无 zIndex 靠渲染顺序压层）
+  const [outputViewer, setOutputViewer] = useState<ToolStep | null>(null);
+  const openToolOutput = useCallback((t: ToolStep) => setOutputViewer(t), []);
   // question tool: agent asks a clarifying question and blocks until answered.
   // We queue the request and show one question at a time in a BottomSheet, then
   // POST the reply so the agent can continue.
@@ -182,12 +186,12 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
   // Recompute display messages whenever raw messages change.
   // listMessages returns chronological (oldest first); sort by creation time so
   // streaming updates land in the right spot regardless of API ordering, then
-  // merge assistant steps into single turns.
+  // merge assistant steps into single turns (#32：连续 tool step 合并为折叠组——纯函数，语义同 mergeMessages）。
   const recomputeDisplay = useCallback((raw: OpenCodeMessage[]) => {
     const chronological = [...raw].sort(
       (a, b) => (a.info.time?.created ?? 0) - (b.info.time?.created ?? 0),
     );
-    setDisplay(mergeMessages(chronological));
+    setDisplay(groupToolSteps(mergeMessages(chronological)));
   }, []);
 
   const loadMessages = useCallback(async () => {
@@ -754,16 +758,17 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
             const isTurnStart = !prev || prev.kind === "user" || item.kind === "user";
             // typewriter pacing: while a part is mid-stream, show only the
             // characters revealed so far so the reply visibly types out.
+            // #32：reasoning（thinking 块）与 text 同一套 revealChars/extraData 机制。
             let step = item;
-            if (item.kind === "text") {
+            if (item.kind === "text" || item.kind === "reasoning") {
               const shown = revealChars[item.id];
-              if (shown !== undefined && shown < item.text.length) {
-                step = { ...item, text: item.text.slice(0, shown) };
+              if (shown !== undefined && shown < (item.text ?? "").length) {
+                step = { ...item, text: (item.text ?? "").slice(0, shown) };
               }
             }
             return (
               <View style={{ marginTop: isTurnStart ? lightChatSizes.msgGap + 5 : lightChatSizes.msgGap }}>
-                <MessageBubbleZ step={step} />
+                <MessageBubbleZ step={step} onOpenOutput={openToolOutput} />
               </View>
             );
           }}
@@ -1007,6 +1012,28 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
           </View>
         </LightSheet>
       ) : null}
+
+      {/* #32 工具输出 sheet：LightSheet 放最后渲染（压层），mono 全文可滚动可复制 */}
+      <LightSheet
+        visible={!!outputViewer}
+        onClose={() => setOutputViewer(null)}
+        testID="tool-output-sheet"
+      >
+        <View style={styles.sheetHeader}>
+          <Text variant="lightBodyStrong" color="lightInk" numberOfLines={1}>
+            工具输出{outputViewer ? ` · ${outputViewer.tool}` : ""}
+          </Text>
+        </View>
+        <ScrollView style={styles.outputScroll} nestedScrollEnabled>
+          {outputViewer?.output ? (
+            <RNText style={styles.outputMono} selectable>
+              {outputViewer.output}
+            </RNText>
+          ) : (
+            <Text variant="lightCaption" color="lightGray">（无输出）</Text>
+          )}
+        </ScrollView>
+      </LightSheet>
     </KeyboardAvoidingView>
   );
 }
@@ -1120,6 +1147,19 @@ const styles = StyleSheet.create({
   sheetActions: {
     gap: 8,
     marginTop: 2,
+  },
+  /* ---- #32 工具输出 sheet ---- */
+  outputScroll: {
+    maxHeight: 420,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+  },
+  outputMono: {
+    fontFamily: Platform.select({ ios: "Menlo", android: "monospace", default: "monospace" }),
+    fontSize: 11.5,
+    lineHeight: 18,
+    color: lightColors.fieldText,
+    paddingBottom: 10,
   },
   // mock .perm-btn.allow：peach 实心 40px 圆角（主行动作）
   peachPill: {
