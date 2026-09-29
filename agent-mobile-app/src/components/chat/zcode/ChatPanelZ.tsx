@@ -18,7 +18,7 @@ import {
   type NativeSyntheticEvent,
   type NativeScrollEvent,
 } from "react-native";
-import { Bot, Cpu, Mic, Plus, Send, Square } from "lucide-react-native";
+import { ArrowUp, Bot, Check, GripVertical, Mic, Plus, Send, Square, X } from "lucide-react-native";
 import { Text, Box } from "../../index";
 import { LightSheet } from "../../pulse/LightSheet";
 import {
@@ -48,6 +48,13 @@ import { loadModelPrefs } from "../../../services/model-prefs";
 import { buildAttentionContext } from "../../../services/attention/context";
 import { handleAttention } from "../../../services/attention/client";
 import { parseAssignmentCommand, executeAssignmentCommand } from "../../../services/assignment/client";
+import {
+  dequeueFirst,
+  enqueueMessage,
+  moveQueuedUp,
+  removeQueued,
+  type QueuedMessage,
+} from "../../../services/message-queue";
 import type { EngagedAttentionRef } from "../../../services/attention/store";
 import { MessageBubbleZ } from "./MessageBubbleZ";
 
@@ -111,6 +118,12 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
   // #32 工具输出查看器：LightSheet 挂在组件尾部渲染（LightSheet 无 zIndex 靠渲染顺序压层）
   const [outputViewer, setOutputViewer] = useState<ToolStep | null>(null);
   const openToolOutput = useCallback((t: ToolStep) => setOutputViewer(t), []);
+  // #33 交互层：composer 两态（pill 收起 ↔ 展开全高输入）、agent 面板、客户端排队队列
+  const [composerExpanded, setComposerExpanded] = useState(false);
+  const [agentMenuOpen, setAgentMenuOpen] = useState(false);
+  const [queue, setQueue] = useState<QueuedMessage[]>([]);
+  // 发送失败后阻塞自动 flush（防无限重试）；用户对 chip 的任何操作解除阻塞
+  const [queueBlocked, setQueueBlocked] = useState(false);
   // question tool: agent asks a clarifying question and blocks until answered.
   // We queue the request and show one question at a time in a BottomSheet, then
   // POST the reply so the agent can continue.
@@ -571,14 +584,15 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
 
   const send = async () => {
     const text = input.trim();
-    if (!text || sending) return;
-    setInput("");
+    if (!text) return;
     // Assignment 命令（Phase 5 最小 Talk 接入）：结构化指令不发给 Agent——
     // /assign → proposal（market 需 /confirm 激活）；/confirm /reject /revoke /assignments → 生命周期动作。
     // 激活语义在 BFF confirmation matrix 把关；这里只做命令路由与结果反馈。
+    // 命令是独立瞬时 API 调用，busy 时也立即执行（不进队列）。
     const assignmentCommand = parseAssignmentCommand(text);
     if (assignmentCommand) {
       setSending(true);
+      setInput("");
       try {
         const feedback = await executeAssignmentCommand(assignmentCommand, sessionID);
         Alert.alert("Assignment", feedback);
@@ -589,26 +603,68 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
       }
       return;
     }
+    // #33 排队分支：busy（sending 沿用现有状态——prompt_async 挂起整个 agent 运行）
+    // 时发送的消息进客户端队列，chip 可删除/上移/回填，busy 结束由 flush effect 依次发出。
+    if (sending) {
+      setQueue((prev) => enqueueMessage(prev, text, `q-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`));
+      setInput("");
+      return;
+    }
+    setInput("");
+    setComposerExpanded(false);
+    await doSend(text);
+  };
+
+  // 直接发送（正常路径；队列 flush 复用）。返回成功与否（失败时队列回填用）。
+  // No full reload here: the SSE stream echoes the user message back as
+  // `message.updated` (role=user), which the subscription above inserts
+  // chronologically. Reloading would rebuild the whole list and make the
+  // scroll position jump for every send.
+  const doSend = useCallback(async (text: string): Promise<boolean> => {
     setSending(true);
     setAbortedAt(null);
     setError(null);
     try {
-      // No full reload here: the SSE stream echoes the user message back as
-      // `message.updated` (role=user), which the subscription above inserts
-      // chronologically. Reloading would rebuild the whole list and make the
-      // scroll position jump for every send.
       await opencodeClient.sendMessageAsync(sessionID, {
         parts: [{ type: "text", text }],
         agent: agents[agentIdx].id,
         model,
       });
       stickToBottom.current = true;
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+      return false;
     } finally {
       setSending(false);
     }
-  };
+  }, [sessionID, agents, agentIdx, model]);
+
+  // #33 排队队列操作统一入口：任何 chip 动作（删除/上移/回填）都解除发送阻塞
+  const mutateQueue = useCallback((next: QueuedMessage[]) => {
+    setQueueBlocked(false);
+    setQueue(next);
+  }, []);
+
+  // #33 队列自动发送：busy（sending）翻转 false 且队列非空 → 取队首发出（agent/model
+  // 取发送时刻的当前值）。发送失败：条目放回队首 + 阻塞自动 flush（防无限重试），
+  // chip 上的删除/上移/回填操作会解除阻塞。不碰 messages 数组（轮询冲突教训）。
+  useEffect(() => {
+    if (sending || queueBlocked || queue.length === 0) return;
+    const { next } = dequeueFirst(queue);
+    if (!next) return;
+    setQueue((prev) => prev.slice(1));
+    let cancelled = false;
+    void doSend(next.text).then((ok) => {
+      if (!ok && !cancelled) {
+        setQueue((prev) => [next, ...prev]);
+        setQueueBlocked(true);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [sending, queueBlocked, queue, doSend]);
 
   const abort = async () => {
     try {
@@ -801,85 +857,203 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
         ) : null}
       </View>
 
-      <View style={styles.agentRow}>
-        <Pressable
-          onPress={() => {
-            setAgentIdx((idx) => (idx + 1) % agents.length);
-            setModel(agents[(agentIdx + 1) % agents.length].model);
-          }}
-          accessibilityLabel="Switch agent"
-          accessibilityRole="button"
-          style={styles.agentPill}
-        >
-          <Bot color={lightColors.accentDeep} size={12} strokeWidth={iconStroke} />
-          <Text variant="lightCaption" color="lightAccentDeep">{agents[agentIdx].id}</Text>
-          <Text variant="lightCaption" color="lightGray">⇄</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => {
-            loadModels();
-            setModelMenuOpen(true);
-          }}
-          accessibilityLabel="Select model"
-          accessibilityRole="button"
-          style={styles.agentPill}
-        >
-          <Cpu color={lightColors.grayText} size={12} strokeWidth={iconStroke} />
-          <Text variant="lightCaption" color="lightGray" numberOfLines={1}>{model.modelID}</Text>
-        </Pressable>
-      </View>
-
-      {/* 输入区（chat.html .chat-inputbar）：pill（附件 + 输入 + 语音）+ peach 圆形发送键 */}
-      <View style={styles.inputBar}>
-        <View style={styles.inputPill}>
-          <Pressable
-            onPress={() => Alert.alert("附件", "附件功能即将上线")}
-            accessibilityLabel="Add attachment"
-            accessibilityRole="button"
-            style={styles.roundBtn}
-            hitSlop={4}
-          >
-            <Plus color={lightColors.ink} size={20} strokeWidth={2} />
-          </Pressable>
-          <TextInput
-            style={styles.input}
-            value={input}
-            onChangeText={setInput}
-            placeholder="Ask AI anything..."
-            placeholderTextColor={lightChatColors.inputPlaceholder}
-            multiline
-          />
-          <Pressable
-            onPress={() => Alert.alert("语音", "语音输入即将上线")}
-            accessibilityLabel="Voice input"
-            accessibilityRole="button"
-            style={styles.roundBtn}
-            hitSlop={4}
-          >
-            <Mic color={lightColors.ink} size={20} strokeWidth={2} />
-          </Pressable>
+      {/* #33 排队消息 chip 浮层（mock .float-panel）：busy 时排队的消息，可上移/删除/点文本回填编辑 */}
+      {queue.length > 0 ? (
+        <View style={styles.composerSlot} testID="queue-panel">
+          <View style={styles.floatPanel}>
+            {queue.map((q, i) => (
+              <View key={q.id} style={styles.qChip}>
+                <GripVertical color={lightChatColors.roundBtnBorder} size={14} strokeWidth={2} />
+                <Pressable
+                  onPress={() => {
+                    mutateQueue(removeQueued(queue, q.id));
+                    setInput(q.text);
+                    setComposerExpanded(true);
+                  }}
+                  style={styles.qTextWrap}
+                  accessibilityRole="button"
+                  accessibilityLabel="编辑排队消息"
+                >
+                  <RNText style={styles.qText} numberOfLines={1}>{q.text}</RNText>
+                </Pressable>
+                <Pressable
+                  disabled={i === 0}
+                  onPress={() => mutateQueue(moveQueuedUp(queue, q.id))}
+                  hitSlop={6}
+                  accessibilityRole="button"
+                  accessibilityLabel="上移排队消息"
+                  style={styles.qBtn}
+                >
+                  <ArrowUp color={i === 0 ? lightColors.grayText : lightChatColors.chipWarmText} size={13} strokeWidth={2.5} />
+                </Pressable>
+                <Pressable
+                  onPress={() => mutateQueue(removeQueued(queue, q.id))}
+                  hitSlop={6}
+                  accessibilityRole="button"
+                  accessibilityLabel="删除排队消息"
+                  style={styles.qBtn}
+                >
+                  <X color={lightChatColors.chipWarmText} size={13} strokeWidth={2.5} />
+                </Pressable>
+              </View>
+            ))}
+          </View>
         </View>
-        {sending ? (
-          <Pressable
-            onPress={abort}
-            style={styles.sendBtn}
-            accessibilityLabel="Stop"
-            accessibilityRole="button"
-          >
-            <Square color={lightColors.ink} size={22} strokeWidth={2.4} />
-          </Pressable>
-        ) : (
-          <Pressable
-            onPress={send}
-            disabled={!input.trim()}
-            style={[styles.sendBtn, !input.trim() && { opacity: 0.4 }]}
-            accessibilityLabel="Send"
-            accessibilityRole="button"
-          >
-            <Send color={lightColors.ink} size={24} strokeWidth={2.4} />
-          </Pressable>
-        )}
-      </View>
+      ) : null}
+
+      {composerExpanded ? (
+        /* 展开态（mock .composer-box）：全高输入 + 字数 + 附件/语音 + peach 发送/停止 */
+        <View style={styles.composerSlot}>
+          <View style={styles.composerBox}>
+            <TextInput
+              style={styles.composerInput}
+              value={input}
+              onChangeText={setInput}
+              placeholder="Ask anything..."
+              placeholderTextColor={lightChatColors.inputPlaceholder}
+              multiline
+              testID="composer-input"
+            />
+            <View style={styles.composerFooter}>
+              <Pressable
+                onPress={() => Alert.alert("附件", "附件功能即将上线")}
+                accessibilityLabel="Add attachment"
+                accessibilityRole="button"
+                style={styles.composerMiniBtn}
+                hitSlop={4}
+              >
+                <Plus color={lightColors.ink} size={17} strokeWidth={2} />
+              </Pressable>
+              <RNText style={styles.charCount}>{input.length}</RNText>
+              <View style={styles.flexSpacer} />
+              <Pressable
+                onPress={() => Alert.alert("语音", "语音输入即将上线")}
+                accessibilityLabel="Voice input"
+                accessibilityRole="button"
+                style={styles.composerMiniBtn}
+                hitSlop={4}
+              >
+                <Mic color={lightColors.ink} size={16} strokeWidth={2} />
+              </Pressable>
+              {sending ? (
+                <Pressable
+                  onPress={abort}
+                  style={[styles.composerSend, styles.composerSendStop]}
+                  accessibilityLabel="Stop"
+                  accessibilityRole="button"
+                >
+                  <Square color={lightColors.ink} size={19} strokeWidth={2.4} />
+                </Pressable>
+              ) : (
+                <Pressable
+                  onPress={send}
+                  disabled={!input.trim()}
+                  style={[styles.composerSend, !input.trim() && { opacity: 0.4 }]}
+                  accessibilityLabel="Send"
+                  accessibilityRole="button"
+                >
+                  <Send color={lightColors.ink} size={19} strokeWidth={2.4} />
+                </Pressable>
+              )}
+            </View>
+          </View>
+        </View>
+      ) : (
+        /* 收起态（mock .pill-wrap）：pill（附件 + 草稿预览 + 语音 + 发送/停止）+ pill-sub（model/agent ma-btn）。
+           草稿预览是 readonly TextInput（渲染为 textarea）——点击整行展开成全高输入。 */
+        <View style={styles.composerSlot}>
+          <View style={styles.inputPillCol}>
+            <View style={styles.pillMain}>
+              <Pressable
+                onPress={() => Alert.alert("附件", "附件功能即将上线")}
+                accessibilityLabel="Add attachment"
+                accessibilityRole="button"
+                style={styles.roundBtn}
+                hitSlop={4}
+              >
+                <Plus color={lightColors.ink} size={18} strokeWidth={2} />
+              </Pressable>
+              <Pressable
+                onPress={() => setComposerExpanded(true)}
+                style={styles.pillPreview}
+                accessibilityRole="button"
+                accessibilityLabel="展开输入"
+                testID="composer-preview"
+              >
+                {/* readonly TextInput：渲染为 textarea（e2e 语义"打开工作区含输入框"不破坏），
+                    pointerEvents none 让点击穿透到外层 Pressable 触发展开 */}
+                <TextInput
+                  style={[styles.pillPreviewText, input.trim() ? styles.pillPreviewDraft : null]}
+                  value={input}
+                  placeholder="Ask anything..."
+                  placeholderTextColor={lightChatColors.inputPlaceholder}
+                  editable={false}
+                  multiline
+                  numberOfLines={1}
+                  pointerEvents="none"
+                />
+              </Pressable>
+              <Pressable
+                onPress={() => Alert.alert("语音", "语音输入即将上线")}
+                accessibilityLabel="Voice input"
+                accessibilityRole="button"
+                style={styles.roundBtn}
+                hitSlop={4}
+              >
+                <Mic color={lightColors.ink} size={18} strokeWidth={2} />
+              </Pressable>
+              {sending ? (
+                <Pressable
+                  onPress={abort}
+                  style={[styles.roundBtn, styles.pillStop]}
+                  accessibilityLabel="Stop"
+                  accessibilityRole="button"
+                >
+                  <Square color={lightChatColors.diffDel} size={17} strokeWidth={2.4} />
+                </Pressable>
+              ) : input.trim() ? (
+                <Pressable
+                  onPress={send}
+                  style={[styles.roundBtn, styles.pillSend]}
+                  accessibilityLabel="Send"
+                  accessibilityRole="button"
+                >
+                  <Send color={lightColors.ink} size={17} strokeWidth={2.4} />
+                </Pressable>
+              ) : null}
+            </View>
+            <View style={styles.pillSub}>
+              <Pressable
+                onPress={() => {
+                  loadModels();
+                  setModelMenuOpen(true);
+                }}
+                accessibilityLabel="Select model"
+                accessibilityRole="button"
+                style={styles.maBtn}
+              >
+                <View style={styles.maDot} />
+                <RNText style={styles.maText} numberOfLines={1}>{model.modelID}</RNText>
+              </Pressable>
+              <View style={styles.flexSpacer} />
+              <Pressable
+                onPress={() => {
+                  setAgentIdx((idx) => (idx + 1) % agents.length);
+                  setModel(agents[(agentIdx + 1) % agents.length].model);
+                }}
+                onLongPress={() => setAgentMenuOpen(true)}
+                delayLongPress={400}
+                accessibilityLabel="Switch agent"
+                accessibilityRole="button"
+                style={styles.maBtn}
+              >
+                <View style={styles.maDot} />
+                <RNText style={styles.maText}>{agents[agentIdx].id}</RNText>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      )}
       {/* model 面板（#31 机械换肤：LightSheet + light token，provider 前缀 + 双匹配高亮逻辑不变） */}
       <LightSheet visible={modelMenuOpen} onClose={() => setModelMenuOpen(false)} testID="model-sheet">
         <View style={styles.sheetHeader}>
@@ -900,6 +1074,37 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
                 <Text variant="lightBody" color={active ? "lightInk" : "lightSubtle"}>
                   {m.providerID}: {m.modelID}
                 </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </LightSheet>
+
+      {/* #33 agent 面板（agent ma-btn 长按唤起；轻点仍是循环切换）：LightSheet 载体 */}
+      <LightSheet visible={agentMenuOpen} onClose={() => setAgentMenuOpen(false)} testID="agent-sheet">
+        <View style={styles.sheetHeader}>
+          <Text variant="lightBodyStrong" color="lightInk">选择 Agent</Text>
+        </View>
+        <ScrollView style={styles.sheetScroll}>
+          {agents.map((a, i) => {
+            const active = i === agentIdx;
+            return (
+              <Pressable
+                key={a.id}
+                onPress={() => {
+                  setAgentIdx(i);
+                  setModel(agents[i].model);
+                  setAgentMenuOpen(false);
+                }}
+                style={[styles.sheetItem, styles.sheetItemRow, active && styles.sheetItemActive]}
+              >
+                <View style={styles.agentMeta}>
+                  <RNText style={styles.agentName}>{a.id}</RNText>
+                  <RNText style={styles.agentModel} numberOfLines={1}>
+                    {a.model.providerID}: {a.model.modelID}
+                  </RNText>
+                </View>
+                {active ? <Check color={lightChatColors.greenCheck} size={16} strokeWidth={2.5} /> : null}
               </Pressable>
             );
           })}
@@ -1070,26 +1275,6 @@ const styles = StyleSheet.create({
     backgroundColor: lightColors.rowGray,
     gap: 2,
   },
-  agentRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: lightChatSizes.inputBarPadX,
-    paddingTop: 8,
-    paddingBottom: 2,
-  },
-  agentPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 999,
-    backgroundColor: lightColors.white,
-    borderWidth: 1,
-    borderColor: lightColors.hairline,
-    maxWidth: 180,
-  },
   quietPill: {
     alignSelf: "flex-start",
     paddingHorizontal: 14,
@@ -1179,27 +1364,51 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "transparent",
   },
-  // chat.html .chat-inputbar：pill（附件+输入+语音）+ 圆形发送键，gap 10
-  inputBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
+  /* ---- #33 交互层：composer 两态 + 排队 chip ---- */
+  // mock .composer-slot：底部输入区容器（收起/展开两态共用）
+  composerSlot: {
     paddingHorizontal: lightChatSizes.inputBarPadX,
     paddingTop: lightChatSizes.inputBarPadTop,
     paddingBottom: lightChatSizes.inputBarPadBottom,
   },
-  // chat.html .input-pill：cream 底 + 3px ink 描边 + radius 29，内含 round-btn ×2
-  inputPill: {
-    flex: 1,
-    minWidth: 0,
-    height: lightChatSizes.inputPillHeight,
+  flexSpacer: { flex: 1 },
+  // mock .float-panel / .q-chip：排队 chip 浮层
+  floatPanel: { gap: 6 },
+  qChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "rgba(255,255,253,.95)",
+    borderWidth: 1,
+    borderColor: "rgba(13,13,13,.16)",
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  qTextWrap: { flex: 1, minWidth: 0 },
+  qText: { fontSize: 12.5, lineHeight: 18, color: lightChatColors.bubbleInk },
+  qBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: lightChatColors.chipWarmBg,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  // mock .input-pill（收起态，纵向两行）：cream 底 + 3px ink 描边 + radius 29
+  inputPillCol: {
     backgroundColor: lightColors.cream,
     borderRadius: lightChatSizes.inputPillRadius,
     borderWidth: lightChatSizes.inputPillBorder,
     borderColor: lightChatColors.inputBorder,
+    paddingHorizontal: 8,
+  },
+  pillMain: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 8,
+    gap: 4,
+    height: 52,
   },
   roundBtn: {
     width: lightChatSizes.roundBtn,
@@ -1211,28 +1420,122 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     flexShrink: 0,
   },
-  input: {
-    flex: 1,
-    minWidth: 0,
-    height: lightChatSizes.inputPillHeight - lightChatSizes.inputPillBorder * 2,
-    paddingHorizontal: 10,
+  pillPreview: { flex: 1, minWidth: 0, justifyContent: "center" },
+  pillPreviewText: {
     fontSize: 15,
-    color: lightColors.fieldText,
-    textAlignVertical: "center",
-    ...Platform.select({
-      web: { lineHeight: 20, paddingTop: 16, paddingBottom: 0 },
-      default: {},
-    }),
+    lineHeight: 21,
+    color: lightChatColors.inputPlaceholder,
   },
-  // chat.html .send-btn：58px peach 圆
-  sendBtn: {
-    width: lightChatSizes.sendBtn,
-    height: lightChatSizes.sendBtn,
-    borderRadius: lightChatSizes.sendBtn / 2,
+  pillPreviewDraft: { color: lightColors.fieldText },
+  // mock 内嵌发送（有草稿才出现）与 stop 形态
+  pillSend: {
+    backgroundColor: lightColors.peach,
+    borderColor: "transparent",
+  },
+  pillStop: {
+    borderColor: "rgba(196,87,74,.5)",
+    backgroundColor: "rgba(196,87,74,.1)",
+  },
+  // mock .pill-sub：model/agent ma-btn 行（pill 内底部）
+  pillSub: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 6,
+    paddingBottom: 7,
+  },
+  maBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    height: 26,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    backgroundColor: "rgba(13,13,13,.06)",
+    maxWidth: 150,
+  },
+  maDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: lightColors.peach,
+    flexShrink: 0,
+  },
+  maText: {
+    fontSize: 12,
+    fontWeight: "600",
+    lineHeight: 17,
+    color: lightChatColors.bubbleInk,
+  },
+  // mock .composer-box（展开态）
+  composerBox: {
+    backgroundColor: lightColors.cream,
+    borderWidth: 3,
+    borderColor: lightChatColors.inputBorder,
+    borderRadius: 24,
+    padding: 10,
+    paddingBottom: 8,
+  },
+  composerInput: {
+    fontSize: 15,
+    lineHeight: 21,
+    minHeight: 72,
+    maxHeight: 200,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    color: lightColors.fieldText,
+  },
+  composerFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingTop: 2,
+    paddingHorizontal: 4,
+  },
+  composerMiniBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: lightChatColors.roundBtnBorder,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  charCount: {
+    fontSize: 11,
+    lineHeight: 15,
+    color: lightColors.grayText,
+    marginLeft: 4,
+  },
+  composerSend: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: lightColors.peach,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
+  },
+  composerSendStop: { backgroundColor: lightChatColors.stopBg },
+  // agent 面板行（name + model 副标题 + 选中勾）
+  sheetItemRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  agentMeta: { flex: 1, minWidth: 0, gap: 2 },
+  agentName: {
+    fontSize: 13.5,
+    fontWeight: "600",
+    lineHeight: 19,
+    color: lightColors.ink,
+  },
+  agentModel: {
+    fontSize: 11.5,
+    lineHeight: 16,
+    color: lightColors.grayText,
   },
   markHandledRow: {
     paddingHorizontal: lightChatSizes.chatAreaPadX,

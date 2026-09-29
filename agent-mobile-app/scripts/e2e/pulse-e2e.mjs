@@ -199,10 +199,16 @@ async function main() {
   }
 
   // Step 2: Conversation Entry → Talk workspace（stack push，真实输入框）
+  // #33 composer 两态：收起态是 pill 预览（点击展开全高输入）——先点预览再断言 textarea
   let hasTextarea = false;
   if (entryVisible) {
     await page.locator('[data-testid="conversation-entry"]').first().dispatchEvent('click', { bubbles: true });
     await page.waitForTimeout(15000);
+    const preview = page.locator('[data-testid="composer-preview"]').first();
+    if (await preview.isVisible().catch(() => false)) {
+      await preview.dispatchEvent('click', { bubbles: true });
+      await page.waitForTimeout(1500);
+    }
     hasTextarea = (await page.locator('textarea').count()) > 0;
     check('Conversation Entry 打开 Talk workspace (含输入框)', hasTextarea, `textarea=${hasTextarea}`);
   } else {
@@ -211,6 +217,12 @@ async function main() {
 
   // Step 4: 发消息验证流式（可选，默认启用）
   if (!NO_SEND && hasTextarea) {
+    // #33 composer 两态：收起态的 textarea 是 readonly 草稿预览，先点它展开成可编辑输入
+    const preview = page.locator('[data-testid="composer-preview"]').first();
+    if (await preview.isVisible().catch(() => false)) {
+      await preview.dispatchEvent('click', { bubbles: true });
+      await page.waitForTimeout(800);
+    }
     const ta = page.locator('textarea').first();
     await ta.click();
     await ta.fill('Reply with exactly: e2e-ok');
