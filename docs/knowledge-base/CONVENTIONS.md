@@ -53,6 +53,7 @@
 | **E2E 断言误匹配** | 脚本按气泡文本 `includes()` 断言时，AI 回复中若引用了测试消息文本会被误命中 | 断言尽量结合角色（USER/AI）与位置，或匹配不含引用的唯一标识 |
 | **APK 冷启动 unmatched route** | 根 Stack 无 `index.tsx` 时，冷启动 `pulseapp:///` 无匹配路由 → 白屏 | 首页路由文件命名 `index.tsx` 并置于 `src/app/` 根（commit `de9120c`；Companion 迁移后仍是 `src/app/index.tsx`） |
 | **RN 原生无 `window` / 全局 `alert()`** | `window.addEventListener`、全局 `alert()` 在原生不存在，调用即崩 | `Platform.OS === 'web'` 判断 + `Alert.alert`（commit `824054f`） |
+| **`Alert.alert` 在 RN Web 是空函数** | `react-native-web/dist/exports/Alert/index.js` 就是 `class Alert { static alert() {} }`——**9928 线上（web）所有 `Alert.alert` 调用零反馈**，全仓 25 处（ChatPanelZ 12 处：Assignment 命令反馈 / Duties·Projects 卡动作结果 / 附件·语音占位）。用户只看到"点了没反应"，且 e2e 抓不到（无 DOM 变化、无 console error） | 勿把 `Alert.alert` 当作可见反馈；错误路径至少补 `console.error`。改造为 `LightSheet` 统一反馈见 issue #43。**上一行的 `Alert.alert` 建议仅对原生成立，web 端不适用** |
 | **ErrorUtils 覆盖闪退（release）** | release 下覆盖 RN 全局错误 handler 有递归崩溃风险 | 移除 `ErrorUtils.setGlobalHandler` 覆盖（commit `824054f`） |
 | **Android 9+ 禁明文 HTTP** | BFF 是 `http://` 明文，Android 9+ 默认禁 cleartext → `UnknownServiceException: cleartext communication ... not permitted` | `expo-build-properties` 插件配 `android.usesCleartextTraffic: true`（app.json，commit `46473bf`） |
 | **EAS 云构建无 .env.local** | `.env.local` 被 gitignore，EAS 云构建只拉 git 代码 → 用代码 fallback 地址，若 fallback 是旧 IP 则连错 BFF | 代码 fallback 保持正确 IP `http://106.13.181.13:19234`（`src/config/opencode.ts`，commit `46473bf`）；或 EAS 环境变量注入 |
