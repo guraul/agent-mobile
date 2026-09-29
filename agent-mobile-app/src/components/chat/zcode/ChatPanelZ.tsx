@@ -18,12 +18,10 @@ import {
   type NativeScrollEvent,
 } from "react-native";
 import { Bot, Cpu, Mic, Plus, Send, Square } from "lucide-react-native";
-import { Text, Box, Button, Icon } from "../../index";
-import { BottomSheet } from "../../navigation/BottomSheet";
+import { Text, Box } from "../../index";
+import { LightSheet } from "../../pulse/LightSheet";
 import {
-  colors,
   spacing,
-  radius,
   iconStroke,
   lightColors,
   lightChatColors,
@@ -826,113 +824,6 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
         </Pressable>
       </View>
 
-      <BottomSheet visible={modelMenuOpen} onClose={() => setModelMenuOpen(false)}>
-        <View style={styles.modelSheetHeader}>
-          <Text variant="body" color="ink">选择模型</Text>
-        </View>
-        <ScrollView style={styles.modelSheetScroll}>
-          {modelList.map((m, i) => (
-            <Pressable
-              key={`${m.providerID}:${m.modelID}`}
-              onPress={() => {
-                setModel(m);
-                setModelMenuOpen(false);
-              }}
-              style={[
-                styles.modelItem,
-                m.providerID === model.providerID && m.modelID === model.modelID && styles.modelItemActive,
-              ]}
-            >
-              <Text
-                variant="body"
-                color={m.providerID === model.providerID && m.modelID === model.modelID ? "accent" : "ink"}
-              >
-                {m.providerID}: {m.modelID}
-              </Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-      </BottomSheet>
-
-      {pendingQuestion ? (
-        <BottomSheet visible onClose={rejectQuestion} testID="question-sheet">
-          <View style={styles.modelSheetHeader}>
-            <Text variant="body" color="ink">
-              {pendingQuestion.questions[pendingQuestion.index].header ||
-                `问题 ${pendingQuestion.index + 1}/${pendingQuestion.questions.length}`}
-            </Text>
-          </View>
-          <Box padding="sm" gap="sm">
-            <Text variant="body" color="ink">
-              {pendingQuestion.questions[pendingQuestion.index].question}
-            </Text>
-            {pendingQuestion.questions[pendingQuestion.index].options?.map((opt) => {
-              const active = questionSelections.includes(opt.label);
-              return (
-                <Pressable
-                  key={opt.label}
-                  onPress={() => toggleQuestionOption(opt.label)}
-                  accessibilityRole="button"
-                  style={[styles.questionOption, active && styles.questionOptionActive]}
-                >
-                  <Text variant="body" color={active ? "accent" : "ink"}>
-                    {opt.label}
-                  </Text>
-                  {opt.description ? (
-                    <Text variant="caption" color="muted">{opt.description}</Text>
-                  ) : null}
-                </Pressable>
-              );
-            })}
-            {pendingQuestion.questions[pendingQuestion.index].custom !== false ? (
-              <TextInput
-                style={styles.questionCustomInput}
-                value={questionCustom}
-                onChangeText={setQuestionCustom}
-                placeholder="输入自定义答案（可选）"
-                placeholderTextColor={colors.disabled}
-              />
-            ) : null}
-            <Box gap="sm">
-              <Button
-                variant="primary"
-                label={pendingQuestion.index < pendingQuestion.questions.length - 1 ? "下一步" : "提交"}
-                onPress={answerCurrentQuestion}
-              />
-              <Button variant="ghost" label="跳过此问题" onPress={rejectQuestion} />
-            </Box>
-          </Box>
-        </BottomSheet>
-      ) : null}
-
-      {pendingPermission ? (
-        <BottomSheet visible onClose={() => replyPermission("reject")} testID="permission-sheet">
-          <View style={styles.modelSheetHeader}>
-            <Text variant="body" color="ink">权限请求</Text>
-          </View>
-          <Box padding="sm" gap="sm">
-            <Text variant="body" color="ink">
-              Agent 请求{pendingPermission.permission === "external_directory" ? "访问外部目录" : `执行 ${pendingPermission.permission}`}
-            </Text>
-            {pendingPermission.patterns?.length ? (
-              <Text variant="caption" color="muted">
-                {pendingPermission.patterns.join(", ")}
-              </Text>
-            ) : null}
-            {typeof pendingPermission.metadata?.filepath === "string" ? (
-              <Text variant="caption" color="muted">
-                {pendingPermission.metadata.filepath}
-              </Text>
-            ) : null}
-            <Box gap="sm">
-              <Button variant="primary" label="允许一次" onPress={() => replyPermission("once")} />
-              <Button variant="primary" label="始终允许" onPress={() => replyPermission("always")} />
-              <Button variant="ghost" label="拒绝" onPress={() => replyPermission("reject")} />
-            </Box>
-          </Box>
-        </BottomSheet>
-      ) : null}
-
       {/* 输入区（chat.html .chat-inputbar）：pill（附件 + 输入 + 语音）+ peach 圆形发送键 */}
       <View style={styles.inputBar}>
         <View style={styles.inputPill}>
@@ -984,6 +875,138 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
           </Pressable>
         )}
       </View>
+      {/* model 面板（#31 机械换肤：LightSheet + light token，provider 前缀 + 双匹配高亮逻辑不变） */}
+      <LightSheet visible={modelMenuOpen} onClose={() => setModelMenuOpen(false)} testID="model-sheet">
+        <View style={styles.sheetHeader}>
+          <Text variant="lightBodyStrong" color="lightInk">选择模型</Text>
+        </View>
+        <ScrollView style={styles.sheetScroll}>
+          {modelList.map((m, i) => {
+            const active = m.providerID === model.providerID && m.modelID === model.modelID;
+            return (
+              <Pressable
+                key={`${m.providerID}:${m.modelID}`}
+                onPress={() => {
+                  setModel(m);
+                  setModelMenuOpen(false);
+                }}
+                style={[styles.sheetItem, active && styles.sheetItemActive]}
+              >
+                <Text variant="lightBody" color={active ? "lightInk" : "lightSubtle"}>
+                  {m.providerID}: {m.modelID}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </LightSheet>
+
+      {pendingQuestion ? (
+        <LightSheet visible onClose={rejectQuestion} testID="question-sheet">
+          <View style={styles.sheetHeader}>
+            <Text variant="lightBodyStrong" color="lightInk">
+              {pendingQuestion.questions[pendingQuestion.index].header ||
+                `问题 ${pendingQuestion.index + 1}/${pendingQuestion.questions.length}`}
+            </Text>
+          </View>
+          <View style={styles.sheetBody}>
+            <Text variant="lightBody" color="lightInk">
+              {pendingQuestion.questions[pendingQuestion.index].question}
+            </Text>
+            {pendingQuestion.questions[pendingQuestion.index].options?.map((opt) => {
+              const active = questionSelections.includes(opt.label);
+              return (
+                <Pressable
+                  key={opt.label}
+                  onPress={() => toggleQuestionOption(opt.label)}
+                  accessibilityRole="button"
+                  style={[styles.sheetOption, active && styles.sheetOptionActive]}
+                >
+                  <Text variant="lightBody" color={active ? "lightInk" : "lightSubtle"}>
+                    {opt.label}
+                  </Text>
+                  {opt.description ? (
+                    <Text variant="lightCaption" color="lightGray">{opt.description}</Text>
+                  ) : null}
+                </Pressable>
+              );
+            })}
+            {pendingQuestion.questions[pendingQuestion.index].custom !== false ? (
+              <TextInput
+                style={styles.sheetInput}
+                value={questionCustom}
+                onChangeText={setQuestionCustom}
+                placeholder="输入自定义答案（可选）"
+                placeholderTextColor={lightChatColors.inputPlaceholder}
+              />
+            ) : null}
+            <View style={styles.sheetActions}>
+              <Pressable
+                onPress={answerCurrentQuestion}
+                accessibilityRole="button"
+                style={styles.peachPill}
+              >
+                <Text variant="lightBodyStrong" color="lightInk">
+                  {pendingQuestion.index < pendingQuestion.questions.length - 1 ? "下一步" : "提交"}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={rejectQuestion}
+                accessibilityRole="button"
+                style={styles.quietPillFull}
+              >
+                <Text variant="lightBodyStrong" color="lightSubtle">跳过此问题</Text>
+              </Pressable>
+            </View>
+          </View>
+        </LightSheet>
+      ) : null}
+
+      {pendingPermission ? (
+        <LightSheet visible onClose={() => replyPermission("reject")} testID="permission-sheet">
+          <View style={styles.sheetHeader}>
+            <Text variant="lightBodyStrong" color="lightInk">权限请求</Text>
+          </View>
+          <View style={styles.sheetBody}>
+            <Text variant="lightBody" color="lightInk">
+              Agent 请求{pendingPermission.permission === "external_directory" ? "访问外部目录" : `执行 ${pendingPermission.permission}`}
+            </Text>
+            {pendingPermission.patterns?.length ? (
+              <Text variant="lightCaption" color="lightGray">
+                {pendingPermission.patterns.join(", ")}
+              </Text>
+            ) : null}
+            {typeof pendingPermission.metadata?.filepath === "string" ? (
+              <Text variant="lightCaption" color="lightGray">
+                {pendingPermission.metadata.filepath}
+              </Text>
+            ) : null}
+            <View style={styles.sheetActions}>
+              <Pressable
+                onPress={() => replyPermission("once")}
+                accessibilityRole="button"
+                style={styles.peachPill}
+              >
+                <Text variant="lightBodyStrong" color="lightInk">允许一次</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => replyPermission("always")}
+                accessibilityRole="button"
+                style={styles.peachPill}
+              >
+                <Text variant="lightBodyStrong" color="lightInk">始终允许</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => replyPermission("reject")}
+                accessibilityRole="button"
+                style={styles.quietPillFull}
+              >
+                <Text variant="lightBodyStrong" color="lightSubtle">拒绝</Text>
+              </Pressable>
+            </View>
+          </View>
+        </LightSheet>
+      ) : null}
     </KeyboardAvoidingView>
   );
 }
@@ -1049,42 +1072,72 @@ const styles = StyleSheet.create({
     borderColor: lightColors.hairline,
     backgroundColor: lightColors.white,
   },
-  modelSheetHeader: {
-    paddingBottom: spacing.sm,
+  /* ---- #31 弹层机械换肤（LightSheet + light token；逻辑不变） ---- */
+  sheetHeader: {
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border.default,
-    marginBottom: spacing.xs,
+    borderBottomColor: lightColors.divider,
   },
-  modelSheetScroll: {
+  sheetScroll: {
     maxHeight: 400,
   },
-  modelItem: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.xs,
+  sheetBody: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 6,
+    gap: 10,
   },
-  modelItemActive: {
-    backgroundColor: colors.accent.subtle,
+  sheetItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderRadius: 12,
   },
-  questionOption: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.xs,
+  sheetItemActive: {
+    backgroundColor: lightChatColors.peachSubtle,
+  },
+  sheetOption: {
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: colors.border.default,
+    borderColor: lightColors.hairline,
     gap: 2,
   },
-  questionOptionActive: {
-    borderColor: colors.accent.default,
-    backgroundColor: colors.accent.subtle,
+  sheetOptionActive: {
+    borderColor: lightColors.peach,
+    backgroundColor: lightChatColors.peachSubtle,
   },
-  questionCustomInput: {
-    backgroundColor: colors.surface[2],
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    color: colors.ink,
+  sheetInput: {
+    backgroundColor: lightColors.rowGray,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: lightColors.fieldText,
     fontSize: 15,
+  },
+  sheetActions: {
+    gap: 8,
+    marginTop: 2,
+  },
+  // mock .perm-btn.allow：peach 实心 40px 圆角（主行动作）
+  peachPill: {
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: lightColors.peach,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  // mock .perm-btn.deny：透明 + 细边（弱化动作）
+  quietPillFull: {
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: lightChatColors.roundBtnBorder,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "transparent",
   },
   // chat.html .chat-inputbar：pill（附件+输入+语音）+ 圆形发送键，gap 10
   inputBar: {

@@ -4,13 +4,13 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { View, Pressable, StyleSheet, ScrollView } from "react-native";
 import { ArrowLeft, Plus, Layers, X } from "lucide-react-native";
-import { Text, Box, Button } from "../../index";
-import { colors, spacing, radius, iconStroke, lightColors, lightChatSizes } from "../../../theme";
+import { Text, Box } from "../../index";
+import { LightSheet } from "../../pulse/LightSheet";
+import { iconStroke, lightColors, lightChatColors, lightChatSizes } from "../../../theme";
 import { opencodeClient, type OpenCodeSession } from "../../../services/opencode-client";
 import { ChatPanelZ } from "./ChatPanelZ";
 import type { ConversationKind } from "../../../services/conversation-kind";
 import type { EngagedAttentionRef } from "../../../services/attention/store";
-import { BottomSheet } from "../../navigation/BottomSheet";
 
 interface ProjectChatProps {
   projectPath: string;
@@ -132,15 +132,19 @@ export function ProjectChatZ({ projectPath, onBack, kind, attention, initialSess
           </Text>
         </View>
         <View style={[styles.headerSide, styles.headerRight]}>
-          <Pressable
-            onPress={openPicker}
-            accessibilityLabel="Switch session"
-            accessibilityRole="button"
-            hitSlop={10}
-            style={styles.headerBtn}
-          >
-            <Layers color={lightColors.ink} size={20} strokeWidth={iconStroke} />
-          </Pressable>
+          {/* chatcode 绑项目最新 session（resume-most-recent），无会话选择器（#31）；
+              chat 侧 Layers 仍是 session 列出/切换/新建的唯一 UI */}
+          {kind !== "chatcode" ? (
+            <Pressable
+              onPress={openPicker}
+              accessibilityLabel="Switch session"
+              accessibilityRole="button"
+              hitSlop={10}
+              style={styles.headerBtn}
+            >
+              <Layers color={lightColors.ink} size={20} strokeWidth={iconStroke} />
+            </Pressable>
+          ) : null}
           {onClose ? (
             <Pressable
               onPress={onClose}
@@ -188,15 +192,15 @@ export function ProjectChatZ({ projectPath, onBack, kind, attention, initialSess
         </Box>
       )}
 
-      <BottomSheet visible={pickerOpen} onClose={() => setPickerOpen(false)} testID="session-picker">
-        <Box padding="sm" style={styles.pickerHeader}>
-          <Text variant="body" color="ink">会话</Text>
-        </Box>
+      <LightSheet visible={pickerOpen} onClose={() => setPickerOpen(false)} testID="session-picker">
+        <View style={styles.pickerHeader}>
+          <Text variant="lightBodyStrong" color="lightInk">会话</Text>
+        </View>
         <ScrollView style={styles.pickerList}>
           {pickerError ? (
-            <Text variant="caption" color="error">{pickerError}</Text>
+            <Text variant="lightCaption" color="lightUpRed">{pickerError}</Text>
           ) : sessions.length === 0 ? (
-            <Text variant="caption" color="muted">暂无会话</Text>
+            <Text variant="lightCaption" color="lightGray">暂无会话</Text>
           ) : (
             sessions.map((s) => {
               const active = session?.id === s.id;
@@ -208,13 +212,13 @@ export function ProjectChatZ({ projectPath, onBack, kind, attention, initialSess
                   accessibilityRole="button"
                 >
                   <Text
-                    variant="body"
-                    color={active ? "accent" : "ink"}
+                    variant="lightBody"
+                    color={active ? "lightInk" : "lightSubtle"}
                     numberOfLines={1}
                   >
                     {sessionLabel(s)}
                   </Text>
-                  <Text variant="caption" color="muted">
+                  <Text variant="lightCaption" color="lightGray">
                     {new Date(s.time?.updated ?? 0).toLocaleString()}
                   </Text>
                 </Pressable>
@@ -222,11 +226,18 @@ export function ProjectChatZ({ projectPath, onBack, kind, attention, initialSess
             })
           )}
         </ScrollView>
-        <Box padding="sm" style={styles.pickerFooter}>
-          {/* 老 Button 在暗色 sheet 内（#31 机械换肤时统一处理），保持暗色语言 */}
-          <Button variant="primary" label="New session" icon={Plus} onPress={createAndOpen} />
-        </Box>
-      </BottomSheet>
+        <View style={styles.pickerFooter}>
+          <Pressable
+            onPress={createAndOpen}
+            accessibilityRole="button"
+            accessibilityLabel="New session"
+            style={styles.peachSheetBtn}
+          >
+            <Plus color={lightColors.ink} size={16} strokeWidth={2} />
+            <Text variant="lightBodyStrong" color="lightInk">New session</Text>
+          </Pressable>
+        </View>
+      </LightSheet>
     </View>
   );
 }
@@ -280,23 +291,38 @@ const styles = StyleSheet.create({
     backgroundColor: lightColors.peach,
   },
   pickerHeader: {
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border.default,
+    borderBottomColor: lightColors.divider,
   },
   pickerList: {
     maxHeight: 320,
   },
   pickerFooter: {
     borderTopWidth: 1,
-    borderTopColor: colors.border.default,
+    borderTopColor: lightColors.divider,
+    paddingTop: 10,
+    paddingHorizontal: 16,
+    paddingBottom: 6,
+  },
+  peachSheetBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: lightColors.peach,
   },
   sessionItem: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.xs,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderRadius: 12,
     gap: 2,
   },
   sessionItemActive: {
-    backgroundColor: colors.accent.subtle,
+    backgroundColor: lightChatColors.peachSubtle,
   },
 });

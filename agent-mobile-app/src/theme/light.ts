@@ -232,6 +232,7 @@ export const lightChatColors = {
   orbCore: "#241708", // ai-orb 径向核心（mock .ai-orb）
   orbCore2: "#4A2E12", // 径向 30%
   orbMid: "#B97B3F", // 径向 48%
+  peachSubtle: "rgba(243,186,143,.22)", // peach 语义 active 高亮底（model 选中行/session 选中项，#31）
 } as const;
 
 export const lightChatTypography = {

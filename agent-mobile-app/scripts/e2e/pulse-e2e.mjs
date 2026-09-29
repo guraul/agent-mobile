@@ -181,6 +181,23 @@ async function main() {
     check('Noticed 未混入 Needs you（observation ≠ Attention）', !leaked);
   }
 
+  // Step 1c: Running 行 → chatcode 壳（epic #35 C1 分流：绑项目 directory → "Pulse — Code Chat"）
+  // running 行是动态项目事件数据，缺失时跳过而非 FAIL
+  const runRow = page.locator('[data-testid^="supporting-run-"]').first();
+  const runVisible = await runRow.isVisible().catch(() => false);
+  if (runVisible) {
+    await runRow.dispatchEvent('click', { bubbles: true });
+    await page.waitForTimeout(12000);
+    const codeChatTitle = await page.locator('text=Pulse — Code Chat').first().isVisible().catch(() => false);
+    const layersGone = (await page.locator('[aria-label="Switch session"]').count()) === 0;
+    check('Running 行进入 chatcode 壳 (Pulse — Code Chat)', codeChatTitle && layersGone,
+      `title=${codeChatTitle} picker-hidden=${layersGone}`);
+    await page.goBack();
+    await page.waitForTimeout(8000);
+  } else {
+    check('Running 行进入 chatcode 壳 (Pulse — Code Chat)', true, 'no running data — 动态，跳过子断言');
+  }
+
   // Step 2: Conversation Entry → Talk workspace（stack push，真实输入框）
   let hasTextarea = false;
   if (entryVisible) {
