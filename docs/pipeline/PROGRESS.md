@@ -99,3 +99,6 @@ GitHub Issue/Card（任务入口）
 | 2026-09-27 | 阶段 1 完成：6 脚本 + 手册 + 路由实测通过；issue #1（Phase 2 任务）已建 |
 | 2026-09-27 | 阶段 2 完成（PR #2 merged cf10139）；首次 deploy-web 被时区测试拦截（流程按设计工作）；阶段 3 开工，issue #3 修复时区依赖（本 PR） |
 | 2026-09-27 | 阶段 3 完成：deploy-web 全绿、回滚演练通过、board 建成、BFF 生产化落地（merge-pr.sh 自 merge-pr.sh #4 起均从主工作区执行） |
+| 2026-09-29 | **双 chat 页 epic #35 五项收官**（PR #36-#40 全部 merged，9928 = #30 版本）：#29 路由骨架+chat 浅色化 / #31 chatcode 壳+弹层浅色化 / #32 信息层（工具折叠组+thinking+diff 卡）/ #33 交互层（composer 两态+agent 长按面板+排队队列）/ #30 气泡内白卡+Duties/Projects 卡（`a999f4a`）。epic checklist 五项已勾，仅 #34 抽屉待讨论 |
+| 2026-09-29 | 收尾：补 `router.md` 双 chat 页分流段（单路由 + `resolveConversationKind` 运行时判据）、`INDEX.md` 路由/判据入口；epic #35 `#30` 勾选走 REST（`gh issue edit` 被 GraphQL projectCards 报错打断，一律 REST，见交底书 §5-4） |
+| 2026-09-29 | 修 e2e 假失败：卡片步原固定 `waitForTimeout(4000)`，但 BFF `/api/product/{assignments,attention}` 请求被页面同时发出的十余条 opencode session 列表请求挤到 **+9s/+10s** 才回（HTTP/1.1 单域 6 连接上限）→ 改为 20s 轮询。三次连跑 12/12 稳定（`e8a1f90`） |

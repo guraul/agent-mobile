@@ -1,6 +1,10 @@
 # Agent Mobile 项目知识库 · 索引总览
 
-> 最后更新：2026-09-28 · RN 浅色迁移 epic #7 主体完成（PR #16-#23：light token / 原子 / LightSheet / 首页族浅色 + 登录 gate + attention 详情重做；talk/assignments/kb 仍暗色，旧 companion token 保留）。基准 `docs/pipeline/RN_MIGRATION_BRIEF.md`，决策 D1-D10。
+> 最后更新：2026-09-29 · **双 chat 页（epic #35）五项收官**：`/talk` 单路由 + 运行时 directory 判据分流到
+> chat（伴侣页）/ chatcode（工作台壳）两形态，含内白卡（inner-card + Duties/Projects）、工具折叠组、thinking、
+> diff 卡、composer 两态、排队队列。talk/assignments/kb 已全部浅色化。
+> 上一版：2026-09-28 RN 浅色迁移 epic #7 主体完成（PR #16-#23），基准 `docs/pipeline/RN_MIGRATION_BRIEF.md`，决策 D1-D10。
+> 聊天模块细节以 [modules/chat.md](modules/chat.md) 为准，分流判据以 [modules/router.md](modules/router.md) 为准。
 > 维护：见 [CONVENTIONS.md](CONVENTIONS.md)「知识库维护约定」
 
 ## 使用说明
@@ -67,10 +71,12 @@ Settings（连接/账号/BFF 地址/model 偏好）/ Memory / Knowledge / Fund �
 | SSE 事件流订阅（rAF 批量 + 指数退避） | services | `agent-mobile-app/src/services/opencode-events.ts` |
 | 消息增量更新 reducer | services | `agent-mobile-app/src/services/message-reducer.ts` |
 | 消息 step 展开（OpenCodeMessage → DisplayStep） | services | `agent-mobile-app/src/services/message-merging.ts` |
-| Talk contextual stack（薄入口直进 chat；Layers 管 session；关闭回 Pulse） | router | `agent-mobile-app/src/app/talk.tsx` + `components/chat/zcode/` |
+| Talk contextual stack（薄入口；**单路由运行时按 directory 分流 chat/chatcode 两壳**；chat 侧 Layers 管 session；关闭回 Pulse） | router | `agent-mobile-app/src/app/talk.tsx` + `components/chat/zcode/` + `services/conversation-kind.ts` |
 | Legacy 路由兼容（/memory /me → Redirect /） | router | `agent-mobile-app/src/app/memory.tsx` + `me.tsx` |
 | 组件库（primitives/feedback/navigation + pulse） | components | `agent-mobile-app/src/components/index.ts` |
 | 设计 token（暗色主题，紫罗兰 accent） | theme | `agent-mobile-app/src/theme/index.ts` |
+| 双 chat 页分流判据（directory → chat/chatcode，纯函数） | router | `agent-mobile-app/src/services/conversation-kind.ts` |
+| 聊天气泡内白卡（inner-card 框架 + Duties/Projects 卡数据） | chat | `agent-mobile-app/src/components/chat/zcode/InnerCard.tsx` + `services/chat-cards.ts` |
 | Web 静态预览服务（`serve-static.mjs`，端口见下） | ops | `agent-mobile-app/scripts/serve-static.mjs` |
 | APK 下载服务（9928，备用） | ops | `test/download/pulse.apk`（python3 http.server） |
 | E2E 测试（Playwright） | ops | `agent-mobile-app/scripts/e2e/pulse-e2e.mjs` |
