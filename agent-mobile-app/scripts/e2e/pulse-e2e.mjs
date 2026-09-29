@@ -265,9 +265,16 @@ async function main() {
       } else {
         await ta.press('Enter');
       }
-      await page.waitForTimeout(4000);
-      const visible = await page.locator(`text=${marker}`).first().isVisible().catch(() => false);
-      check(label, visible);
+      // 轮询等待，不用固定 sleep：卡片要打 BFF（/api/product/assignments + /api/product/attention），
+      // 而页面同时在打十几条 opencode session 列表请求，HTTP/1.1 单域 6 连接上限会让
+      // product 请求排队到 +9s 才回（实测）。固定 4s 会假失败。
+      let visible = false;
+      for (let i = 0; i < 20; i++) {
+        await page.waitForTimeout(1000);
+        visible = await page.locator(`text=${marker}`).first().isVisible().catch(() => false);
+        if (visible) break;
+      }
+      check(label, visible, visible ? '' : `20s 内未出现 ${marker} 卡`);
     };
     await sendCard('/assignments', 'Duties', '斜杠 /assignments → Duties 卡');
     await sendCard('/projects', 'Projects', '斜杠 /projects → Projects 卡');
