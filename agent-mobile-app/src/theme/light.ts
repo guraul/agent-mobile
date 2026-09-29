@@ -250,6 +250,10 @@ export const lightChatColors = {
   codeAddBg: "rgba(95,141,61,.18)", // 增行底（mock rgba(95,141,61,.18)）
   diffAdd: "#5F8D3D", // diffstat +N（mock .diffstat .a）
   diffDel: "#C4574A", // diffstat −N / danger（mock .diffstat .d / --danger）
+  /* 交互层（chatcode.html，#33）：排队 chip / 停止态 */
+  chipWarmBg: "#F8EDDD", // q-btn 暖杏底（mock .q-btn / .sugg-chip）
+  chipWarmText: "#8A5A2B", // q-btn 字/图标（mock .q-btn）
+  stopBg: "#E5988B", // 发送键 stop 形态底（mock .composer-send.stop / .send-btn.stop）
 } as const;
 
 export const lightChatTypography = {
