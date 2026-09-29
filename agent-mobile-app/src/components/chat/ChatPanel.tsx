@@ -34,6 +34,7 @@ import {
 } from "../../services/message-reducer";
 import { mergeMessages, type DisplayStep } from "../../services/message-merging";
 import { loadModelPrefs } from "../../services/model-prefs";
+import { DEFAULT_MODEL, selectModels } from "../../services/model-registry";
 import { MessageBubble } from "./MessageBubble";
 
 const PAGE_SIZE = 50;
@@ -56,9 +57,9 @@ const TYPING_CHARS_PER_TICK = 3;
 // server on mount (listAgents) so model changes on the server take effect on
 // the next session open — the models below are only a fallback while loading.
 const FALLBACK_AGENTS = [
-  { id: "build", model: { providerID: "deepseek", modelID: "deepseek-v4-flash" } },
-  { id: "plan", model: { providerID: "deepseek", modelID: "deepseek-v4-flash" } },
-  { id: "design", model: { providerID: "deepseek", modelID: "deepseek-v4-flash" } },
+  { id: "build", model: DEFAULT_MODEL },
+  { id: "plan", model: DEFAULT_MODEL },
+  { id: "design", model: DEFAULT_MODEL },
 ] as const;
 
 interface ChatPanelProps {
@@ -407,13 +408,15 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
           primary
             .filter((a) => FALLBACK_AGENTS.some((f) => f.id === a.name))
             .map((a) => {
-              // Me 偏好优先,否则 server agent.model
+              // 2026-09-29（用户拍板）：Me 偏好优先，否则统一 DEFAULT_MODEL；
+              // **不采纳 server agent.model**（opencode.json 里仍是已下线的
+              // deepseek-v4-flash，沿用会让每条消息在 loop 层抛 ProviderModelNotFoundError）。
               const p = prefs[a.name];
               return {
                 id: a.name,
                 model: p
                   ? { providerID: p.providerID, modelID: p.modelID }
-                  : { providerID: a.model!.providerID, modelID: a.model!.modelID },
+                  : { providerID: DEFAULT_MODEL.providerID, modelID: DEFAULT_MODEL.modelID },
               };
             }),
         );
@@ -465,16 +468,8 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
     opencodeClient
       .listProviders()
       .then((data) => {
-        const flat: { providerID: string; modelID: string }[] = [];
-        for (const p of data.providers) {
-          // only DeepSeek models, excluding openrouter / siliconflow-cn
-          if (p.id === "openrouter" || p.id === "siliconflow-cn") continue;
-          for (const modelID of Object.keys(p.models ?? {})) {
-            // only surface DeepSeek models in the picker
-            if (!modelID.toLowerCase().includes("deepseek")) continue;
-            flat.push({ providerID: p.id, modelID });
-          }
-        }
+        // 白名单/排除规则集中在 services/model-registry.ts（纯函数 + 单测）
+        const flat = selectModels(data.providers);
         if (flat.length > 0) setModelList(flat);
       })
       .catch(() => {

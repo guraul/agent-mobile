@@ -46,6 +46,7 @@ import {
 } from "../../../services/message-reducer";
 import { mergeMessages, groupToolSteps, type DisplayStep, type ToolStep } from "../../../services/message-merging";
 import { loadModelPrefs } from "../../../services/model-prefs";
+import { DEFAULT_MODEL, selectModels } from "../../../services/model-registry";
 import { buildAttentionContext } from "../../../services/attention/context";
 import { handleAttention } from "../../../services/attention/client";
 import { parseAssignmentCommand, executeAssignmentCommand } from "../../../services/assignment/client";
@@ -87,9 +88,9 @@ const TYPING_CHARS_PER_TICK = 3;
 // server on mount (listAgents) so model changes on the server take effect on
 // the next session open — the models below are only a fallback while loading.
 const FALLBACK_AGENTS = [
-  { id: "build", model: { providerID: "deepseek", modelID: "deepseek-v4-flash" } },
-  { id: "plan", model: { providerID: "deepseek", modelID: "deepseek-v4-flash" } },
-  { id: "design", model: { providerID: "deepseek", modelID: "deepseek-v4-flash" } },
+  { id: "build", model: DEFAULT_MODEL },
+  { id: "plan", model: DEFAULT_MODEL },
+  { id: "design", model: DEFAULT_MODEL },
 ] as const;
 
 interface ChatPanelProps {
@@ -445,8 +446,11 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
   //   };
   // }, [sessionID, recomputeDisplay]);
 
-  // load primary agents' configured models from the opencode server so the
-  // agent pill follows server-side agent.model (opencode.json), not a hardcoded copy.
+  // 2026-09-29（用户拍板）：**不采纳 server 端 agent.model**。opencode.json 里
+  // primary agent 仍配着已下线的 deepseek/deepseek-v4-flash，沿用它会让每条消息在
+  // loop 层抛 ProviderModelNotFoundError——assistant 消息根本不生成，用户既无回复
+  // 也无 error 气泡（最隐蔽的失败形态）。统一用 DEFAULT_MODEL 覆盖；用户手动在
+  // model 面板改过的偏好仍优先（那是显式选择，不是 server 默认）。
   useEffect(() => {
     let cancelled = false;
     opencodeClient
@@ -461,13 +465,13 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
           primary
             .filter((a) => FALLBACK_AGENTS.some((f) => f.id === a.name))
             .map((a) => {
-              // Me 偏好优先,否则 server agent.model
+              // Me 偏好优先，否则统一 DEFAULT_MODEL（忽略 server agent.model）
               const p = prefs[a.name];
               return {
                 id: a.name,
                 model: p
                   ? { providerID: p.providerID, modelID: p.modelID }
-                  : { providerID: a.model!.providerID, modelID: a.model!.modelID },
+                  : { providerID: DEFAULT_MODEL.providerID, modelID: DEFAULT_MODEL.modelID },
               };
             }),
         );
@@ -519,16 +523,9 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
     opencodeClient
       .listProviders()
       .then((data) => {
-        const flat: { providerID: string; modelID: string }[] = [];
-        for (const p of data.providers) {
-          // only DeepSeek models, excluding openrouter / siliconflow-cn
-          if (p.id === "openrouter" || p.id === "siliconflow-cn") continue;
-          for (const modelID of Object.keys(p.models ?? {})) {
-            // only surface DeepSeek models in the picker
-            if (!modelID.toLowerCase().includes("deepseek")) continue;
-            flat.push({ providerID: p.id, modelID });
-          }
-        }
+        // 白名单/排除规则集中在 services/model-registry.ts（纯函数 + 单测）：
+        // 只露 mimo 系列，排除 siliconflow-cn 与 DeepSeek Pro 系。
+        const flat = selectModels(data.providers);
         if (flat.length > 0) setModelList(flat);
       })
       .catch(() => {
