@@ -17,10 +17,18 @@ import {
   type NativeSyntheticEvent,
   type NativeScrollEvent,
 } from "react-native";
-import { Bot, Cpu, Send, Square } from "lucide-react-native";
+import { Bot, Cpu, Mic, Plus, Send, Square } from "lucide-react-native";
 import { Text, Box, Button, Icon } from "../../index";
 import { BottomSheet } from "../../navigation/BottomSheet";
-import { colors, spacing, radius, iconStroke } from "../../../theme";
+import {
+  colors,
+  spacing,
+  radius,
+  iconStroke,
+  lightColors,
+  lightChatColors,
+  lightChatSizes,
+} from "../../../theme";
 import {
   opencodeClient,
   type OpenCodeMessage,
@@ -43,7 +51,6 @@ import { handleAttention } from "../../../services/attention/client";
 import { parseAssignmentCommand, executeAssignmentCommand } from "../../../services/assignment/client";
 import type { EngagedAttentionRef } from "../../../services/attention/store";
 import { MessageBubbleZ } from "./MessageBubbleZ";
-import { LinearGradient } from "expo-linear-gradient";
 
 const PAGE_SIZE = 50;
 // keep a bounded window in memory: SSE events keep appending to the list loaded
@@ -702,19 +709,19 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
   if (loading) {
     return (
       <Box padding="lg">
-        <Text variant="body" color="muted">Loading messages…</Text>
+        <Text variant="lightBody" color="lightGray">Loading messages…</Text>
       </Box>
     );
   }
 
   const listFooter = sending ? (
     <View style={styles.statusRow}>
-      <Bot color={colors.accent.default} size={12} strokeWidth={2} />
-      <Text variant="caption" color="muted">运行中…</Text>
+      <Bot color={lightColors.amber} size={12} strokeWidth={2} />
+      <Text variant="lightCaption" color="lightGray">运行中…</Text>
     </View>
   ) : abortedAt ? (
     <View style={styles.statusRow}>
-      <Text variant="caption" color="muted">已停止</Text>
+      <Text variant="lightCaption" color="lightGray">已停止</Text>
     </View>
   ) : null;
 
@@ -723,65 +730,73 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      {error ? (
-        <Box padding="sm" backgroundColor="surface.1" rounded="md" margin="sm">
-          <Text variant="caption" color="error">{error}</Text>
-        </Box>
-      ) : null}
+      {/* 白色聊天区面板（chat.html .chat-area：radius 30 白底，消息流承载） */}
+      <View style={styles.chatArea}>
+        {error ? (
+          <View style={styles.errorBanner}>
+            <Text variant="lightCaption" color="lightUpRed">{error}</Text>
+          </View>
+        ) : null}
 
-      <FlatList
-        ref={listRef}
-        data={display}
-        extraData={revealChars}
-        keyExtractor={(s) => s.id}
-        ListHeaderComponent={
-          attention ? (
-            <Box padding="sm" backgroundColor="surface.1" rounded="md" marginBottom="sm">
-              <Text variant="captionStrong" color="accent">📌 处理中：{attention.title}</Text>
-              <Text variant="caption" color="muted">{attention.summary}</Text>
-            </Box>
-          ) : null
-        }
-        renderItem={({ item, index }) => {
-          const prev = display[index - 1];
-          const isTurnStart = !prev || prev.kind === "user" || item.kind === "user";
-          // typewriter pacing: while a part is mid-stream, show only the
-          // characters revealed so far so the reply visibly types out.
-          let step = item;
-          if (item.kind === "text") {
-            const shown = revealChars[item.id];
-            if (shown !== undefined && shown < item.text.length) {
-              step = { ...item, text: item.text.slice(0, shown) };
-            }
+        <FlatList
+          ref={listRef}
+          data={display}
+          extraData={revealChars}
+          keyExtractor={(s) => s.id}
+          ListHeaderComponent={
+            attention ? (
+              <View style={styles.attentionCard}>
+                <Text variant="lightLabel" color="lightAccentDeep">📌 处理中：{attention.title}</Text>
+                <Text variant="lightCaption" color="lightGray">{attention.summary}</Text>
+              </View>
+            ) : null
           }
-          return (
-            <View style={{ marginTop: isTurnStart ? spacing.md : spacing.xxs }}>
-              <MessageBubbleZ step={step} />
-            </View>
-          );
-        }}
-        contentContainerStyle={styles.listContent}
-        ListFooterComponent={listFooter}
-        onScroll={handleScroll}
-        onContentSizeChange={handleContentSizeChange}
-        scrollEventThrottle={16}
-        style={styles.list}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.muted} />
-        }
-      />
+          renderItem={({ item, index }) => {
+            const prev = display[index - 1];
+            const isTurnStart = !prev || prev.kind === "user" || item.kind === "user";
+            // typewriter pacing: while a part is mid-stream, show only the
+            // characters revealed so far so the reply visibly types out.
+            let step = item;
+            if (item.kind === "text") {
+              const shown = revealChars[item.id];
+              if (shown !== undefined && shown < item.text.length) {
+                step = { ...item, text: item.text.slice(0, shown) };
+              }
+            }
+            return (
+              <View style={{ marginTop: isTurnStart ? lightChatSizes.msgGap + 5 : lightChatSizes.msgGap }}>
+                <MessageBubbleZ step={step} />
+              </View>
+            );
+          }}
+          contentContainerStyle={styles.listContent}
+          ListFooterComponent={listFooter}
+          onScroll={handleScroll}
+          onContentSizeChange={handleContentSizeChange}
+          scrollEventThrottle={16}
+          style={styles.list}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={lightColors.grayText} />
+          }
+        />
 
-      {attention ? (
-        <View style={styles.markHandledRow}>
-          <Button
-            variant="secondary"
-            label={markingHandled ? "标记中…" : "标记已处理"}
-            onPress={markHandled}
-            disabled={markingHandled}
-            testID="attention-mark-handled"
-          />
-        </View>
-      ) : null}
+        {attention ? (
+          <View style={styles.markHandledRow}>
+            <Pressable
+              onPress={markHandled}
+              disabled={markingHandled}
+              accessibilityRole="button"
+              accessibilityLabel="标记已处理"
+              testID="attention-mark-handled"
+              style={styles.quietPill}
+            >
+              <Text variant="lightCaption" color={markingHandled ? "lightGray" : "lightInk"}>
+                {markingHandled ? "标记中…" : "标记已处理"}
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
+      </View>
 
       <View style={styles.agentRow}>
         <Pressable
@@ -793,9 +808,9 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
           accessibilityRole="button"
           style={styles.agentPill}
         >
-          <Bot color={colors.accent.default} size={12} strokeWidth={iconStroke} />
-          <Text variant="caption" color="accent">{agents[agentIdx].id}</Text>
-          <Text variant="caption" color="muted">⇄</Text>
+          <Bot color={lightColors.accentDeep} size={12} strokeWidth={iconStroke} />
+          <Text variant="lightCaption" color="lightAccentDeep">{agents[agentIdx].id}</Text>
+          <Text variant="lightCaption" color="lightGray">⇄</Text>
         </Pressable>
         <Pressable
           onPress={() => {
@@ -806,8 +821,8 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
           accessibilityRole="button"
           style={styles.agentPill}
         >
-          <Cpu color={colors.muted} size={12} strokeWidth={iconStroke} />
-          <Text variant="caption" color="muted" numberOfLines={1}>{model.modelID}</Text>
+          <Cpu color={lightColors.grayText} size={12} strokeWidth={iconStroke} />
+          <Text variant="lightCaption" color="lightGray" numberOfLines={1}>{model.modelID}</Text>
         </Pressable>
       </View>
 
@@ -918,18 +933,44 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
         </BottomSheet>
       ) : null}
 
-      <View style={styles.inputRow}>
-        <TextInput
-          style={styles.input}
-          value={input}
-          onChangeText={setInput}
-          placeholder="Message Pulse…"
-          placeholderTextColor={colors.disabled}
-          multiline
-        />
+      {/* 输入区（chat.html .chat-inputbar）：pill（附件 + 输入 + 语音）+ peach 圆形发送键 */}
+      <View style={styles.inputBar}>
+        <View style={styles.inputPill}>
+          <Pressable
+            onPress={() => Alert.alert("附件", "附件功能即将上线")}
+            accessibilityLabel="Add attachment"
+            accessibilityRole="button"
+            style={styles.roundBtn}
+            hitSlop={4}
+          >
+            <Plus color={lightColors.ink} size={20} strokeWidth={2} />
+          </Pressable>
+          <TextInput
+            style={styles.input}
+            value={input}
+            onChangeText={setInput}
+            placeholder="Ask AI anything..."
+            placeholderTextColor={lightChatColors.inputPlaceholder}
+            multiline
+          />
+          <Pressable
+            onPress={() => Alert.alert("语音", "语音输入即将上线")}
+            accessibilityLabel="Voice input"
+            accessibilityRole="button"
+            style={styles.roundBtn}
+            hitSlop={4}
+          >
+            <Mic color={lightColors.ink} size={20} strokeWidth={2} />
+          </Pressable>
+        </View>
         {sending ? (
-          <Pressable onPress={abort} style={styles.sendBtn} accessibilityLabel="Stop">
-            <Square color={colors.onAccent} size={18} strokeWidth={iconStroke} />
+          <Pressable
+            onPress={abort}
+            style={styles.sendBtn}
+            accessibilityLabel="Stop"
+            accessibilityRole="button"
+          >
+            <Square color={lightColors.ink} size={22} strokeWidth={2.4} />
           </Pressable>
         ) : (
           <Pressable
@@ -937,15 +978,9 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
             disabled={!input.trim()}
             style={[styles.sendBtn, !input.trim() && { opacity: 0.4 }]}
             accessibilityLabel="Send"
+            accessibilityRole="button"
           >
-            <LinearGradient
-              colors={["#A78BFA", "#6D3EF0"]}
-              start={{ x: 0.1, y: 0 }}
-              end={{ x: 0.9, y: 1 }}
-              style={styles.sendFill}
-            >
-              <Send color="#FFFFFF" size={18} strokeWidth={iconStroke} />
-            </LinearGradient>
+            <Send color={lightColors.ink} size={24} strokeWidth={2.4} />
           </Pressable>
         )}
       </View>
@@ -955,27 +990,64 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  // 白色聊天区面板（chat.html .chat-area：白底 radius 30，占 header 与输入区之间）
+  chatArea: {
+    flex: 1,
+    backgroundColor: lightChatColors.chatArea,
+    borderRadius: lightChatSizes.chatAreaRadius,
+    overflow: "hidden",
+  },
   list: { flex: 1 },
-  listContent: { padding: spacing.md, paddingBottom: 30 },
+  // chat.html .chat-area padding 18px 18px 12px
+  listContent: {
+    paddingHorizontal: lightChatSizes.chatAreaPadX,
+    paddingTop: lightChatSizes.chatAreaPadTop,
+    paddingBottom: lightChatSizes.chatAreaPadBottom,
+  },
+  errorBanner: {
+    marginHorizontal: lightChatSizes.chatAreaPadX,
+    marginTop: lightChatSizes.chatAreaPadTop,
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: lightColors.rowGray,
+  },
+  attentionCard: {
+    marginHorizontal: lightChatSizes.chatAreaPadX,
+    marginTop: lightChatSizes.chatAreaPadTop,
+    marginBottom: lightChatSizes.msgGap,
+    padding: 10,
+    borderRadius: 12,
+    backgroundColor: lightColors.rowGray,
+    gap: 2,
+  },
   agentRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    paddingHorizontal: 20,
-    paddingTop: 6,
-    paddingBottom: 8,
+    paddingHorizontal: lightChatSizes.inputBarPadX,
+    paddingTop: 8,
+    paddingBottom: 2,
   },
   agentPill: {
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: 999,
-    backgroundColor: "#1B1830",
+    backgroundColor: lightColors.white,
     borderWidth: 1,
-    borderColor: "rgba(167,139,250,0.22)",
+    borderColor: lightColors.hairline,
     maxWidth: 180,
+  },
+  quietPill: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: lightColors.hairline,
+    backgroundColor: lightColors.white,
   },
   modelSheetHeader: {
     paddingBottom: spacing.sm,
@@ -1014,58 +1086,71 @@ const styles = StyleSheet.create({
     color: colors.ink,
     fontSize: 15,
   },
-  inputRow: {
+  // chat.html .chat-inputbar：pill（附件+输入+语音）+ 圆形发送键，gap 10
+  inputBar: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 8,
-    backgroundColor: "transparent",
+    gap: 10,
+    paddingHorizontal: lightChatSizes.inputBarPadX,
+    paddingTop: lightChatSizes.inputBarPadTop,
+    paddingBottom: lightChatSizes.inputBarPadBottom,
+  },
+  // chat.html .input-pill：cream 底 + 3px ink 描边 + radius 29，内含 round-btn ×2
+  inputPill: {
+    flex: 1,
+    minWidth: 0,
+    height: lightChatSizes.inputPillHeight,
+    backgroundColor: lightColors.cream,
+    borderRadius: lightChatSizes.inputPillRadius,
+    borderWidth: lightChatSizes.inputPillBorder,
+    borderColor: lightChatColors.inputBorder,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 8,
+  },
+  roundBtn: {
+    width: lightChatSizes.roundBtn,
+    height: lightChatSizes.roundBtn,
+    borderRadius: lightChatSizes.roundBtn / 2,
+    borderWidth: 1.5,
+    borderColor: lightChatColors.roundBtnBorder,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
   },
   input: {
     flex: 1,
-    height: 44,
-    maxHeight: 44,
-    boxSizing: "border-box",
-    backgroundColor: "#1B1830",
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "rgba(167,139,250,0.22)",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    color: "#F5F3FA",
+    minWidth: 0,
+    height: lightChatSizes.inputPillHeight - lightChatSizes.inputPillBorder * 2,
+    paddingHorizontal: 10,
     fontSize: 15,
+    color: lightColors.fieldText,
     textAlignVertical: "center",
     ...Platform.select({
-      web: { lineHeight: 20 },
+      web: { lineHeight: 20, paddingTop: 16, paddingBottom: 0 },
       default: {},
     }),
   },
+  // chat.html .send-btn：58px peach 圆
+  sendBtn: {
+    width: lightChatSizes.sendBtn,
+    height: lightChatSizes.sendBtn,
+    borderRadius: lightChatSizes.sendBtn / 2,
+    backgroundColor: lightColors.peach,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
   markHandledRow: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.xs,
-    backgroundColor: colors.canvas,
+    paddingHorizontal: lightChatSizes.chatAreaPadX,
+    paddingTop: 4,
+    paddingBottom: lightChatSizes.chatAreaPadBottom,
   },
   statusRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.xs,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: lightChatSizes.chatAreaPadX,
     paddingVertical: spacing.sm,
-  },
-  sendFill: {
-    width: 44,
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  sendBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
   },
 });

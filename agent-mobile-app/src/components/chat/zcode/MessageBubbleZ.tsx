@@ -3,32 +3,63 @@ import { View, Pressable, StyleSheet } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import Markdown from "react-native-markdown-display";
 import { Check, Copy } from "lucide-react-native";
-import { Text, Box, Icon } from "../../index";
-import { colors, radius, spacing } from "../../../theme";
+import { Text } from "../../index";
+import { lightColors, lightChatColors, lightChatTypography, lightChatSizes } from "../../../theme";
 import type { DisplayStep } from "../../../services/message-merging";
 import { StepRow } from "./StepRow";
-import { AIOrb } from "../../pulse/AIOrb";
+import { AiChatOrb } from "./AiChatOrb";
 
-// User message: subtle violet bubble (accentSoft), no border.
+// 气泡排版（chat.html .bubble 基准，#29）：14.5/400 lh21，双气泡配色。
+// code_inline 红线：必须显式覆盖 padding（默认 padding:10 会顶开相邻行）。
+const bubbleBase = {
+  fontSize: lightChatTypography.bubble.fontSize,
+  lineHeight: lightChatTypography.bubble.lineHeight,
+  color: lightChatColors.bubbleInk,
+};
+
+// user 气泡 markdown（米黄底）
 const userMarkdown = {
-  body: { color: colors.ink, fontSize: 15, lineHeight: 22 },
-  code_inline: { color: colors.ink, backgroundColor: "rgba(255,255,255,0.12)", padding: 0, lineHeight: 22 },
+  body: bubbleBase,
   paragraph: { marginVertical: 0 },
+  code_inline: {
+    color: lightChatColors.bubbleInk,
+    backgroundColor: "rgba(13,13,13,.06)",
+    padding: 0,
+    lineHeight: lightChatTypography.bubble.lineHeight,
+  },
 };
 
-// AI message: plain text, no bubble — the voice, not a chat widget.
+// AI 气泡 markdown（浅灰底 #F1F1F1）
 const aiMarkdown = {
-  body: { color: "#B4AECB", fontSize: 15, lineHeight: 24 },
-  heading1: { color: colors.ink, fontSize: 18, fontWeight: "700" as const },
-  heading2: { color: colors.ink, fontSize: 16, fontWeight: "700" as const },
-  heading3: { color: colors.ink, fontSize: 15, fontWeight: "700" as const },
-  code_inline: { color: colors.accent.bright, backgroundColor: colors.surface[1], padding: 0, borderRadius: 3, lineHeight: 22 },
-  fence: { color: colors.ink, backgroundColor: colors.surface[1], padding: 8, borderRadius: 6 },
-  code_block: { color: colors.ink, backgroundColor: colors.surface[1] },
-  link: { color: colors.accent.bright },
+  body: bubbleBase,
+  heading1: { ...bubbleBase, fontSize: 17, fontWeight: "700" as const },
+  heading2: { ...bubbleBase, fontSize: 16, fontWeight: "700" as const },
+  heading3: { ...bubbleBase, fontSize: 15, fontWeight: "700" as const },
+  code_inline: {
+    color: lightChatColors.bubbleInk,
+    backgroundColor: "rgba(13,13,13,.06)",
+    padding: 0,
+    lineHeight: lightChatTypography.bubble.lineHeight,
+  },
+  fence: {
+    color: lightChatColors.bubbleInk,
+    backgroundColor: lightColors.white,
+    padding: 8,
+    borderRadius: 8,
+  },
+  code_block: { color: lightChatColors.bubbleInk, backgroundColor: lightColors.white },
+  link: { color: lightColors.accentDeep },
   paragraph: { marginVertical: 4 },
-  bullet_list_icon: { color: colors.muted },
+  bullet_list_icon: { color: lightColors.grayText },
 };
+
+// 气泡样式（chat.html .bubble：padding 11px 13px、radius 16、max-width 76%）
+const bubbleBox = {
+  maxWidth: lightChatSizes.bubbleMaxWidth,
+  paddingHorizontal: lightChatSizes.bubblePadX,
+  paddingVertical: lightChatSizes.bubblePadY,
+  borderRadius: lightChatSizes.bubbleRadius,
+} as const;
 
 // 气泡下操作行：复制（1.5s Check 反馈）+ HH:mm 时间戳。复制 step.text 全文，
 // 不受打字机 slice 影响（slice 只发生在 ChatPanelZ 的展示层）。
@@ -45,10 +76,28 @@ function Actions({ text, createdAt, align }: { text: string; createdAt: number; 
   return (
       <View style={[s.actions, align === "right" ? s.actionsRight : s.actionsLeft]}>
         <Pressable onPress={copy} accessibilityLabel="复制消息" style={s.actionBtn} hitSlop={6}>
-          <Icon icon={copied ? Check : Copy} size="xs" color={copied ? "success" : "muted"} />
+          {copied ? (
+            <Check color={lightColors.green} size={12} strokeWidth={2} />
+          ) : (
+            <Copy color={lightColors.grayText} size={12} strokeWidth={2} />
+          )}
         </Pressable>
-        <Text variant="caption" color="muted">{time}</Text>
+        <Text variant="lightCaption" color="lightGray">{time}</Text>
       </View>
+  );
+}
+
+// user check-badge（chat.html .check-badge）：20px 圆 + 绿对勾 = 发送状态
+function CheckBadge() {
+  return (
+    <View
+      style={[
+        s.badge,
+        { width: lightChatSizes.badgeSize, height: lightChatSizes.badgeSize, borderRadius: lightChatSizes.badgeSize / 2 },
+      ]}
+    >
+      <Check color={lightChatColors.greenCheck} size={11} strokeWidth={3} />
+    </View>
   );
 }
 
@@ -57,52 +106,85 @@ export const MessageBubbleZ = React.memo(function MessageBubbleZ({ step }: { ste
     return <StepRow step={step} />;
   }
 
-  // User: right-aligned subtle violet bubble.
+  // User: right-aligned cream-yellow bubble + check-badge（发送状态，chat.html msg-row.user）
   if (step.kind === "user") {
+    // 零 parts 的 user 消息（历史脏数据，如 memx-refinement）：空气泡只剩 badge 悬浮，
+    // 呈现层跳过（数据层 mergeMessages 过滤语义不动——换肤不换芯）
+    if (!step.text.trim()) return null;
     return (
-      <Box marginBottom="xs" style={{ alignItems: "flex-end" }}>
-        <Box paddingHorizontal="lg" paddingVertical="md" style={{ minWidth: 40, maxWidth: "80%", marginLeft: 20, backgroundColor: "rgba(139,92,246,0.15)", borderRadius: 18, borderWidth: 1, borderColor: "rgba(167,139,250,0.28)" }}>
+      <View style={s.rowUser}>
+        <View style={[s.bubble, bubbleBox, { backgroundColor: lightChatColors.bubbleUser }]}>
           <Markdown style={userMarkdown}>{step.text}</Markdown>
-        </Box>
-        <Actions text={step.text} createdAt={step.createdAt} align="right" />
-      </Box>
+        </View>
+        <CheckBadge />
+      </View>
     );
   }
 
   // Error / system intervention: semantic pill, never dressed as normal conversation.
   if (step.kind === "error") {
     return (
-      <Box marginBottom="sm" style={{ alignItems: "flex-start" }}>
-        <Box padding="sm" rounded="md" style={{ maxWidth: "92%", backgroundColor: colors.surface[2], borderLeftWidth: 3, borderLeftColor: colors.status.error }}>
-          <Text variant="body" color="error">{step.text}</Text>
-        </Box>
-      </Box>
+      <View style={s.rowAi}>
+        <View style={[s.errorBox, { maxWidth: "92%" }]}>
+          <Text variant="lightBody" color="lightUpRed">{step.text}</Text>
+        </View>
+      </View>
     );
   }
 
-  // AI: plain text, no bubble — orb avatar + indent (showcase2 ConversationMessage).
+  // AI: orb avatar + 浅灰气泡（chat.html msg-row.ai；orb 底对齐气泡）
   return (
-    <Box marginBottom="xs" style={{ alignItems: "flex-start" }}>
-      <Box style={{ flexDirection: "row", alignItems: "flex-start", gap: 12, paddingLeft: 4, maxWidth: "94%" }}>
-      <View style={{ marginTop: 2 }}>
-        <AIOrb state="attentive" size="dot" />
+    <View style={s.rowAi}>
+      <View style={s.orbSlot}>
+        <AiChatOrb />
       </View>
-      <Box style={{ flex: 1, minWidth: 0 }}>
+      <View style={[s.bubble, bubbleBox, { backgroundColor: lightChatColors.bubbleAi }]}>
         {/* No fixed-height scroll container here: the typewriter reveals the
             text character by character, so the block must grow with the text. */}
         <Markdown style={aiMarkdown}>{step.text}</Markdown>
-      </Box>
-      </Box>
-      <Actions text={step.text} createdAt={step.createdAt} align="left" />
-    </Box>
+      </View>
+    </View>
   );
 });
 
 const s = StyleSheet.create({
-  actions: { flexDirection: "row", alignItems: "center", gap: spacing.xs, marginTop: spacing.xxs, paddingHorizontal: 0 },
+  // chat.html .msg-row：align-items flex-end（orb/badge 贴气泡底），gap 7
+  rowUser: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "flex-end",
+    gap: lightChatSizes.rowGap,
+  },
+  rowAi: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "flex-start",
+    gap: lightChatSizes.rowGap,
+  },
+  bubble: {
+    // maxWidth 由 bubbleBox 控制（76%）；flexShrink 保证长文本换行而不是撑破
+    flexShrink: 1,
+  },
+  orbSlot: { justifyContent: "flex-end", paddingBottom: 2 },
+  badge: {
+    backgroundColor: lightChatColors.badge,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 2,
+    flexShrink: 0,
+  },
+  errorBox: {
+    backgroundColor: "rgba(229,72,77,.08)",
+    borderLeftWidth: 3,
+    borderLeftColor: lightColors.upRed,
+    borderRadius: 8,
+    paddingHorizontal: 13,
+    paddingVertical: 11,
+  },
+  actions: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 2 },
   // 用户气泡（右对齐）：复制+时间整体贴气泡右边缘，跟气泡本体对齐
-  actionsRight: { alignSelf: "flex-end", paddingRight: spacing.xs },
-  // AI 纯文本（左对齐）：与文本缩进对齐
-  actionsLeft: { alignSelf: "flex-start", paddingLeft: spacing.sm },
+  actionsRight: { alignSelf: "flex-end", paddingRight: 2 },
+  // AI 气泡（左对齐）：缩进到气泡文本起点（orb 24 + gap 7）
+  actionsLeft: { alignSelf: "flex-start", paddingLeft: 31 },
   actionBtn: { padding: 2 },
 });

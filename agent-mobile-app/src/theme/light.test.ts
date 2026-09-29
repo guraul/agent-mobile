@@ -8,6 +8,11 @@ import {
   lightRadius,
   lightSizes,
   lightGradient,
+  lightChat,
+  lightChatColors,
+  lightChatTypography,
+  lightChatSizes,
+  lightChatOrbStops,
 } from "./light";
 
 /** 7-token 基础字阶键（D1 红线：缺一不可） */
@@ -157,9 +162,54 @@ describe("lightGradient / light 聚合", () => {
     expect(lightGradient.primary).toEqual(["#A78BFA", "#8B5CF6", "#6D4FD8"]);
   });
 
-  it("light 聚合导出六段完整", () => {
+  it("light 聚合导出七段完整（含 chat 专属段）", () => {
     expect(Object.keys(light).sort()).toEqual(
-      ["colors", "gradient", "radius", "shadows", "sizes", "spacing", "typography"].sort()
+      ["colors", "chat", "gradient", "radius", "shadows", "sizes", "spacing", "typography"].sort()
     );
+  });
+});
+
+describe("lightChat（chat.html mock，#29）", () => {
+  it("chat 核心色值照抄 mock :root", () => {
+    expect(lightChatColors.bubbleUser).toBe("#F7F3D3");
+    expect(lightChatColors.bubbleAi).toBe("#F1F1F1");
+    expect(lightChatColors.chatArea).toBe("#FFFFFF");
+    expect(lightChatColors.badge).toBe("#F5F5D5");
+    expect(lightChatColors.greenCheck).toBe("#5CBB63");
+    expect(lightChatColors.bubbleInk).toBe("#1A1A1A");
+    expect(lightChatColors.peachGlow).toBe("rgba(243,186,143,.55)");
+    expect(lightChatColors.inputBorder).toBe("#0D0D0D");
+  });
+
+  it("peach 主行动作与画布复用 pulseB 同值（chat 语言一致性）", () => {
+    expect(lightChatOrbStops[3].color).toBe(lightColors.peach);
+    expect(lightColors.peach).toBe("#F3BA8F");
+  });
+
+  it("chat 字阶显式 lineHeight 且 round(fontSize × 1.45)", () => {
+    expect(lightChatTypography.chatTitle).toEqual({
+      fontSize: 21, fontWeight: "700", lineHeight: 30, letterSpacing: 0,
+    });
+    expect(lightChatTypography.bubble.lineHeight).toBe(Math.round(14.5 * 1.45));
+  });
+
+  it("关键尺寸照抄 mock（input-pill 58/29/3、send 58、round-btn 42、chat-area 30）", () => {
+    expect(lightChatSizes.inputPillRadius).toBe(lightChatSizes.inputPillHeight / 2);
+    expect(lightChatSizes.sendBtn).toBe(58);
+    expect(lightChatSizes.chatAreaRadius).toBe(30);
+    expect(lightChatSizes.roundBtn).toBe(42);
+    expect(lightChatSizes.orbSize).toBe(24);
+    expect(lightChatSizes.badgeSize).toBe(20);
+    expect(lightChatSizes.msgGap).toBe(11);
+  });
+
+  it("ai-orb 径向色标五段（0/30/48/62/72%，暗核→桃环→透明）", () => {
+    expect(lightChatOrbStops.map((s) => s.offset)).toEqual(["0%", "30%", "48%", "62%", "72%"]);
+    expect(lightChatOrbStops[0].color).toBe(lightChatColors.orbCore);
+    expect(lightChatOrbStops[4].color).toBe("rgba(243,186,143,0)");
+  });
+
+  it("chat 段聚合完整", () => {
+    expect(Object.keys(lightChat).sort()).toEqual(["colors", "orbStops", "sizes", "typography"].sort());
   });
 });

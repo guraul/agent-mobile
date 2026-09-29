@@ -3,6 +3,7 @@ import { Text as RNText, type TextProps as RNTextProps } from "react-native";
 import { typography, colors } from "../../theme";
 import {
   lightTypography,
+  lightChatTypography,
   lightColors,
   type LightTextStyle,
 } from "../../theme/light";
@@ -66,6 +67,8 @@ const lightVariantMap = {
   lightScheduleLabel: lightTypography.scheduleLabel,
   lightScheduleTitle: lightTypography.scheduleTitle,
   lightScheduleMeta: lightTypography.scheduleMeta,
+  /* chat 专属（#29 chat.html .chat-title）：21/700 标题 */
+  lightChatTitle: lightChatTypography.chatTitle,
 } as const;
 
 type LightVariantKey = keyof typeof lightVariantMap;
