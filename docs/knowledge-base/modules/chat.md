@@ -1,8 +1,14 @@
 # modules/chat.md —— 聊天（项目对话 / Talk）
 
-> 最后更新：2026-09-21 · commit：`feat/companion-ui-migration`（Companion UI Migration：Talk 从 tab 改为 contextual stack 路由；ProjectChatZ header/MessageBubbleZ/ChatPanelZ 视觉迁移到 Showcase2 语言）
+> 最后更新：2026-09-29 · commit：`feat(chat): talk 双页路由骨架 + chat 页浅色化（#29）`（双 chat 页分流 + chat.html 浅色形态，epic #35 首项）
 >
 > ⚠️ **v0.1.1 变更**：聊天唯一入口 = **Talk stack route**（`src/app/talk.tsx` 薄入口 → `ProjectChatZ`/`ChatPanelZ`）。Pulse 不再承载 chat，只保留底部 Conversation Entry；contextual 会话（Attention/Suggested/Noticed）经 route params 进入 Talk。`ProjectChatZ` 有 `onClose`（X → 回 Pulse）与可选 `onBack`；`ChatPanelZ` 有 `autoContextText`（通用开场消息，无授权语义）与既有 `autoSendContext`（Attention 上下文注入）。Layers（session picker）是 session 列出/切换/新建的唯一 UI，按当前 projectPath 过滤。
+>
+> ⚠️ **2026-09-29 双 chat 页分流 + 浅色化（epic #35 / #29）**：
+> - **单路由 /talk 运行时分流**：`resolveConversationKind(directory)`（`src/services/conversation-kind.ts`，纯函数+单测；`MARKET_TALK_DIRECTORY` 常量收编于此，attention/talk.ts re-export）——绑项目 → `chatcode`（标题 "Pulse — Code Chat"），market 工作区/无项目/根目录 → `chat`（"Pulse — Chat"）。directory 是 session 属性进页才知道，判据放运行时，route params 全兼容。**#29 仅标题分流，chatcode 工作台壳由 #31 落地**（当前两支都渲染 chat 形态）。
+> - **chat 浅色形态（chat.html 基准）**：cream 画布 + 白色圆角聊天区面板（radius 30）+ 双气泡（AI #F1F1F1 / user #F7F3D3，radius 16，max-width 76%）+ **AiChatOrb**（`zcode/AiChatOrb.tsx`，react-native-svg RadialGradient 还原 mock 径向渐变 + 分层光晕圆）+ user check-badge（20px #F5F5D5 圆 + 绿对勾）+ inputbar（58px 胶囊带 3px ink 描边，内含附件/语音 round-btn 占位 + 42px 圆钮，右侧 58px **peach #F3BA8F 圆形发送键**）+ agent/model 白底细边 pill 行。boot/offline 屏同步浅色（LightPresenceDot + peach Retry）。token 全部在 `light.ts` **chat 专属段**（`lightChatColors/lightChatTypography/lightChatSizes/lightChatOrbStops`），Text 新增 `lightChatTitle` variant。
+> - **呈现层守卫**：零 parts 的 user 消息（历史脏数据）不渲染空气泡+badge（MessageBubbleZ 呈现层判空；mergeMessages 数据层语义不动）。
+> - **未动（#31 机械换肤）**：question/permission/model 弹层与 session picker 仍是旧暗色 BottomSheet（自洽暗色，内容色未动）。
 >
 > ⚠️ **2026-09-21 Companion 视觉迁移**：`USE_ZCODE_CHAT_SHEET` 开关已删除（Talk 是唯一聊天渲染层，无回退分支）；ZCode 组件改为 Companian 视觉——header 左 AIOrb + AIStatus +「Pulse」+ 右会话标题/Layers/Close；AI 消息纯文本无气泡，user 消息 accent.subtle 淡紫气泡，error 为语义色 pill；输入区移除 Mic，输入框与发送键统一 48px。
 

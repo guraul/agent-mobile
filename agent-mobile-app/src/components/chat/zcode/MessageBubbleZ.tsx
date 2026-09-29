@@ -108,6 +108,9 @@ export const MessageBubbleZ = React.memo(function MessageBubbleZ({ step }: { ste
 
   // User: right-aligned cream-yellow bubble + check-badge（发送状态，chat.html msg-row.user）
   if (step.kind === "user") {
+    // 零 parts 的 user 消息（历史脏数据，如 memx-refinement）：空气泡只剩 badge 悬浮，
+    // 呈现层跳过（数据层 mergeMessages 过滤语义不动——换肤不换芯）
+    if (!step.text.trim()) return null;
     return (
       <View style={s.rowUser}>
         <View style={[s.bubble, bubbleBox, { backgroundColor: lightChatColors.bubbleUser }]}>
