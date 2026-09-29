@@ -824,6 +824,57 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
         </Pressable>
       </View>
 
+      {/* 输入区（chat.html .chat-inputbar）：pill（附件 + 输入 + 语音）+ peach 圆形发送键 */}
+      <View style={styles.inputBar}>
+        <View style={styles.inputPill}>
+          <Pressable
+            onPress={() => Alert.alert("附件", "附件功能即将上线")}
+            accessibilityLabel="Add attachment"
+            accessibilityRole="button"
+            style={styles.roundBtn}
+            hitSlop={4}
+          >
+            <Plus color={lightColors.ink} size={20} strokeWidth={2} />
+          </Pressable>
+          <TextInput
+            style={styles.input}
+            value={input}
+            onChangeText={setInput}
+            placeholder="Ask AI anything..."
+            placeholderTextColor={lightChatColors.inputPlaceholder}
+            multiline
+          />
+          <Pressable
+            onPress={() => Alert.alert("语音", "语音输入即将上线")}
+            accessibilityLabel="Voice input"
+            accessibilityRole="button"
+            style={styles.roundBtn}
+            hitSlop={4}
+          >
+            <Mic color={lightColors.ink} size={20} strokeWidth={2} />
+          </Pressable>
+        </View>
+        {sending ? (
+          <Pressable
+            onPress={abort}
+            style={styles.sendBtn}
+            accessibilityLabel="Stop"
+            accessibilityRole="button"
+          >
+            <Square color={lightColors.ink} size={22} strokeWidth={2.4} />
+          </Pressable>
+        ) : (
+          <Pressable
+            onPress={send}
+            disabled={!input.trim()}
+            style={[styles.sendBtn, !input.trim() && { opacity: 0.4 }]}
+            accessibilityLabel="Send"
+            accessibilityRole="button"
+          >
+            <Send color={lightColors.ink} size={24} strokeWidth={2.4} />
+          </Pressable>
+        )}
+      </View>
       {/* model 面板（#31 机械换肤：LightSheet + light token，provider 前缀 + 双匹配高亮逻辑不变） */}
       <LightSheet visible={modelMenuOpen} onClose={() => setModelMenuOpen(false)} testID="model-sheet">
         <View style={styles.sheetHeader}>
@@ -956,58 +1007,6 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
           </View>
         </LightSheet>
       ) : null}
-
-      {/* 输入区（chat.html .chat-inputbar）：pill（附件 + 输入 + 语音）+ peach 圆形发送键 */}
-      <View style={styles.inputBar}>
-        <View style={styles.inputPill}>
-          <Pressable
-            onPress={() => Alert.alert("附件", "附件功能即将上线")}
-            accessibilityLabel="Add attachment"
-            accessibilityRole="button"
-            style={styles.roundBtn}
-            hitSlop={4}
-          >
-            <Plus color={lightColors.ink} size={20} strokeWidth={2} />
-          </Pressable>
-          <TextInput
-            style={styles.input}
-            value={input}
-            onChangeText={setInput}
-            placeholder="Ask AI anything..."
-            placeholderTextColor={lightChatColors.inputPlaceholder}
-            multiline
-          />
-          <Pressable
-            onPress={() => Alert.alert("语音", "语音输入即将上线")}
-            accessibilityLabel="Voice input"
-            accessibilityRole="button"
-            style={styles.roundBtn}
-            hitSlop={4}
-          >
-            <Mic color={lightColors.ink} size={20} strokeWidth={2} />
-          </Pressable>
-        </View>
-        {sending ? (
-          <Pressable
-            onPress={abort}
-            style={styles.sendBtn}
-            accessibilityLabel="Stop"
-            accessibilityRole="button"
-          >
-            <Square color={lightColors.ink} size={22} strokeWidth={2.4} />
-          </Pressable>
-        ) : (
-          <Pressable
-            onPress={send}
-            disabled={!input.trim()}
-            style={[styles.sendBtn, !input.trim() && { opacity: 0.4 }]}
-            accessibilityLabel="Send"
-            accessibilityRole="button"
-          >
-            <Send color={lightColors.ink} size={24} strokeWidth={2.4} />
-          </Pressable>
-        )}
-      </View>
     </KeyboardAvoidingView>
   );
 }
