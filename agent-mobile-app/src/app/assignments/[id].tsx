@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { View, ScrollView, StyleSheet, Alert } from "react-native";
+import { View, ScrollView, StyleSheet } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, RefreshCw } from "lucide-react-native";
 import { colors, spacing } from "@/theme";
@@ -15,6 +15,7 @@ import {
   type AssignmentHistoryItem,
 } from "@/services/assignment/client";
 import { describeTrigger, authorizationLabel, formatRelative } from "@/services/assignment/projection";
+import { showAlert } from "../../services/alert";
 
 // Assignment 详情屏（Phase 9，Part 2/3）：responsibility 状态 + trigger + authorization 投影 + execution history 投影。
 // 只读显示；mutation（revoke/repair/compensate）走既有后端 API，由用户显式触发。
@@ -71,7 +72,7 @@ export default function AssignmentDetailScreen() {
   };
 
   const confirmRevoke = () => {
-    Alert.alert("Revoke responsibility?", `停止未来执行；已有提醒保留（PM §11）。\n\n${a?.responsibility ?? ""}`, [
+    showAlert("Revoke responsibility?", `停止未来执行；已有提醒保留（PM §11）。\n\n${a?.responsibility ?? ""}`, [
       { text: "取消", style: "cancel" },
       { text: "撤销", style: "destructive", onPress: () => run("revoke") },
     ]);

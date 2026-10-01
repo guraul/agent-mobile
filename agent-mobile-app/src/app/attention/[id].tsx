@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { Pressable, Text, View, ScrollView, StyleSheet, Alert } from "react-native";
+import { Pressable, Text, View, ScrollView, StyleSheet } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, RefreshCw } from "lucide-react-native";
@@ -12,6 +12,7 @@ import { resolveAttentionConversation } from "@/services/attention/talk";
 import { classifyRuntimeFailure, runtimeFailureMessage } from "@/services/runtime-presence";
 import { LightDock, LightStatusPill, LightTextAction } from "@/components/pulse/LightAtoms";
 import { lightColors, lightTypography, lightRadius, lightSpacing } from "@/theme/light";
+import { showAlert } from "../../services/alert";
 
 // Attention 详情屏（RN 迁移 #H 重做，基准 pulseB-review.html）。
 // 结构：Related responsibility → Evidence → 页脚注；底部紫渐变 dock（Open Talk），
@@ -82,22 +83,22 @@ export default function AttentionDetailScreen() {
       const kind = classifyRuntimeFailure(e);
       const msg = e instanceof Error ? e.message : String(e);
       if (kind === "opencode-offline" || kind === "bff-offline" || kind === "auth") {
-        const m = runtimeFailureMessage(kind); Alert.alert(m.title, m.body);
+        const m = runtimeFailureMessage(kind); showAlert(m.title, m.body);
       } else if (/会话已不可用|404|not found/i.test(msg)) {
         // 会话已丢失（runtime 重启等）→ 提供去 Talk 默认会话的逃生口，而不是死胡同
-        Alert.alert("原会话已不存在", "该事项引用的会话已丢失（agent runtime 可能重启过）。", [
+        showAlert("原会话已不存在", "该事项引用的会话已丢失（agent runtime 可能重启过）。", [
           { text: "取消", style: "cancel" },
           { text: "去 Talk 默认会话", onPress: () => router.push({ pathname: "/talk" }) },
         ]);
       } else {
-        Alert.alert("无法进入 Talk", msg);
+        showAlert("无法进入 Talk", msg);
       }
     }
   };
 
   // D9：Dismiss 破坏性动作 → Alert 二次确认（弱化视觉 + 强确认，双保险）
   const doDismiss = () => {
-    Alert.alert("Dismiss this item?", "仅代表显式退出，不影响 responsibility。", [
+    showAlert("Dismiss this item?", "仅代表显式退出，不影响 responsibility。", [
       { text: "取消", style: "cancel" },
       {
         text: "Dismiss", style: "destructive",

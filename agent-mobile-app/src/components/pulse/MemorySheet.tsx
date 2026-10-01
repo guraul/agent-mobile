@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Alert, Pressable, ScrollView, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
 import { Trash2 } from "lucide-react-native";
 import { BottomSheet } from "../navigation/BottomSheet";
 import { Text } from "../primitives/Text";
@@ -12,6 +12,7 @@ import {
   type MemoryGroup,
 } from "../../services/memory/client";
 import { colors, spacing } from "../../theme";
+import { showAlert } from "../../services/alert";
 
 /**
  * MemorySheet — "What I remember" (canonical = memx projection, read-only +
@@ -49,7 +50,7 @@ export function MemorySheet({
   }, [visible, reload]);
 
   const doForget = (item: { id: string; title: string }) => {
-    Alert.alert(
+    showAlert(
       "忘记这条记忆？",
       `${item.title}\n\nproject 记忆将移入 .trash 并从索引移除；user 记忆将被标记弃用。`,
       [
@@ -60,7 +61,7 @@ export function MemorySheet({
           onPress: () => {
             forgetMemory(item.id)
               .then(() => reload())
-              .catch((e) => Alert.alert("Forget 失败", e instanceof Error ? e.message : String(e)));
+              .catch((e) => showAlert("Forget 失败", e instanceof Error ? e.message : String(e)));
           },
         },
       ],

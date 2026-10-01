@@ -1,18 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import {
-  View,
-  TextInput,
-  Pressable,
-  FlatList,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  RefreshControl,
-  StyleSheet,
-  Alert,
-  type NativeSyntheticEvent,
-  type NativeScrollEvent,
-} from "react-native";
+import { View, TextInput, Pressable, FlatList, ScrollView, KeyboardAvoidingView, Platform, RefreshControl, StyleSheet, type NativeSyntheticEvent, type NativeScrollEvent } from "react-native";
 import { Mic, Send, Square } from "lucide-react-native";
 import { Text, Box, Button } from "../index";
 import { BottomSheet } from "../navigation/BottomSheet";
@@ -36,6 +23,7 @@ import { mergeMessages, type DisplayStep } from "../../services/message-merging"
 import { loadModelPrefs } from "../../services/model-prefs";
 import { DEFAULT_MODEL, selectModels } from "../../services/model-registry";
 import { MessageBubble } from "./MessageBubble";
+import { showAlert } from "../../services/alert";
 
 const PAGE_SIZE = 50;
 // keep a bounded window in memory: SSE events keep appending to the list loaded
@@ -789,7 +777,7 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
 
       <View style={styles.inputRow}>
         <Pressable
-          onPress={() => Alert.alert("Voice input", "Coming soon.")}
+          onPress={() => showAlert("Voice input", "Coming soon.")}
           accessibilityLabel="Voice input"
           accessibilityRole="button"
           style={styles.voiceBtn}

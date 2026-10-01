@@ -67,6 +67,7 @@ export const lightColors = {
   scrim: "rgba(10,10,10,.45)", // sheet 遮罩
   handle: "rgba(0,0,0,.18)", // sheet handle
   hairline: "rgba(0,0,0,.08)", // chip 边
+  dangerBorder: "rgba(13,13,13,.14)", // 破坏性动作按钮描边（#43；hairline .08 对白底仅 1.19:1，边界会消失）
   divider: "rgba(0,0,0,.05)", // Noticed 行分隔
   peach: "#F3BA8F", // chat FAB / dock 箭头
   peachHalo: "rgba(243,186,143,.3)", // FAB 光环

@@ -3,6 +3,7 @@ import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useEffect, useState } from "react";
 import { Platform, View, Text } from "react-native";
+import { AlertHost } from "../services/alert";
 
 export default function RootLayout() {
   const [fatal, setFatal] = useState<string | null>(null);
@@ -48,6 +49,8 @@ export default function RootLayout() {
         <Stack.Screen name="attention/[id]" />
         <Stack.Screen name="kb/doc" />
       </Stack>
+      {/* #43 Alert 兜底宿主：必须渲染在组件树最后——LightSheet 无 zIndex，靠渲染顺序压层 */}
+      <AlertHost />
     </SafeAreaProvider>
   );
 }
