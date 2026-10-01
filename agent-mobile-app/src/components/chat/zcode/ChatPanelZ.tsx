@@ -4,21 +4,7 @@
 // Companion migration：/talk stack route 的唯一聊天渲染层（ProjectChatZ 内嵌）。
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useRouter } from "expo-router";
-import {
-  View,
-  TextInput,
-  Pressable,
-  Text as RNText,
-  FlatList,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  RefreshControl,
-  StyleSheet,
-  Alert,
-  type NativeSyntheticEvent,
-  type NativeScrollEvent,
-} from "react-native";
+import { View, TextInput, Pressable, Text as RNText, FlatList, ScrollView, KeyboardAvoidingView, Platform, RefreshControl, StyleSheet, type NativeSyntheticEvent, type NativeScrollEvent } from "react-native";
 import { ArrowUp, Bot, Check, GripVertical, Mic, Plus, Send, Square, X } from "lucide-react-native";
 import { Text, Box } from "../../index";
 import { LightSheet } from "../../pulse/LightSheet";
@@ -67,6 +53,7 @@ import {
 } from "../../../services/message-queue";
 import type { EngagedAttentionRef } from "../../../services/attention/store";
 import { MessageBubbleZ } from "./MessageBubbleZ";
+import { showAlert } from "../../../services/alert";
 
 const PAGE_SIZE = 50;
 // keep a bounded window in memory: SSE events keep appending to the list loaded
@@ -584,9 +571,9 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
     try {
       // artifact 先有（本会话即 handling 会话），再调 handle；不打到 Agent/不猜 artifact
       const { transitioned } = await handleAttention(attention.id, `handling:${sessionID}`);
-      if (!transitioned) Alert.alert("已处理过", "该 Attention 已不在 OPEN 状态。");
+      if (!transitioned) showAlert("已处理过", "该 Attention 已不在 OPEN 状态。");
     } catch (e) {
-      Alert.alert("标记失败", e instanceof Error ? e.message : String(e));
+      showAlert("标记失败", e instanceof Error ? e.message : String(e));
     } finally {
       setMarkingHandled(false);
     }
@@ -623,7 +610,7 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
         { kind: "dutiesCard", id: `card-duty-${Date.now().toString(36)}`, createdAt: Date.now(), rows, caption: DUTIES_CAPTION },
       ]);
     } catch (e) {
-      Alert.alert("Duties", e instanceof Error ? e.message : String(e));
+      showAlert("Duties", e instanceof Error ? e.message : String(e));
     }
   }, []);
 
@@ -639,7 +626,7 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
         { kind: "projectsCard", id: `card-proj-${Date.now().toString(36)}`, createdAt: Date.now(), rows },
       ]);
     } catch (e) {
-      Alert.alert("Projects", e instanceof Error ? e.message : String(e));
+      showAlert("Projects", e instanceof Error ? e.message : String(e));
     }
   }, []);
 
@@ -648,7 +635,7 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
     try {
       if (action === "revoke") {
         const r = await revokeAssignment(row.id);
-        if (!r.transitioned) Alert.alert("Revoke", "该职责已不在 active 状态。");
+        if (!r.transitioned) showAlert("Revoke", "该职责已不在 active 状态。");
       } else if (action === "retry") {
         await repairAssignment(row.id);
       } else if (action === "run-now") {
@@ -658,7 +645,7 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
       }
       await refreshDutiesCard();
     } catch (e) {
-      Alert.alert("操作失败", e instanceof Error ? e.message : String(e));
+      showAlert("操作失败", e instanceof Error ? e.message : String(e));
     } finally {
       setCardBusyId(null);
     }
@@ -694,9 +681,9 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
       setInput("");
       try {
         const feedback = await executeAssignmentCommand(assignmentCommand, sessionID);
-        Alert.alert("Assignment", feedback);
+        showAlert("Assignment", feedback);
       } catch (e) {
-        Alert.alert("命令失败", e instanceof Error ? e.message : String(e));
+        showAlert("命令失败", e instanceof Error ? e.message : String(e));
       } finally {
         setSending(false);
       }
@@ -1019,7 +1006,7 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
             />
             <View style={styles.composerFooter}>
               <Pressable
-                onPress={() => Alert.alert("附件", "附件功能即将上线")}
+                onPress={() => showAlert("附件", "附件功能即将上线")}
                 accessibilityLabel="Add attachment"
                 accessibilityRole="button"
                 style={styles.composerMiniBtn}
@@ -1030,7 +1017,7 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
               <RNText style={styles.charCount}>{input.length}</RNText>
               <View style={styles.flexSpacer} />
               <Pressable
-                onPress={() => Alert.alert("语音", "语音输入即将上线")}
+                onPress={() => showAlert("语音", "语音输入即将上线")}
                 accessibilityLabel="Voice input"
                 accessibilityRole="button"
                 style={styles.composerMiniBtn}
@@ -1068,7 +1055,7 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
           <View style={styles.inputPillCol}>
             <View style={styles.pillMain}>
               <Pressable
-                onPress={() => Alert.alert("附件", "附件功能即将上线")}
+                onPress={() => showAlert("附件", "附件功能即将上线")}
                 accessibilityLabel="Add attachment"
                 accessibilityRole="button"
                 style={styles.roundBtn}
@@ -1097,7 +1084,7 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
                 />
               </Pressable>
               <Pressable
-                onPress={() => Alert.alert("语音", "语音输入即将上线")}
+                onPress={() => showAlert("语音", "语音输入即将上线")}
                 accessibilityLabel="Voice input"
                 accessibilityRole="button"
                 style={styles.roundBtn}

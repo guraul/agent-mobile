@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { View, StyleSheet, Alert, Pressable } from "react-native";
+import { View, StyleSheet, Pressable } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, RefreshCw } from "lucide-react-native";
@@ -13,6 +13,7 @@ import { classifyRuntimeFailure, runtimeFailureMessage } from "@/services/runtim
 import { resolveConversationKind } from "@/services/conversation-kind";
 import { ProjectChatZ } from "@/components/chat/zcode/ProjectChatZ";
 import type { EngagedAttentionRef } from "@/services/attention/store";
+import { showAlert } from "../services/alert";
 
 // Talk stack route（v0.1.1 UX correction / Companion migration）：/talk 是
 // contextual conversation workspace，不再是 top-level tab。
@@ -74,7 +75,7 @@ export default function TalkScreen() {
             return;
           }
           // 404/会话已丢失 → 逃生口：降级到默认会话，而不是钉死在错误态
-          Alert.alert("原会话已不存在", "该会话已丢失（agent runtime 可能重启过）。已切换到最近的会话。");
+          showAlert("原会话已不存在", "该会话已丢失（agent runtime 可能重启过）。已切换到最近的会话。");
         }
       }
       if (params.projectPath) {

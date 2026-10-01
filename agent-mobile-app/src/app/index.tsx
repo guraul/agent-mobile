@@ -1,12 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  Alert,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text as RNText,
-  View,
-} from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text as RNText, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Settings } from "lucide-react-native";
 import { useRouter } from "expo-router";
@@ -47,6 +40,7 @@ import { loadToken, onUnauthorized, getUsername } from "@/services/auth";
 import { classifyRuntimeFailure, runtimeFailureMessage } from "@/services/runtime-presence";
 import { iconStroke } from "@/theme";
 import { lightColors, lightTypography, lightSpacing, lightSizes, lightRadius } from "@/theme/light";
+import { showAlert } from "../services/alert";
 
 const SUPPORTING_BUDGET = 4;
 const NOTICED_BUDGET = 5;
@@ -236,7 +230,7 @@ export default function PulseScreen() {
   const alertRuntimeFailure = (e: unknown) => {
     const kind = classifyRuntimeFailure(e);
     const m = runtimeFailureMessage(kind);
-    Alert.alert(m.title, m.body);
+    showAlert(m.title, m.body);
   };
 
   const openTalkForAttention = async (a: PulseAttentionItem) => {
@@ -268,14 +262,14 @@ export default function PulseScreen() {
       const msg = e instanceof Error ? e.message : String(e);
       if (kind === "opencode-offline" || kind === "bff-offline" || kind === "auth") {
         const m = runtimeFailureMessage(kind);
-        Alert.alert(m.title, m.body);
+        showAlert(m.title, m.body);
       } else if (/会话已不可用|404|not found/i.test(msg)) {
-        Alert.alert("原会话已不存在", "该事项引用的会话已丢失（agent runtime 可能重启过）。", [
+        showAlert("原会话已不存在", "该事项引用的会话已丢失（agent runtime 可能重启过）。", [
           { text: "取消", style: "cancel" },
           { text: "去 Talk 默认会话", onPress: () => router.push({ pathname: "/talk" }) },
         ]);
       } else {
-        Alert.alert("无法进入 Talk", msg);
+        showAlert("无法进入 Talk", msg);
       }
     }
   };

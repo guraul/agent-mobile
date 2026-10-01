@@ -14,6 +14,7 @@ import { getUsername, logout, loadToken } from "../../services/auth";
 import { getRuntimeBaseUrl, setRuntimeBaseUrl, clearRuntimeBaseUrl } from "../../services/bff-config";
 import { probeBffHealth } from "../../services/bff-health";
 import { loadModelPrefs, setModelPref } from "../../services/model-prefs";
+import { DEFAULT_MODEL, selectModels } from "../../services/model-registry";
 import { filterModels, type ModelPref } from "../../services/filter-models";
 import { opencodeClient } from "../../services/opencode-client";
 import { colors, radius, spacing } from "../../theme";
@@ -102,21 +103,18 @@ export function SettingsSheet({
     setAgents(
       primary.map((a) => ({
         id: a.name,
+        // 2026-10-01（issue #43 顺带修，#41 遗漏）：与 ChatPanelZ 同一根因——
+        // server opencode.json 里 primary agent 仍配着已下线的 deepseek-v4-flash。
+        // 用户偏好优先，否则统一 DEFAULT_MODEL，**不采纳 server 的 a.model**。
         model: prefs[a.name] ?? {
-          providerID: a.model?.providerID ?? "deepseek",
-          modelID: a.model?.modelID ?? "",
+          providerID: DEFAULT_MODEL.providerID,
+          modelID: DEFAULT_MODEL.modelID,
         },
       })),
     );
     const prov = await opencodeClient.listProviders().catch(() => ({ providers: [], default: {} }));
-    const flat: ModelPref[] = [];
-    for (const p of prov.providers) {
-      if (p.id === "openrouter" || p.id === "siliconflow-cn") continue;
-      for (const mid of Object.keys(p.models ?? {})) {
-        if (!mid.toLowerCase().includes("deepseek")) continue;
-        flat.push({ providerID: p.id, modelID: mid });
-      }
-    }
+    // 白名单/排除规则集中在 services/model-registry.ts（与 chat 侧共用同一套）
+    const flat: ModelPref[] = selectModels(prov.providers);
     if (flat.length > 0) setModelList(flat);
   }, []);
 
