@@ -3,7 +3,8 @@
 > 最后更新：2026-09-29 · commit：`fix(chat): 模型失效修复（#42 / issue #41）`（模型全量切 `opencode/mimo-v2.6-flash-free`，选择器排除 DeepSeek Pro；**9928 线上恢复可发消息**）
 > 上一版：`feat(chat): 气泡内白卡 + Duties/Projects 卡（#30）`（`a999f4a`，epic #35 第五项）——epic #35 除 #34 外五项全部 merged
 > 分流判据（`resolveConversationKind`）详见 [router.md](router.md)「双 chat 页分流」段
-> ⚠️ **已知缺陷**（2026-09-29 查实，勿误判为"没验证条件"）：**#33 排队队列实际不可用**——busy 判定用了 `sending`，但 `prompt_async` 立即返回、不等 agent 跑完 → 判定失效；且 busy 时 composer 只有 Stop 键、入队分支不可达。用户 2026-10-01 决定暂不修、回 backlog（issue #44）。另有 **`Alert.alert` 在 RN Web 静默**（issue #43）
+> ⚠️ **已知缺陷**：**#33 排队队列实际不可用**（2026-09-29 查实）——busy 判定用了 `sending`，但 `prompt_async` 立即返回、不等 agent 跑完 → 判定失效；且 busy 时 composer 只有 Stop 键、入队分支不可达。用户 2026-10-01 决定暂不修、回 backlog（issue #44）。
+> ✅ `Alert.alert` 在 RN Web 静默已修（issue #43 / PR #45）：全仓 25 处改用 `showAlert()`，Web 走 LightSheet 兜底 + `console.error` 日志；`AlertHost` 挂在组件树最后。
 >
 > ⚠️ **v0.1.1 变更**：聊天唯一入口 = **Talk stack route**（`src/app/talk.tsx` 薄入口 → `ProjectChatZ`/`ChatPanelZ`）。Pulse 不再承载 chat，只保留底部 Conversation Entry；contextual 会话（Attention/Suggested/Noticed）经 route params 进入 Talk。`ProjectChatZ` 有 `onClose`（X → 回 Pulse）与可选 `onBack`；`ChatPanelZ` 有 `autoContextText`（通用开场消息，无授权语义）与既有 `autoSendContext`（Attention 上下文注入）。Layers（session picker）是 session 列出/切换/新建的唯一 UI，按当前 projectPath 过滤。
 >
