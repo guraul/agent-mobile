@@ -203,15 +203,24 @@ async function main() {
   let hasTextarea = false;
   if (entryVisible) {
     await page.locator('[data-testid="conversation-entry"]').first().dispatchEvent('click', { bubbles: true });
-    // 轮询等待 composer 就绪（BFF 请求洪峰 + HTTP/1.1 六连接上限，固定 15s 会假失败）
-    for (let i = 0; i < 45; i++) {
-      await page.waitForTimeout(1000);
-      const preview = page.locator('[data-testid="composer-preview"]').first();
-      if (await preview.isVisible().catch(() => false)) {
-        await preview.dispatchEvent('click', { bubbles: true });
-        await page.waitForTimeout(800);
-        if ((await page.locator('textarea').count()) > 0) break;
+    // 轮询等待 composer 就绪（BFF 请求洪峰 + HTTP/1.1 六连接上限，loadMessages 间歇可达 45s+——
+    // 固定等待会假失败；45 轮仍卡则整页刷新一次再轮 45 轮）
+    const waitComposer = async () => {
+      for (let i = 0; i < 45; i++) {
+        await page.waitForTimeout(1000);
+        const preview = page.locator('[data-testid="composer-preview"]').first();
+        if (await preview.isVisible().catch(() => false)) {
+          await preview.dispatchEvent('click', { bubbles: true });
+          await page.waitForTimeout(800);
+          if ((await page.locator('textarea').count()) > 0) return true;
+        }
       }
+      return false;
+    };
+    if (!(await waitComposer())) {
+      console.log('[e2e] composer 45s 未就绪，刷新 /talk 重试');
+      await page.goto(E2E_URL + '/talk', { waitUntil: 'load', timeout: 120000 });
+      await waitComposer();
     }
     hasTextarea = (await page.locator('textarea').count()) > 0;
     // 失败时带诊断：是没导航成功（还在 home）还是 composer 没就绪（Loading 卡住）
@@ -335,6 +344,40 @@ async function main() {
   check('chat 侧 Layers → sessions 抽屉打开', drawerOpened, drawerOpened ? '' : '抽屉未开（chat 侧入口失效或页面未就绪）');
   check('抽屉内按住左拖 → 关闭', drawerClosed, drawerClosed ? '' : '拖拽关闭未生效');
   check('左缘右滑 → 唤起抽屉（CDP 触摸模拟）', drawerEdge, drawerEdge ? '' : '边缘手势未生效；真机触感另由用户验证');
+
+  // Step 7: 登录页完整流程回归（#48）——独立页面不带 token，gate 落 /login →
+  // 填表提交 → 必须真正跳转回 home（此前 back() 在 replace 栈上是空操作，"登录成功但没反应"）
+  const devCreds = loadDevCreds();
+  if (devCreds) {
+    const page2 = await browser.newPage({ viewport: { width: 430, height: 900 }, hasTouch: true });
+    const p2errors = [];
+    page2.on("pageerror", (e) => p2errors.push(e.message));
+    await page2.goto(E2E_URL + "/", { waitUntil: "load", timeout: 120000 });
+    let landed = false;
+    try {
+      await page2.waitForURL("**/login", { timeout: 20000 });
+      await page2.waitForTimeout(3000);
+      await page2.locator('[data-testid="login-user"]').fill(devCreds.user);
+      await page2.locator('[data-testid="login-pass"]').fill(devCreds.pass);
+      await page2.locator('[data-testid="login-submit"]').dispatchEvent("click", { bubbles: true });
+      // 轮询等跳转回 home（BFF 洪峰下登录 + gate 校验可能要几秒）
+      for (let i = 0; i < 20; i++) {
+        await page2.waitForTimeout(1000);
+        const url = page2.url();
+        if (!url.includes("/login")) {
+          const homeVisible = await page2.locator('[data-testid="pulse-title"]').first().isVisible().catch(() => false);
+          const tok = await page2.evaluate(() => Boolean(window.localStorage.getItem("pulse_opencode_token"))).catch(() => false);
+          landed = homeVisible && tok;
+          break;
+        }
+      }
+    } catch {}
+    check("登录页完整流程：gate → 填表 → 跳回 home", landed, landed ? "" : "未跳回 home（URL=" + page2.url().slice(-30) + "）");
+    if (p2errors.length) console.log("[login-page pageerror]", p2errors[0]);
+    await page2.close();
+  } else {
+    check("登录页完整流程：gate → 填表 → 跳回 home", true, "无凭据，跳过");
+  }
 
   check('无 JS console/page 错误', errors.length === 0, errors.length ? errors[0] : '');
 
