@@ -1,6 +1,6 @@
 # modules/router.md —— 路由与应用壳
 
-> 最后更新：2026-09-29 · commit：`feat(chat): 气泡内白卡框架 + Duties/Projects 两卡 #30`（epic #35 五项收官：/talk 单路由 + 运行时判据分流到 chat / chatcode 两壳）
+> 最后更新：2026-10-02 · commit：`feat(chat): sessions 抽屉 + 移动端边缘滑入手势 #34F (#47)`（epic #35 全部收官；新增抽屉导航路径，见"双 chat 页分流"节末）
 > 上一版：2026-09-21 `feat/companion-ui-migration`（Companion UI Migration：单表面导航，取消 4-tab）
 
 ## 模块职责
@@ -62,6 +62,12 @@ Settings / Memory / Knowledge 检索以 contextual sheet 呈现（不再是 tab 
 
 `directory` 是 **session 属性**，进页解析会话后才知道；跳转前（Pulse 侧）拿不到。
 因此判据必须在运行时求值，`talk.tsx` 把 `kind` 传给 `ProjectChatZ`（标题按 kind 分流）。
+
+### 会话切换导航（#34F 抽屉，2026-10-01 拍板 A 方案）
+
+- **chat 侧**：header Layers 图标（aria-label "Switch session"）唤起 `SessionsDrawer`（自实现 drawer：cream 306px + 左缘 24px 热区右滑唤起 + 抽屉内拖拽关闭），**替代**原 LightSheet 会话选择器——列表/切换/新建同一份 listSessions 数据
+- **chatcode 侧**：维持"绑最新 session"无选择器、无抽屉入口（#31 拍板不变）；是否加抽屉入口待用户确认（实现是一行 prop 改动）
+- 抽屉实现与三个手势坑见 `modules/chat.md` #34F 段；松手决策纯函数在 `src/services/drawer-gesture.ts`
 **所有既有 route params（autoSendContext / autoContextText / attId / projectPath / subjectId / sessionId）全兼容，e2e 零改动。**
 
 `MARKET_TALK_DIRECTORY` 常量原声明在 `services/attention/talk.ts`，为让判据文件零依赖可单测已收编到
