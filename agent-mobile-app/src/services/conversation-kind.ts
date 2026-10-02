@@ -18,3 +18,16 @@ export function resolveConversationKind(directory?: string | null): Conversation
   if (dir === MARKET_TALK_DIRECTORY) return "chat";
   return "chatcode";
 }
+
+/**
+ * 裸进入 /talk（Dock Start New Chat / Sources ASK）的会话挑选（#50）：
+ * 裸进入语义 = Direct Talk 伴侣聊天（拍板映射 Dock→chat），所以只在 **chat 侧**
+ * 会话里挑最近的——不过滤的话，全局最近是 coding 会话就会把 Dock 带进 chatcode。
+ * 挑不到（无 chat 侧会话）返回 null，调用方落 createSession("/")（Direct Talk 原语义）。
+ */
+export function pickBareEntrySession<T extends { directory?: string | null }>(
+  sessions: T[],
+): T | null {
+  const chatSide = sessions.filter((s) => resolveConversationKind(s.directory) === "chat");
+  return chatSide.length ? chatSide[0] : null;
+}

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   MARKET_TALK_DIRECTORY,
+  pickBareEntrySession,
   resolveConversationKind,
 } from "./conversation-kind";
 
@@ -35,5 +36,23 @@ describe("resolveConversationKind", () => {
 describe("MARKET_TALK_DIRECTORY", () => {
   it("与 attention/talk.ts 的既有值一致（re-export 收编，调用方无感）", () => {
     expect(MARKET_TALK_DIRECTORY).toBe("/root/project/family-finance");
+  });
+});
+
+describe("pickBareEntrySession（#50 Dock/裸进入伴侣语义）", () => {
+  const s = (id: string, directory: string, updated: number) => ({ id, directory, time: { updated } });
+
+  it("跳过 coding 会话，选最近的 chat 侧会话（market/根目录）", () => {
+    const picked = pickBareEntrySession([
+      s("coding", "/root/project/agent-mobile", 300),
+      s("market", "/root/project/family-finance", 200),
+      s("root", "/", 100),
+    ]);
+    expect(picked?.id).toBe("market");
+  });
+
+  it("全是 coding 会话 → null（调用方落 createSession(\"/\")）", () => {
+    expect(pickBareEntrySession([s("a", "/root/project/x", 1), s("b", "/home/u/repo", 2)])).toBeNull();
+    expect(pickBareEntrySession([])).toBeNull();
   });
 });
