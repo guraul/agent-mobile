@@ -2,9 +2,10 @@
  * 登录页（RN 迁移 #G，D4 行为变更：未登录 gate 进独立登录页）。
  * 基准 pulseB-login.html：cream 画布 + greeting/sub + 白卡（灰底输入行 +
  * 紫渐变主按钮 + hint）。文案为 mock 英文占位（用户可换中文）。
- * 已登录访问本页 → 直接返回（gate 防环）；登录成功 → back 回 Pulse。
+ * 已登录访问本页 → 直接返回（gate 防环）；登录成功 → 回 Pulse（#48：gate replace
+ * 进来时栈为空，back 不可用须 replace 兜底，否则表现为"登录成功但没反应"）。
  */
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text as RNText, TextInput, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
@@ -19,12 +20,20 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // 登录后去向：本页通常由 index gate `replace("/login")` 进入——replace 后栈里
+  // 没有可回的页，back() 是空操作（#48：表现为"登录成功但没反应"）。
+  // 能回就 back（保留正常压栈来源），不能回则 replace("/") 兜底。
+  const leaveLogin = useCallback(() => {
+    if (router.canGoBack()) router.back();
+    else router.replace("/");
+  }, [router]);
+
   // 已登录直接回首页（gate 防环：深链 /login 且已有 token 时）
   useEffect(() => {
     loadToken().then((tok) => {
-      if (tok) router.back();
+      if (tok) leaveLogin();
     });
-  }, [router]);
+  }, [leaveLogin]);
 
   const doLogin = async () => {
     if (busy) return;
@@ -32,7 +41,7 @@ export default function LoginScreen() {
     try {
       setError(null);
       await login(user, pass);
-      router.back(); // 登录成功 → 回 Pulse
+      leaveLogin(); // 登录成功 → 回 Pulse
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
