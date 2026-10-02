@@ -109,7 +109,7 @@ async function main() {
     headless: true,
     args: ['--no-sandbox', '--disable-gpu'],
   });
-  const page = await browser.newPage({ viewport: { width: 430, height: 900 } });
+  const page = await browser.newPage({ viewport: { width: 430, height: 900 }, hasTouch: true });
   const token = await obtainToken();
   if (token) {
     // AsyncStorage(web) 直接以 key 写 localStorage；在应用脚本前注入避免 401 竞态
@@ -203,14 +203,20 @@ async function main() {
   let hasTextarea = false;
   if (entryVisible) {
     await page.locator('[data-testid="conversation-entry"]').first().dispatchEvent('click', { bubbles: true });
-    await page.waitForTimeout(15000);
-    const preview = page.locator('[data-testid="composer-preview"]').first();
-    if (await preview.isVisible().catch(() => false)) {
-      await preview.dispatchEvent('click', { bubbles: true });
-      await page.waitForTimeout(1500);
+    // 轮询等待 composer 就绪（BFF 请求洪峰 + HTTP/1.1 六连接上限，固定 15s 会假失败）
+    for (let i = 0; i < 45; i++) {
+      await page.waitForTimeout(1000);
+      const preview = page.locator('[data-testid="composer-preview"]').first();
+      if (await preview.isVisible().catch(() => false)) {
+        await preview.dispatchEvent('click', { bubbles: true });
+        await page.waitForTimeout(800);
+        if ((await page.locator('textarea').count()) > 0) break;
+      }
     }
     hasTextarea = (await page.locator('textarea').count()) > 0;
-    check('Conversation Entry 打开 Talk workspace (含输入框)', hasTextarea, `textarea=${hasTextarea}`);
+    // 失败时带诊断：是没导航成功（还在 home）还是 composer 没就绪（Loading 卡住）
+    const diag = hasTextarea ? '' : await page.evaluate(() => `${location.pathname} | ${document.body.innerText.slice(0, 120).replace(/\n+/g, ' ')}`).catch(() => 'diag-failed');
+    check('Conversation Entry 打开 Talk workspace (含输入框)', hasTextarea, hasTextarea ? 'textarea=true' : diag);
   } else {
     check('Conversation Entry 打开 Talk workspace (含输入框)', false, '未找到对话入口');
   }
@@ -282,6 +288,53 @@ async function main() {
     check('斜杠 /assignments → Duties 卡', false, '无输入框，跳过');
     check('斜杠 /projects → Projects 卡', false, '无输入框，跳过');
   }
+
+  // Step 6: sessions 抽屉（#34F / issue #46）——chat 侧（market 目录）验证入口 + 两种手势。
+  // 抽屉常驻 DOM 只是平移出屏，开合判定用 New session 按钮 x 坐标而非 isVisible。
+  const drawerX = async () => page.evaluate(() => {
+    const btns = [...document.querySelectorAll('[data-testid="sessions-drawer"] button')];
+    const el = btns[btns.length - 1];
+    return el ? el.getBoundingClientRect().x : -1;
+  });
+  const chatPage = await page.goto(`${E2E_URL}/talk?projectPath=${encodeURIComponent('/root/project/family-finance')}`, { waitUntil: 'load', timeout: 120000 }).then(() => true).catch(() => false);
+  let drawerOpened = false;
+  let drawerClosed = false;
+  let drawerEdge = false;
+  if (chatPage) {
+    await page.waitForTimeout(12000);
+    // 入口：chat 侧 Layers 点开抽屉
+    const layers = page.locator('[aria-label="Switch session"]').first();
+    if (await layers.isVisible().catch(() => false)) {
+      await layers.dispatchEvent('click', { bubbles: true });
+      await page.waitForTimeout(1500);
+      drawerOpened = (await drawerX()) > 0;
+      // 拖拽关闭：抽屉内按住左拖（桌面鼠标模拟 PanResponder）
+      if (drawerOpened) {
+        await page.mouse.move(220, 380);
+        await page.mouse.down();
+        for (let x = 220; x >= 40; x -= 20) { await page.mouse.move(x, 380); await page.waitForTimeout(25); }
+        await page.mouse.up();
+        await page.waitForTimeout(1200);
+        drawerClosed = (await drawerX()) < 0;
+      }
+      // 边缘手势：CDP 触摸滑动（RN Web 的 PanResponder 鼠标路径不 grant 边缘热区——
+      // 实测 mouse.down/move 不触发；触摸即移动端目标平台，与真机手势同源）
+      if (drawerClosed) {
+        const cdp = await page.context().newCDPSession(page);
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: 2, y: 380 }] });
+        for (let x = 2; x <= 170; x += 20) {
+          await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y: 380 }] });
+          await page.waitForTimeout(20);
+        }
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+        await page.waitForTimeout(1200);
+        drawerEdge = (await drawerX()) > 0;
+      }
+    }
+  }
+  check('chat 侧 Layers → sessions 抽屉打开', drawerOpened, drawerOpened ? '' : '抽屉未开（chat 侧入口失效或页面未就绪）');
+  check('抽屉内按住左拖 → 关闭', drawerClosed, drawerClosed ? '' : '拖拽关闭未生效');
+  check('左缘右滑 → 唤起抽屉（CDP 触摸模拟）', drawerEdge, drawerEdge ? '' : '边缘手势未生效；真机触感另由用户验证');
 
   check('无 JS console/page 错误', errors.length === 0, errors.length ? errors[0] : '');
 
