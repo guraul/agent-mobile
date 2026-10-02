@@ -226,6 +226,10 @@ async function main() {
     // 失败时带诊断：是没导航成功（还在 home）还是 composer 没就绪（Loading 卡住）
     const diag = hasTextarea ? '' : await page.evaluate(() => `${location.pathname} | ${document.body.innerText.slice(0, 120).replace(/\n+/g, ' ')}`).catch(() => 'diag-failed');
     check('Conversation Entry 打开 Talk workspace (含输入框)', hasTextarea, hasTextarea ? 'textarea=true' : diag);
+    // #50 回归：Dock Start New Chat 是伴侣语义，必须落 chat 壳（此前取全局最近
+    // session 的 directory 分流，coding 会话最近时错落 chatcode）
+    const chatTitle = await page.locator('text=Pulse — Chat').first().isVisible().catch(() => false);
+    check('Dock 落 chat 壳 (Pulse — Chat)', chatTitle);
   } else {
     check('Conversation Entry 打开 Talk workspace (含输入框)', false, '未找到对话入口');
   }

@@ -10,7 +10,7 @@ import { spacing } from "@/theme";
 import { opencodeClient, type OpenCodeSession } from "@/services/opencode-client";
 import { loadToken } from "@/services/auth";
 import { classifyRuntimeFailure, runtimeFailureMessage } from "@/services/runtime-presence";
-import { resolveConversationKind } from "@/services/conversation-kind";
+import { pickBareEntrySession, resolveConversationKind } from "@/services/conversation-kind";
 import { ProjectChatZ } from "@/components/chat/zcode/ProjectChatZ";
 import type { EngagedAttentionRef } from "@/services/attention/store";
 import { showAlert } from "../services/alert";
@@ -84,12 +84,14 @@ export default function TalkScreen() {
         setFailureKind(null);
         return;
       }
-      // 裸进入 Talk（Conversation Entry / Sources ASK）：当前/默认 session = 全局最近；
-      // 没有 → 直接创建（PM §8.1 Direct Talk）。autoContextText 作为开场消息透传。
+      // 裸进入 Talk（Dock Start New Chat / Sources ASK）：Direct Talk 伴侣语义——只在
+      // chat 侧会话（market 目录 / 根目录）里挑最近，不过滤会把 Dock 带进 chatcode
+      // （#50：全局最近可能是 coding 会话）。挑不到 → 建 "/" 会话（Direct Talk 原语义，chat 壳）。
       const list = await opencodeClient.listSessions();
       const sorted: OpenCodeSession[] = [...list].sort((a, b) => (b.time?.updated ?? 0) - (a.time?.updated ?? 0));
-      if (sorted.length > 0) {
-        setActive({ sessionId: sorted[0].id, projectPath: sorted[0].directory || "/", autoContextText: params.autoContextText });
+      const bare = pickBareEntrySession(sorted);
+      if (bare) {
+        setActive({ sessionId: bare.id, projectPath: bare.directory || "/", autoContextText: params.autoContextText });
       } else {
         const created = await opencodeClient.createSession({ directory: "/" });
         setActive({ sessionId: created.id, projectPath: created.directory || "/", autoContextText: params.autoContextText });
