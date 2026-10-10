@@ -22,7 +22,16 @@ import {
   type QuestionInfo,
   type PermissionRequest,
 } from "../../../services/opencode-client";
-import { subscribeToOpenCodeEvents } from "../../../services/opencode-events";
+import { subscribeToOpenCodeEvents, type OpenCodeEvent } from "../../../services/opencode-events";
+import {
+  BUSY_TICK_MS,
+  IDLE_BUSY_STATE,
+  classifyBusyEvent,
+  reduceBusyEvent,
+  reduceBusyTick,
+  seedBusy,
+  type BusyState,
+} from "../../../services/busy-signal";
 import {
   applyMessageUpdated,
   applyPartUpdated,
@@ -53,6 +62,7 @@ import {
 } from "../../../services/message-queue";
 import type { EngagedAttentionRef } from "../../../services/attention/store";
 import { MessageBubbleZ } from "./MessageBubbleZ";
+import { BusyDots } from "./BusyDots";
 import { showAlert } from "../../../services/alert";
 
 const PAGE_SIZE = 50;
@@ -98,6 +108,10 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [sending, setSending] = useState(false);
+  // #58 agent 真实 busy：SSE 事件驱动（sending 只是 HTTP 请求在途，不是 busy——
+  // prompt_async 204 立即返回，#44 根因）。ref 持有纯函数状态机，state 供渲染。
+  const [eventBusy, setEventBusy] = useState(false);
+  const busyRef = useRef<BusyState>(IDLE_BUSY_STATE);
   // ZCode 风格状态行：中止后显示「已停止」，新消息发送时清除
   const [abortedAt, setAbortedAt] = useState<number | null>(null);
   // Phase 4：conversation handling —— 用户显式「标记已处理」（绝不由 idle/关闭/完成自动触发）
@@ -277,9 +291,61 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
     }
   }, [sessionID, recomputeDisplay]);
 
+  // #58 busy 真实信号：把每条流事件折进纯函数状态机（事件流入 = busy）。
+  // 只判定 busy，绝不碰 messages / part——与打字机（revealChars）零耦合。
+  const feedBusy = useCallback((event: OpenCodeEvent) => {
+    const props = event.properties as { sessionID?: string; status?: string };
+    const kind = classifyBusyEvent(
+      { type: event.type, sessionID: props.sessionID, status: props.status },
+      sessionID,
+    );
+    if (kind === "ignored") return;
+    const next = reduceBusyEvent(busyRef.current, kind, Date.now());
+    busyRef.current = next;
+    setEventBusy(next.busy);
+  }, [sessionID]);
+
+  // #58 静默超时兜底：服务端没有显式结束信号时，N 秒无事件也判定跑完。
+  // 心跳只唤醒纯函数重算，判定语义全在 services/busy-signal.ts（可单测）。
+  useEffect(() => {
+    if (!eventBusy) return;
+    const timer = setInterval(() => {
+      const next = reduceBusyTick(busyRef.current, Date.now());
+      busyRef.current = next;
+      setEventBusy(next.busy);
+    }, BUSY_TICK_MS);
+    return () => clearInterval(timer);
+  }, [eventBusy]);
+
+  // #58 重开进行中的会话：/session/status 一次性读数播种 busy（只读状态、不覆盖 part，
+  // 与打字机无冲突）——SSE 不补发历史事件，不播种则要等下一个事件才显示「运行中…」。
+  useEffect(() => {
+    let cancelled = false;
+    opencodeClient
+      .getSessionStatus()
+      .then((map) => {
+        if (cancelled) return;
+        const next = seedBusy(busyRef.current, map[sessionID], Date.now());
+        busyRef.current = next;
+        setEventBusy(next.busy);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionID]);
+
+  // 发送中（请求在途）同样算 busy：覆盖 prompt_async 204 → 首个事件之间的 ~1.4s 空窗，
+  // 不然点完发送到 agent 开口之间状态行是空的。sending 的其它用途（排队分流 /
+  // 停止键 / 斜杠命令在途）保持原样，只是不再单独充当「agent 是否在跑」的判据。
+  const busy = sending || eventBusy;
+
   useEffect(() => {
     loadMessages();
     const unsub = subscribeToOpenCodeEvents((event) => {
+      // #58 busy 真实信号：任何本 session 的事件流入都算 agent 在跑（先于下面的
+      // 分支处理，未知事件类型也不会漏掉）。
+      feedBusy(event);
       if (event.type === "message.updated") {
         const props = event.properties as {
           sessionID?: string;
@@ -384,7 +450,7 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
       }
     }, undefined, sessionID);
     return unsub;
-  }, [sessionID, loadMessages, recomputeDisplay]);
+  }, [sessionID, loadMessages, recomputeDisplay, feedBusy]);
 
   // Poll-based fallback: the local TUI and this opencode server (4096) are
   // separate instances sharing the DB but not their SSE event streams, so
@@ -755,6 +821,9 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
   const abort = async () => {
     try {
       await opencodeClient.abort(sessionID);
+      // #58 本地中止是最权威的结束信号：立即结束 busy，状态行交回「已停止」
+      busyRef.current = IDLE_BUSY_STATE;
+      setEventBusy(false);
       setAbortedAt(Date.now());
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -862,10 +931,13 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
     );
   }
 
-  const listFooter = sending ? (
+  // #58 状态行只认 busy（真实信号）：agent 在跑才显示「运行中…」，prompt_async 204
+  // 提前返回不再让它消失（#44 根因）；「已停止」与 abortedAt 语义不变。
+  const listFooter = busy ? (
     <View style={styles.statusRow}>
       <Bot color={lightColors.amber} size={12} strokeWidth={2} />
       <Text variant="lightCaption" color="lightGray">运行中…</Text>
+      <BusyDots testID="busy-dots" />
     </View>
   ) : abortedAt ? (
     <View style={styles.statusRow}>

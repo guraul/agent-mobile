@@ -1,9 +1,11 @@
 # modules/chat.md —— 聊天（项目对话 / Talk）
 
-> 最后更新：2026-09-29 · commit：`fix(chat): 模型失效修复（#42 / issue #41）`（模型全量切 `opencode/mimo-v2.6-flash-free`，选择器排除 DeepSeek Pro；**9928 线上恢复可发消息**）
+> 最后更新：2026-10-10 · commit：`feat(chat): busy 真实信号 + 状态行三点脉动（#58）`（数据层 `services/busy-signal.ts` 纯函数+单测；状态行由 `sending` 改 `busy`；#33 queue 分流仍未动）
+> 上一版：2026-09-29 · commit：`fix(chat): 模型失效修复（#42 / issue #41）`（模型全量切 `opencode/mimo-v2.6-flash-free`，选择器排除 DeepSeek Pro；**9928 线上恢复可发消息**）
 > 上一版：`feat(chat): 气泡内白卡 + Duties/Projects 卡（#30）`（`a999f4a`，epic #35 第五项）——epic #35 除 #34 外五项全部 merged
 > 分流判据（`resolveConversationKind`）详见 [router.md](router.md)「双 chat 页分流」段
 > ⚠️ **已知缺陷**：**#33 排队队列实际不可用**（2026-09-29 查实）——busy 判定用了 `sending`，但 `prompt_async` 立即返回、不等 agent 跑完 → 判定失效；且 busy 时 composer 只有 Stop 键、入队分支不可达。用户 2026-10-01 决定暂不修、回 backlog（issue #44）。
+> ✅ **#58 busy 真实信号已落地（数据层 + 状态行，仅此一项）**：`services/busy-signal.ts`（纯函数+单测）把「agent 是否在跑」改成 **SSE 事件流入 = busy**（本 session 活动事件刷新时间戳、未知类型保守算活动）、**静默 `BUSY_SILENCE_MS`=20s 无事件 = 结束**、服务端 `session.idle`/`session.error`/`session.status(idle)` 提前结束（**未见过活动事件时抵达的结束信号不可信**，防提前判结束）；`ChatPanelZ` ListFooter 状态行由 `sending` 改为 `busy = sending || eventBusy`（sending 只覆盖 204→首事件的 ~1.4s 空窗），并加三点脉动 `BusyDots`（react-native `Animated`，RN Web 兼容，零新依赖，reduce motion 退化静止；颜色/尺寸走 theme）。挂载时一次性读 `getSessionStatus()` 播种 busy（**只读状态、不覆盖 part**，与打字机零耦合）。⚠️ **queue 入队分流仍用 `sending`（未动，#44 后续项）**；composer Stop 键仍由 `sending` 渲染（abort 可达性待定）。
 > ✅ `Alert.alert` 在 RN Web 静默已修（issue #43 / PR #45）：全仓 25 处改用 `showAlert()`，Web 走 LightSheet 兜底 + `console.error` 日志；`AlertHost` 挂在组件树最后。
 >
 > ⚠️ **v0.1.1 变更**：聊天唯一入口 = **Talk stack route**（`src/app/talk.tsx` 薄入口 → `ProjectChatZ`/`ChatPanelZ`）。Pulse 不再承载 chat，只保留底部 Conversation Entry；contextual 会话（Attention/Suggested/Noticed）经 route params 进入 Talk。`ProjectChatZ` 有 `onClose`（X → 回 Pulse）与可选 `onBack`；`ChatPanelZ` 有 `autoContextText`（通用开场消息，无授权语义）与既有 `autoSendContext`（Attention 上下文注入）。Layers（session picker）是 session 列出/切换/新建的唯一 UI，按当前 projectPath 过滤。
@@ -166,7 +168,8 @@ SSE: BFF /api/opencode/stream（Bearer JWT + ?sessionID= 过滤）
 
 ## ZCode 风格弹框（2026-08-30 起为唯一聊天渲染层；2026-09-21 Companian 视觉）
 
-- **组件树**（`src/components/chat/zcode/`，fork 自旧组件）：`ProjectChatZ`（header：AIOrb + AIStatus「Pulse」+ 会话标题 + Layers + Close）→ `ChatPanelZ`（ListFooter 状态行「运行中…/已停止」、圆角输入栏、pills 带 Bot/Cpu 图标）→ `MessageBubbleZ`（AI 纯文本无气泡 / user accent.subtle 淡紫气泡 / error 语义色 pill；气泡下复制 expo-clipboard + HH:mm 时间戳）→ `StepRow`（思考/工具可折叠行：icon+label+inputSummary 摘要，展开显 reasoning 正文/命令摘要）。
+- **组件树**（`src/components/chat/zcode/`，fork 自旧组件）：`ProjectChatZ`（header：AIOrb + AIStatus「Pulse」+ 会话标题 + Layers + Close）→ `ChatPanelZ`（ListFooter 状态行「运行中…/已停止」+ `BusyDots` 三点脉动、圆角输入栏、pills 带 Bot/Cpu 图标）→ `MessageBubbleZ`（AI 纯文本无气泡 / user accent.subtle 淡紫气泡 / error 语义色 pill；气泡下复制 expo-clipboard + HH:mm 时间戳）→ `StepRow`（思考/工具可折叠行：icon+label+inputSummary 摘要，展开显 reasoning 正文/命令摘要）。
+- **状态行 busy 判定（#58）**：「运行中…」由 ListFooter 状态行渲染，判据 = `busy = sending || eventBusy`（`services/busy-signal.ts`，见 services.md）；三点脉动 `BusyDots`（`zcode/BusyDots.tsx`，react-native `Animated` + theme token，RN Web 兼容，无新依赖）**只长在状态行内**，不新增布局元素/卡片、不展示工具名、不可展开；「已停止」与 `abortedAt` 语义未动。
 - **`USE_ZCODE_CHAT_SHEET` 开关已删除**：Talk stack route 只渲染 ZCode 组件；旧 `ProjectChat`/`ChatPanel`/`MessageBubble` 组件仍保留在 `components/chat/`（fork 上游），但无路由引用。
 - **fork 双维护**：ChatPanelZ/ProjectChatZ 复制自 ChatPanel/ProjectChat，上游 SSE/reducer/typewriter 修复需手动同步（两文件头有 fork 声明）。
 - **数据层**：`mergeMessages` 增量透传 `reasoning.text` 与 `tool.inputSummary`（input 压缩单行、200 字符截断）——旧组件不读新字段，行为零影响。

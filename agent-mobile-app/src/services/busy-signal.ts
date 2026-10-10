@@ -1,0 +1,105 @@
+// #58 busy 真实信号（数据层）——把「agent 是否在跑」从 sending 换成真实信号。
+//
+// 背景（#44 根因）：doSend() 的 finally 在 prompt_async 204 返回时就 setSending(false)
+// （约 1.4s），而 204 只代表"消息已被受理"、不等 agent 跑完——agent 还在生成时
+// 「运行中…」已经消失。sending 描述的是"HTTP 请求在途"，不是 busy。
+//
+// 方案（issue #58 选定的优先方案）：SSE 事件流入 = busy。收到本 session 的活动事件
+// （message.part.updated / delta / message.updated / question / permission …）即 busy；
+// 静默 BUSY_SILENCE_MS 没有任何事件 → 判定已跑完；session.idle / session.error /
+// session.status(idle) 是服务端的明确结束信号，提前结束。
+//
+// 红线：零 RN 依赖、纯函数可单测；只判定 busy，绝不覆盖 messages / part
+// （历史上轮询整条替换 part 会破坏打字机逐字揭示——本模块不碰消息数据）。
+
+/** 静默超时：这么久没有本 session 的事件流入 → 判定 agent 已跑完 */
+export const BUSY_SILENCE_MS = 20_000;
+
+/** 组件侧心跳间隔（只负责唤醒纯函数重算，不参与判定语义） */
+export const BUSY_TICK_MS = 1_000;
+
+export type BusyEventKind = "activity" | "ended" | "ignored";
+
+export interface BusyEventInput {
+  /** OpenCodeEvent.type */
+  type: string;
+  /** 事件隶属的 session；连接级事件（server.connected / stream.error）没有 */
+  sessionID?: string;
+  /** `session.status` 的状态值（busy / retry / idle） */
+  status?: string;
+}
+
+/**
+ * Classify a raw stream event for the busy signal.
+ *
+ * 保守方向：未知的新事件类型一律算 activity——宁可让「运行中…」多留一会儿，
+ * 也不要在 agent 长工具调用中途把 busy 闪掉（#44 的教训是"假结束"，不是"假运行"）。
+ */
+export function classifyBusyEvent(
+  { type, sessionID, status }: BusyEventInput,
+  activeSessionID: string,
+): BusyEventKind {
+  // 别的 session 的事件与本会话无关（订阅已按 sessionID 过滤，这里是二道闸）
+  if (sessionID !== undefined && sessionID !== activeSessionID) return "ignored";
+  // 服务端显式状态机：busy / retry = 在跑，其余（idle）= 结束
+  if (type === "session.status") {
+    return status === "busy" || status === "retry" ? "activity" : "ended";
+  }
+  // 服务端明确结束信号
+  if (type === "session.idle" || type === "session.error") return "ended";
+  // 连接级事件不是 agent 活动
+  if (type === "server.connected" || type === "stream.error") return "ignored";
+  return "activity";
+}
+
+export interface BusyState {
+  busy: boolean;
+  /** 最近一次活动事件的时间戳（ms）；null = 本轮 busy 还没见过任何活动事件 */
+  lastEventAt: number | null;
+}
+
+export const IDLE_BUSY_STATE: BusyState = { busy: false, lastEventAt: null };
+
+/**
+ * Fold one classified event into the busy state.
+ *
+ * ended 事件只在"本轮已经见过活动事件"时才可信：消息刚发出、agent 还没吐出任何
+ * 内容时抵达的 idle，可能是受理期的状态残余。此时忽略它，交给静默超时兜底——
+ * 提前判结束正是 #44 的 bug 形态。
+ */
+export function reduceBusyEvent(
+  state: BusyState,
+  kind: BusyEventKind,
+  at: number,
+): BusyState {
+  if (kind === "ignored") return state;
+  if (kind === "ended") return state.lastEventAt === null ? state : IDLE_BUSY_STATE;
+  return { busy: true, lastEventAt: at };
+}
+
+/** 静默超时判定：距最近一次活动事件已超过 silenceMs → 结束；否则原样返回 */
+export function reduceBusyTick(
+  state: BusyState,
+  now: number,
+  silenceMs: number = BUSY_SILENCE_MS,
+): BusyState {
+  if (!state.busy || state.lastEventAt === null) return state;
+  return now - state.lastEventAt >= silenceMs ? IDLE_BUSY_STATE : state;
+}
+
+/**
+ * Seed busy from a one-shot `/session/status` read (reopening a chat that is
+ * still running — SSE does not replay history, so without the seed the status
+ * row would stay quiet until the next event).
+ *
+ * 只播种、绝不清洗：读数不是 busy/retry 时原样返回，不会把已在跑的 busy 抹掉。
+ * 只读状态字段、不碰 messages / part，与打字机无冲突。
+ */
+export function seedBusy(
+  state: BusyState,
+  status: string | undefined,
+  at: number,
+): BusyState {
+  if (status !== "busy" && status !== "retry") return state;
+  return { busy: true, lastEventAt: at };
+}

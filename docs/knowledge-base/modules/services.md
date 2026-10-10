@@ -1,6 +1,7 @@
 # modules/services.md —— opencode 对接服务层
 
-> 最后更新：2026-08-30 · commit：`d255c48`（bff-config/model-prefs/bff-health/getBaseUrl 运行时覆盖 + OPTIONS 探测 + loadToken 修复）
+> 最后更新：2026-10-10 · commit：`feat(chat): busy 真实信号（#58）`（新增 `busy-signal.ts` 纯函数 + 单测；ChatPanelZ 状态行判据由 `sending` 改为事件驱动 busy）
+> 上一版：2026-08-30 · commit：`d255c48`（bff-config/model-prefs/bff-health/getBaseUrl 运行时覆盖 + OPTIONS 探测 + loadToken 修复）
 
 ## 模块职责
 
@@ -35,6 +36,7 @@ auth.ts ──Bearer JWT──► 认证（family-finance 用户）       openco
 | `agent-mobile-app/src/services/filter-models.ts` | `filterModels(list, query)`：modelID/providerID 子串不分大小写过滤；`ModelPref` 类型 |
 | `agent-mobile-app/src/services/opencode-client.ts` | REST 封装（BFF 前缀 + Bearer + 401 → handleUnauthorized） |
 | `agent-mobile-app/src/services/opencode-events.ts` | BFF stream 订阅（delta 事件 + sessionID 过滤 + 退避重连） |
+| `agent-mobile-app/src/services/busy-signal.ts` | #58 busy 真实信号纯函数（事件流入=busy + 静默超时；不碰 messages/part） |
 | `agent-mobile-app/src/services/message-reducer.ts` | `applyMessageUpdated/applyPartUpdated/applyMessageRemoved/applyPartDelta` 增量 patch |
 | `agent-mobile-app/src/services/message-merging.ts` | `mergeMessages`：step 级消息 → 对话气泡 |
 | `agent-mobile-app/src/services/project-status.ts` | `determineProjectStatus`：项目状态判定 |
@@ -111,6 +113,21 @@ auth.ts ──Bearer JWT──► 认证（family-finance 用户）       openco
 - **`delta` 事件**：`properties = { sessionID, messageID, partID, field, text }`，BFF 将 opencode 原始 `message.part.updated` 按 32ms 缓冲合并后推送（打字机）。
 - **`stream.error` 事件**：BFF 与 opencode 上游断开时推送。
 - **question 事件类型（2026-08-25）**：opencode server 实际发 **`question.asked`/`question.replied`/`question.rejected`**（v1 兼容名），`OpenCodeEvent` 类型里与 schema 名 `question.v2.*` 同时保留，消费端（ChatPanel）两端都监听。
+
+### busy-signal.ts（纯函数，#58）
+
+「agent 是否在跑」的唯一判定来源——**勿再用 `sending`**（它只代表 HTTP 请求在飞，`prompt_async` 204 立即返回，#44 根因）。
+
+| 导出 | 说明 |
+|---|---|
+| `classifyBusyEvent({type, sessionID, status}, activeSessionID)` | 事件分类：`activity`（本 session 产出/增量事件、未知类型保守算活动）/ `ended`（`session.idle`、`session.error`、`session.status(idle)`）/ `ignored`（他 session 事件、连接级 `server.connected`/`stream.error`） |
+| `reduceBusyEvent(state, kind, at)` | 折入一条事件：activity → busy=true + 记录时间戳；ended → 立即结束，但**本轮还没见过活动事件时不可信**（防受理期提前判结束） |
+| `reduceBusyTick(state, now, silenceMs = BUSY_SILENCE_MS)` | 静默超时判定：距最近活动事件 ≥ 20s → 结束 |
+| `seedBusy(state, status, at)` | 一次性 `/session/status` 读数播种 busy（**只播种绝不清洗**），供重开进行中会话 |
+
+- **`BUSY_SILENCE_MS = 20_000`**：取值的权衡——长到能跨过模型思考/工具调用前后的秒级间隙，又不至于在服务端不发结束信号时让「运行中…」赖太久；超长工具调用（>20s 无事件）期间状态行会闪断再恢复，属已知取舍（单调常量可调）。结束信号齐备时（`session.idle` 等）立即结束，不等超时。
+- **红线**：只读状态、**绝不覆盖 messages / part**（打字机逐字揭示冲突教训）；组件侧心跳 `BUSY_TICK_MS = 1_000` 只唤醒纯函数重算，语义全在本模块。
+- 消费方：`components/chat/zcode/ChatPanelZ.tsx`（`busy = sending || eventBusy` → ListFooter 状态行 + `BusyDots` 三点脉动；`abort()` 立即清 busy 交回「已停止」）。#33 queue 入队分流**仍用 `sending`**，未随本模块切换。
 
 ### message-reducer.ts（纯函数）
 
