@@ -54,9 +54,13 @@
 11. **DSH 控制 opencode 做事；能用 opencode 就走 opencode（2026-10-10 用户拍板）**：**DSH = 控制面**（编排 / 决策 / 审阅 / 验收），**opencode = 执行面**（改代码 / 跑测试 / 探查 / 实现）。凡属可委派的执行类工作，**优先委派给 opencode 子代理（product 子代理角色库）**，而不是主模型亲自上手，也不走其他 product CLI（claude-code / codex / acp）。DSH 的四个子代理角色（`code-review` / `debug` / `explore` / `general`）**已全部 pin 到 opencode**（用户 2026-10-10 配置并实测可调用）——委派时**无需再逐次指定 provider**。
     - **作用域边界（防歧义）**：本规则适用于**实现 / 执行阶段**。**产品决策讨论、拍板记录、交底书（BRIEF）与知识库落档，仍由 DSH 主模型直接做**——这类工作依赖当前对话上下文，且 subagent 看不到主会话，外包会导致决策链断裂（本仓 `docs/pipeline/CHAT_COMPANION_BRIEF.md` 的逐单元落档即为典型）。
     - **只读小探针**（单条 `grep` / `cat` / `sqlite -readonly` 即可答）由主模型直接跑更快，不算违规。
+    - **免费档限流回退链（用户 2026-10-10 授权，优先级由高到低）**：`opencode/space-bunny-free` → `opencode/mimo-v2.6-flash-free` → `opencode/step-5-preview-free`。
+      遇到 **429 / `FreeUsageLimitError`** 时，**按此顺序自动降级尝试**；**每一次切换与最终结果都必须向用户明确告知**（用哪个、为什么切、最终成功的是哪个）。
+      仅限"免费档限流"这一种原因——**其他任何失败（模型不存在 / 鉴权失败 / 超时 / 报错）一律不得换模型，仍按第 13 条停下报告**。
+    - **并发纪律**：**大任务只起一个子代理去做**（不要拆成多个并行）；任务执行**不得由主模型自己做**——**验证可以自己做**。
     - ⚠️ **明确化（用户 2026-10-10 二次确认）**：**“小改动”不构成自做的理由**——哪怕只是“改个默认值 + 同步文档 + 改测试断言”这类多文件编辑，**也属于实现类工作，一律走委派**。主模型自做的边界只剩两条：**① 单条只读命令能答完的探针；② 交底书 / 知识库 / 规则文件本身的落档**。其他仓库（含 `~/workspace/opencode-memx` 等）的代码改动**同样走委派**。
-12. **子代理模型固定 `opencode/step-5-preview-free`**：经 opencode 委派子代理时，模型用 **`opencode/step-5-preview-free`**（用户 2026-10-10 指定；**原定 `opencode/space-bunny-free` 因免费额度 429 `FreeUsageLimitError` 被限流，用户当日拍板更换**）。⚠️ **角色库不 pin 模型**（`product_roles` 已核实：四角色只有 `provider: "opencode"`，**无 model 字段**；`~/.dsh/product-subagents-registry.json` 也查不到模型）→ **每次委派都要显式传 `model: "opencode/step-5-preview-free"`**，不能指望"已 pin 自动生效"（传参形式与 `prompt_async` 的逐条 model 一致）。作用域 = **DSH 子代理委派**，与 App 运行时模型（手机端统一 `opencode/mimo-v2.6-flash-free`，见 issue #41/#42）**是两回事，勿互相套用**。该模型已在 `opencode models` 列表中确认存在。
-13. **子代理模型不可用时：报告，不降级（用户硬约束）**：若指定模型（如 `opencode/step-5-preview-free`）**不可用**（不存在 / 鉴权失败 / 报错 / 无响应），**立即停下并告知用户**，**严禁自行降级、替换模型、改配置、切 provider，或用其他方式绕道兜底**（含"先用别的模型顶一下"）。与第 10 条 vision-reader 的"不得自行降级重试"同源；**宁可失败并如实报告，不可静默降质**。
+12. **子代理模型 = 规则 11 的免费档回退链首选**：默认用 **`opencode/space-bunny-free`**（第一优先），遇 429 按链降级（`mimo-v2.6-flash-free` → `step-5-preview-free`），**细节与告知义务见规则 11**。**不要再把 `step-5-preview-free` 当固定值**——它只是当日的临时选择（当时 space-bunny 正被限流）。⚠️ **角色库不 pin 模型**（`product_roles` 已核实：四角色只有 `provider: "opencode"`，**无 model 字段**；`~/.dsh/product-subagents-registry.json` 也查不到模型）→ **每次委派都要显式传 `model`（取规则 11 回退链的当前一档）**，不能指望"已 pin 自动生效"（传参形式与 `prompt_async` 的逐条 model 一致）。作用域 = **DSH 子代理委派**，与 App 运行时模型（手机端统一 `opencode/mimo-v2.6-flash-free`，见 issue #41/#42）**是两回事，勿互相套用**。三档模型均已在 `opencode models` 列表中确认存在。
+13. **子代理模型因"非限流"原因不可用时：报告，不降级（用户硬约束）**：若模型（回退链任一档）**不可用**（不存在 / 鉴权失败 / 报错 / 无响应），**立即停下并告知用户**，**严禁自行降级、替换模型、改配置、切 provider，或用其他方式绕道兜底**（含"先用别的模型顶一下"）。与第 10 条 vision-reader 的"不得自行降级重试"同源；**宁可失败并如实报告，不可静默降质**。
 
 ## BROWSER AUTOMATION (Playwright)
 

@@ -552,6 +552,15 @@ E0（只读探针，必须第一）
 
 **⚠️ 执行面阻塞记录（2026-10-10；已由用户换模型解决）**：`opencode/space-bunny-free` 免费额度限流（429 `FreeUsageLimitError`）→ #58/#59 两批子代理共 10 次尝试**全部失败**，**未改任何文件**（worktree 均干净），且**未降级/未换模型/未绕道**（遵守规定 13）。**用户当日拍板换 `opencode/step-5-preview-free`**（已实测可用），两任务重派。
 
+**免费档限流归因调查（2026-10-10 用户要求；结论：并发不是根因）**：
+
+- **本地日志硬证据**：`QuotaExceeded: Rate limit exceeded` 共 **23 次**，时间窗 **11:13:50 → 11:19:26（约 6 分钟）** 随后自愈；涉及 **57 个不同 session**（远多于当次派的 2 个子代理）；更早也有（首条 **2026-09-29**）→ **不是今天新现象**。
+- **推论**：若"2 个并发会话打爆额度"，429 应集中在那些 session；实际**散布 57 个 session 且 6 分钟自愈** → 特征是**共享额度池瞬时耗尽后快速回补**。**并发不是根因**（但子代理 11:11 启动与 11:13 起始的 429 时间吻合，**不排除并发加重瞬时压力**——如实记录）。
+- **网上佐证**：多个独立项目同类问题（[hermes-agent #106495](https://github.com/NousResearch/hermes-agent/issues/106495)、[pi #2824](https://github.com/earendil-works/pi/issues/2824)、[OmniRoute #10357](https://github.com/diegosouzapw/OmniRoute/pull/10357)、[opencode #33495](https://github.com/anomalyco/opencode/issues/33495)）：**Zen 免费档是共享/账户级上限**（#33495 称付费后仍受"200 请求"免费上限约束）；部分项目报告**需带 opencode CLI 身份请求头（UA + `X-Session-ID`）才返回 200**。
+- **与我们的委派路径无关**：`dsh-plugin-product-subagents/lib/providers.js:66` = **`type: acp, command: opencode, args: [acp]`** → **由 opencode 原生客户端发请求，不自造 HTTP 头**（头部合成逻辑 grep 0 命中）→ "头不对"不是病因。
+- **已立规则（用户 2026-10-10 授权，写入两份 AGENTS.md 规则 11/12）**：**免费档回退链 = `space-bunny-free` → `mimo-v2.6-flash-free` → `step-5-preview-free`**；遇 **429** 按序自动降级，**每次切换与最终结果必须告知用户**；**非限流失败（不存在/鉴权/超时/报错）仍一律停下报告、不得换模型**。另立**并发纪律：大任务只起一个子代理；执行不得由主模型自做，验证可以。**
+- **运维提示**：委派前先花 1 次调用验证模型有额度；遇 429 等窗口或按链降级，**绝不降级重试**。
+
 **DSH 指令机制实况（2026-10-10 实测，回答"DSH 的 AGENTS.md 在哪里 / 有没有全局的"）**：
 
 - **运行环境证据**：`DSH_HOME=/Users/gubin/.dsh`、`DSH_PROFILE=web`、`DSH_PROFILE_DIR=/Users/gubin/.dsh/profiles/web`、`DSH_SESSION_ID=session-2a9a04b3-…`、`DSH_WEB_URL=http://127.0.0.1:3080`。
