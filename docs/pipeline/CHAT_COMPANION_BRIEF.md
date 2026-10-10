@@ -92,6 +92,14 @@
 - 兼容测试清单：session 列表/创建、`prompt_async`（含 agent 参数——companion 强制靠它）、SSE 事件流形状（打字机靠它）、question/permission 流、BFF 代理层、**v2 插件 API 能力验证**（工具注册 / `session.idle` hook / `instructions` 注入——memx 需要，插件模式既定）、websearch MCP 名字确认。
 - **硬约束（用户原话级）**：**测试只在本机做，绝对不要去生产测试；测试不能进行，需要告知**（不绕道、不降级凑合）。
 
+**E4 预研：v2 插件契约（2026-10-10，源码 `~/workspace/opencode-src` 权威）**：
+
+- **配置形状**：`ConfigPlugin.Plugins = Array<Union<[string, {package: string, options?: Record<string,unknown>}]>>`（`packages/schema/src/config/plugin.ts`）。⚠️ **配置键是 `plugins`（复数）**，v1 的 `plugin` 在 v2 无此字段。
+- **两套 API 并存**：`@opencode/plugin`（**Promise API**）、`@opencode/plugin/effect`（Effect API）、`@opencode/plugin/rpc`、`@opencode/plugin/tui`。
+- **内存插件的迁移路径（关键判断）**：memx 现在用 v1 的 `export const MemxPlugin: Plugin = async ({client,directory}) => ({event, tool})` 形态。v2 Promise API 的形状是 **`export default Plugin.define({ id, setup: async (ctx) => { … } })`**，能力通过 **context 域**暴露：`ctx.tool`（工具注册）、`ctx.event`（事件 hook）、`ctx.storage`、`ctx.session`、`ctx.websearch` 等（`packages/plugin/src/promise/plugin.ts` 的 `Context` 接口）。→ **memx 需按此重写 setup 与 hook 注册方式**（不是改 import 就能跑）。
+- **打包硬约束**：`effect` 必须声明为 **peerDependency**、**不得打包进插件**；插件及其 `node_modules` 一律拿到 **宿主 effect 实例**；**基于 Effect 3 的依赖不被支持**（README 明示）。
+- **本机验证目标**：v2 下"工具注册 + `session.idle` hook + instructions 注入"三项能力逐项验证（§3.3 兼容清单第 6 项）。
+
 ### 3.4 清单① 出口一：记录 ✅
 
 companion 的"这个记一下" = v2 插件注册的 **memory_write 工具**（写进 personal-context 记忆库，按 memx 四类型 schema：project/reference/feedback/user），chat 里给一行回执 chip（单元 1 的留痕原则）。v1 无记忆上线，本出口随 E4 插件批次。
@@ -101,6 +109,16 @@ companion 的"这个记一下" = v2 插件注册的 **memory_write 工具**（�
 - **链路**：用户 NL 说规则 → companion 编译成结构化规则（cron + 动作 + 通知方式）→ **chat 内轻确认卡**（展示她理解的规则原文，确认 / 改）→ 写入现有 assignment 引擎（Duties/补偿/投影那套，BFF 侧）→ 执行永远由引擎做，结果回流 attention/L1 → Pulse 卡 → 用户可问"今天早上的检查做了吗" → 她**只读**查执行记录回答。
 - **拍板**：① 确认环**保留（轻量版）**——理由：不对称失败模式（建错任务会被她每天早上重复执行/打扰，直到用户去 Duties 里翻出来撤销）；确认卡 = 校准她理解的最快方式，本质不是审批。② 确认卡在 **chat 内**（小卡片，不打断对话流、不跳页）；Pulse proposal 系统保持现状（它服务"后台主动建议"，chat 内卡服务"用户开口要的"，两个入口同一 assignment 存储）。③ 她只做**编译 + 创建 + 查询**，不亲自执行任务。
 - **前置门（用户提出）**：动工前核实 assignment 引擎是否 ready 吃"程序化建任务 + 结构化规则"——不 ready 先补口子（会成为 epic 里的一个 issue）。
+
+**双确认问题与提案（2026-10-10 预研，待批复后施工）**：
+
+- **问题**：BFF `assessConfirmation` 对 **market 域或 ongoing 模式**一律 `required: true`（"requires confirmation at activation"），而 §3.5 已定 companion 会先给一张**chat 内轻确认卡** → 若之后还要 `/confirm`，用户体感是**双重确认**。
+- **提案（推荐）：不改矩阵，改"确认事件由谁发出"**——卡上确认即视为授权，由 companion 在 proposing 之后**立即**追一次 `POST /api/product/assignment-proposals/{id}/confirm`。
+  - **理由**：① 矩阵是**引擎级授权不变量**（activation 必须经 proposal/confirmation，直建口已被刻意 405），绕过它会破坏审计链；② 用户仍只经历**一次**确认；③ **零 BFF 语义改动**。
+  - **契约事实（已核实）**：`POST /api/product/assignment-proposals` → `201 {proposal, confirmation, assignment, duplicateOf}`；`POST /api/product/assignment-proposals/{id}/confirm` → `200 {ok, proposal, assignment}`，内部 `assignmentService.confirm(id, {confirmedBy:"user"})`。
+- **新增失败模式（必须处理）**：用户在卡上点了确认，但随后 **confirm 调用失败**（网络/500）→ **不得静默**。处置：卡转为**错误态 + 重试按钮**（这就是单元 1"结果留痕"原则的延伸：约束用户的结果必须可见）。
+- **实现要点**：把 `propose` 与 `confirm` 收进**一个 BFF 路由**（如 `POST /api/product/assignments/from-card`：内部 propose→（`confirmation.required` 时）confirm→返回 `{assignmentId, responsibility}`），**减少 companion 调两个端点两次失败的机会**；`confirmedBy` 语义建议记为 **`"card"`** 而非 `"user"`，保留"授权来自确认卡"的审计痕迹（若不想动 schema，退回 `"user"` 也可接受）。
+- **待拍**：`confirmedBy` 用 `"card"` 还是维持 `"user"`；以及是否需要"卡上直接改文案再建"（当前设计是改完再确认，等同）。
 
 ### 3.6 清单③ 出口三：切 chatcode ✅
 
