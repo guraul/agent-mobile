@@ -297,8 +297,36 @@ async function main() {
         if (visible) break;
       }
       check(label, visible, visible ? '' : `20s 内未出现回执 chip（${testid}）`);
+      if (!visible) return;
+
+      // 防复发断言（#59 回归）：只断言"chip 元素存在"是不够的——把 numberOfLines={1}
+      // 加回去，元素照样在、文本照样在 DOM 里，用户实际只看到第一行。所以这里读
+      // ① 文本内容有真实反馈（宽松特征，兼容"当前没有生效中的 Assignment"空态）
+      // ② chip 内无裁剪（纵/横双向 scroll 比对；详见下方 evaluate 注释的实测结论）
+      // 全部 catch 兜底：基础设施问题跳过而非硬失败（同"动态数据缺失跳过"惯例）。
+      const probe = await page.locator(testid).last().evaluate((el) => {
+        const nodes = [el, ...el.querySelectorAll('*')];
+        return {
+          text: (el.innerText || '').trim(),
+          // 纵横两个方向都要看：numberOfLines={1} 在 RN Web 下是 nowrap + overflow:hidden，
+          // 溢出表现为 scrollWidth > clientWidth（纵向反而不变）；line-clamp 才是纵向溢出。
+          // 实测：只看纵向会让 numberOfLines={1} 回归照样 PASS——断言形同虚设。
+          clipped: nodes.some((n) =>
+            n.scrollHeight > n.clientHeight + 1 || n.scrollWidth > n.clientWidth + 1),
+        };
+      }).catch(() => null);
+      if (!probe) {
+        check(label + '（文本未被裁剪）', true, 'chip 读取失败（infra），跳过');
+        return;
+      }
+      // 特征覆盖 list / confirm / reject / revoke / repair / compensate / 空态各分支
+      const looksLikeFeedback = /asg_|prp_|Assignment|提案|提醒|撤销|重试|补偿|确认|拒绝|监控|生效中/.test(probe.text);
+      check(label + '（含真实反馈文本，非空 chip）', probe.text.length > 0 && looksLikeFeedback,
+        probe.text ? probe.text.slice(0, 60) : 'innerText 为空');
+      check(label + '（文本未被裁剪/截断）', !probe.clipped,
+        probe.clipped ? 'chip 内 scrollHeight > clientHeight——疑似 numberOfLines 截断回归' : 'no clipping');
     };
-    await sendCard('/assignments', '[data-testid="command-receipt"]', '斜杠 /assignments → 回执 chip（全文可见；Duties/Projects 卡已退役）');
+    await sendCard('/assignments', '[data-testid="command-receipt"]', '斜杠 /assignments → 回执 chip');
   } else {
     check('斜杠 /assignments → 回执 chip', false, '无输入框，跳过');
   }

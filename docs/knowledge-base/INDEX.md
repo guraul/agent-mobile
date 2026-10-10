@@ -76,7 +76,7 @@ Settings（连接/账号/BFF 地址/model 偏好）/ Memory / Knowledge / Fund �
 | 组件库（primitives/feedback/navigation + pulse） | components | `agent-mobile-app/src/components/index.ts` |
 | 设计 token（暗色主题，紫罗兰 accent） | theme | `agent-mobile-app/src/theme/index.ts` |
 | 双 chat 页分流判据（directory → chat/chatcode，纯函数） | router | `agent-mobile-app/src/services/conversation-kind.ts` |
-| 命令族反馈回执 chip（Assignment 斜杠命令的留痕，反馈全文可多行；取代已退役的 Duties/Projects 内白卡） | chat | `agent-mobile-app/src/components/chat/zcode/MessageBubbleZ.tsx`（`kind === "receipt"`）+ `ChatPanelZ.tsx`（`localSteps`） |
+| 命令族反馈回执 chip（Assignment 斜杠命令的留痕，反馈全文可多行；取代已退役的 Duties/Projects 内白卡） | chat | `agent-mobile-app/src/services/command-receipt.ts`（纯函数 + 单测）+ `ChatPanelZ.tsx`（`localSteps`）+ `zcode/MessageBubbleZ.tsx`（`kind === "receipt"` 渲染） |
 | Web 静态预览服务（`serve-static.mjs`，端口见下） | ops | `agent-mobile-app/scripts/serve-static.mjs` |
 | APK 下载服务（9928，备用） | ops | `test/download/pulse.apk`（python3 http.server） |
 | E2E 测试（Playwright） | ops | `agent-mobile-app/scripts/e2e/pulse-e2e.mjs` |

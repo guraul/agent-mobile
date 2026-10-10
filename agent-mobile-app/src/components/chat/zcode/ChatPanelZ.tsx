@@ -44,6 +44,7 @@ import { DEFAULT_MODEL, selectModels } from "../../../services/model-registry";
 import { buildAttentionContext } from "../../../services/attention/context";
 import { handleAttention } from "../../../services/attention/client";
 import { parseAssignmentCommand, executeAssignmentCommand } from "../../../services/assignment/client";
+import { appendReceipt, makeReceiptStep } from "../../../services/command-receipt";
 import {
   dequeueFirst,
   enqueueMessage,
@@ -61,8 +62,6 @@ const PAGE_SIZE = 50;
 // by loadMessages; trimming the head keeps the list from growing unbounded
 // while preserving the most recent messages (matches the PAGE_SIZE reload window).
 const MAX_MESSAGES = PAGE_SIZE * 2;
-// #59 命令回执 chip 的保留条数（localSteps 只增不减，长会话需有上界）
-const RECEIPT_KEEP = 20;
 
 // --- typewriter pacing -----------------------------------------------------
 // deepseek streams the whole reply in ~1.5s; applying every delta immediately
@@ -637,16 +636,9 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
   };
 
   /* ---- #59 命令族反馈：回执 chip（追加在消息流尾部，复用 localSteps） ---- */
-  // localSteps 无上界会在长会话里无限累积（chip 只增不减），裁到最近 RECEIPT_KEEP 条。
+  // 纯逻辑（✓ 剥离 + 上界裁剪）在 services/command-receipt.ts；此处只做状态回写。
   const pushReceipt = useCallback((text: string) => {
-    // 反馈文本自带的可读勾由 chip 上的 ✓ 图标承担——去掉前缀避免"✓ ✓"
-    const step: DisplayStep = {
-      kind: "receipt",
-      id: `cmd-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`,
-      createdAt: Date.now(),
-      text: text.replace(/^✓\s*/, ""),
-    };
-    setLocalSteps((prev) => [...prev, step].slice(-RECEIPT_KEEP));
+    setLocalSteps((prev) => appendReceipt(prev, makeReceiptStep(text)));
   }, []);
 
   const send = async () => {
