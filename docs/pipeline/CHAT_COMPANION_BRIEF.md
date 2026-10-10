@@ -435,7 +435,8 @@ E0（只读探针，必须第一）
   - **B**：把 `LLMClient` 换成"直调模型"适配器，让提炼不依赖 opencode server；但**并发写问题仍在**（两个写者）。
   - **C**：DSH 只**读**（注入 `MEMORY.md` 索引进上下文）、不写——最省事，但"记"的能力留空。
 - **真实风险（必须写进将来的 issue）**：① **并发写同一批 markdown**（两个 session 同时 `session.idle` 触发提炼 → 索引/文件损坏）→ 需**锁或单写者**；② 两个系统对"什么值得记"的语义会分叉；③ refine 会话会往会话库写数据（与 DSH 的会话数据混在一起，需可辨识）；④ 默认模型已下线。
-- **与 E4 的关系**：本结论**不改变 E4 范围**（E4 做 opencode v2 插件 + 出口①）；DSH 侧复用的落地**另立 issue**，等到单元 3 的 `personal-context` 有实体之后再谈（否则三个写者更乱）。
+- **与 E4 的关系**：本结论**不改变 E4 范围**（E4 做 opencode v2 插件 + 出口①）；DSH 侧复用的落地**已立 issue #62**（backlog），等到单元 3 的 `personal-context` 有实体之后再谈（否则三个写者更乱）。
+- **已执行的小改动（2026-10-10）**：`opencode-memx` 默认提炼模型 `opencode/deepseek-v4-flash-free` → **`opencode/mimo-v2.6-flash-free`**（该仓 commit `5b8074b`，6 文件）。⚠️ **未验证**（该仓依赖未安装，测试跑不了）+ **生产不自动生效**（生产用 `/root/project/opencode-memx` 独立 checkout）→ 两件都写进 #62 收尾。
 
 **Backlog（立项时落 issue，不逐条讨论）**：LangSmith 式可见性（dev trace 读 opencode session 数据）· 模型可配置 · 系统 prompt 可配置（对接 personal-context）· 记忆树挂 vault（实现另议）· #44 chat 排队（**前置 = E3-b busy 信号修复，该地基已由本次拍板铺定**）· **常驻"切 chatcode"按钮**（等真实使用证明需要，§3.6 点 2）· **移交的后台静默总结**（隔天回来移交旧对话；先给卡上"重新总结"按钮兜住，§3.6）· **`#34` workspace 抽屉**（#46 已交付 sessions 抽屉，workspace 另排）· **chatcode 边缘手势**（§3.10：抽屉入口已开，手势留待实测需要）。
 
