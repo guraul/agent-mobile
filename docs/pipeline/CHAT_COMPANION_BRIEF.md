@@ -335,7 +335,7 @@ E0（只读探针，必须第一）
 - **①-c 生产 model 同窗口一并设为 `opencode/mimo-v2.6-flash-free`**（与客户端 `DEFAULT_MODEL` 一致，消除 #41 同源隐患）。
 - **⚠️ 本关自我更正**：我原先给的 A/B/C/E 四个选项把"升级"与"配 exa"当成**互斥方案**，**框错了**——用户的处置是**叠加**（升级是地基、exa 是增强）。此更正留档，防止后续按旧选项讨论。
 
-> **执行方式（2026-10-10 用户拍板，常驻规则）**：**E2 起的实现/执行类工作委派给 opencode 子代理**（DSH 四角色已 pin `opencode`），**模型 `opencode/space-bunny-free`（每次委派显式传参——`product_roles` 已核实角色库不 pin 模型）**；**DSH 只做编排 / 决策 / 验收**。产品讨论与 BRIEF / 知识库落档仍由 DSH 主模型直接做。规则全文见仓库 `AGENTS.md` 强制规定 11-13（family-finance 侧 6-8）。**模型不可用即停下报告，不降级。**
+> **执行方式（2026-10-10 用户拍板，常驻规则）**：**E2 起的实现/执行类工作委派给 opencode 子代理**（DSH 四角色已 pin `opencode`），**模型 `opencode/step-5-preview-free`（每次委派显式传参——`product_roles` 已核实角色库不 pin 模型）**；**DSH 只做编排 / 决策 / 验收**。产品讨论与 BRIEF / 知识库落档仍由 DSH 主模型直接做。规则全文见仓库 `AGENTS.md` 强制规定 11-13（family-finance 侧 6-8）。**模型不可用即停下报告，不降级。**
 
 - **E0 · 开工前探针（只读，必须第一）**：**✅ 已完成 2026-10-10**，结论见 §8「E0 探针结论」。**只读执行，零写入**。两项决策已拍板（见上）。
 - **E1 · 生产升级链 + exa（用户 2026-10-10 从 backlog 拉回，升至队列首位）**：
@@ -463,7 +463,7 @@ E0（只读探针，必须第一）
   - ⚠️ **未定论**：本次 `step.failed` 原因是 **`provider.quota` 429（`FreeUsageLimitError`）**——**模型侧限流，不是契约问题**。所以"v2 用什么事件承载文本增量"**尚无定论**（可能仍是 delta 系、只是没跑到；也可能是 `session.step.*`/inbox 系）→ **须换有额度的模型再跑一次对照**。
 - **✅ 结论 3**：`POST /api/session` 返回 `{data:{id, projectID, agent, model:{id,providerID,variant}, location:{directory}, subpath}}` → **`agent`/`model` 确在建会话时生效**（§3.2 强制机制换实现的路径已验证可用）。
 
-**⚠️ 执行面阻塞（2026-10-10，影响所有 opencode 委派）**：`opencode/space-bunny-free` **免费额度限流**（429 `FreeUsageLimitError`）——#58/#59 两个实现子代理各 4-6 次尝试**全部失败**，**未改任何文件**（两个 worktree `git status` 均干净）。子代理按 AGENTS.md 规定 13 **未降级、未换模型、未绕道**，如实回报。**解除方式需用户决策**（等额度窗口 / 换模型 / 改由 DSH 直接执行）。
+**⚠️ 执行面阻塞（2026-10-10，影响所有 opencode 委派）**：`opencode/step-5-preview-free` **免费额度限流**（429 `FreeUsageLimitError`）——#58/#59 两个实现子代理各 4-6 次尝试**全部失败**，**未改任何文件**（两个 worktree `git status` 均干净）。子代理按 AGENTS.md 规定 13 **未降级、未换模型、未绕道**，如实回报。**解除方式需用户决策**（等额度窗口 / 换模型 / 改由 DSH 直接执行）。
 
 **DSH 指令机制实况（2026-10-10 实测，回答"DSH 的 AGENTS.md 在哪里 / 有没有全局的"）**：
 
@@ -497,9 +497,9 @@ E0（只读探针，必须第一）
 
 **委派执行方式（2026-10-10 用户拍板落档）**：
 
-- 见 §6 顶部「执行方式」指针——四角色已 pin `opencode`（生效配置在 `~/.dsh/profiles/web/roles/*.json`；插件仓库里的 `roles/*.json` 是默认值 claude-code，**不是生效那份**），**模型每次显式传 `opencode/space-bunny-free`**。
+- 见 §6 顶部「执行方式」指针——四角色已 pin `opencode`（生效配置在 `~/.dsh/profiles/web/roles/*.json`；插件仓库里的 `roles/*.json` 是默认值 claude-code，**不是生效那份**），**模型每次显式传 `opencode/step-5-preview-free`**。
 - ⚠️ **子代理看不到本 BRIEF、也看不到仓库 `AGENTS.md`**：角色 JSON 的 `instructions` 字段（发往远端 product 的指令）**不读工作区文件**（已核实）。故**每次委派必须在 task 文本里显式带上相关约束**（模型规则、不降级、不改依赖、读写权限、验收方式），否则子代理无从知晓。
-- **首次实测（2026-10-10）**：`explore` 角色 + 显式 model 委派成功——registry 回读 `model: opencode/space-bunny-free` 已 pin；remote session 消息记录 `"agent":"build"`、`"model":{"id":"space-bunny-free","providerID":"opencode"}`；产出结论质量可接受（自带证据链）。**注意 `product_wait` 默认 180s 会超时但任务仍在跑**（DB 持续写入 reasoning），**不能据超时判定失败**。
+- **首次实测（2026-10-10）**：`explore` 角色 + 显式 model 委派成功——registry 回读 `model: opencode/step-5-preview-free` 已 pin；remote session 消息记录 `"agent":"build"`、`"model":{"id":"space-bunny-free","providerID":"opencode"}`；产出结论质量可接受（自带证据链）。**注意 `product_wait` 默认 180s 会超时但任务仍在跑**（DB 持续写入 reasoning），**不能据超时判定失败**。
 
 ## 9. 沟通与协作
 
