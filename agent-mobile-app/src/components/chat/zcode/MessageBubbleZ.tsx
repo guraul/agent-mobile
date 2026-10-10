@@ -118,14 +118,17 @@ export const MessageBubbleZ = React.memo(function MessageBubbleZ({
     return <ToolGroupCard tools={step.kind === "toolGroup" ? step.tools : [step]} onOpenOutput={onOpenOutput} />;
   }
 
-  // #59 命令族回执 chip：一行轻量留痕（✓ + 单行文本），取代原 showAlert 弹窗。
+  // #59 命令族回执 chip：轻量留痕（✓ 图标 + 反馈全文），取代原 showAlert 弹窗。
   // 落在消息流尾部（ChatPanelZ 的 localSteps），无需用户动手关。
+  // ⚠️ 文本绝不截断：executeAssignmentCommand 的反馈是多行的（/assignments 列表条目、
+  // proposal 的 `Proposal: prp_xxx` + `回复 /confirm prp_xxx 激活`），截断会丢命令链必需
+  // 的 id——旧 showAlert 是全文可见的，chip 不能比它少字（#59 回归教训）。
   if (step.kind === "receipt") {
     return (
       <View style={s.receiptChip} testID="command-receipt">
         <Check color={lightChatColors.greenCheck} size={12} strokeWidth={2} />
         <View style={s.receiptTextWrap}>
-          <Text variant="lightCaption" color="lightChipText" numberOfLines={1}>{step.text}</Text>
+          <Text variant="lightCaption" color="lightChipText">{step.text}</Text>
         </View>
       </View>
     );
@@ -191,10 +194,11 @@ const s = StyleSheet.create({
     flexShrink: 1,
   },
   orbSlot: { justifyContent: "flex-end", paddingBottom: 2 },
-  // #59 命令族回执 chip：暖杏底 + 全圆（mock .sugg-chip 语言），贴消息流左缘
+  // #59 命令族回执 chip：暖杏底 + 全圆（mock .sugg-chip 语言），贴消息流左缘。
+  // 多行反馈自然换行：宽度由 maxWidth 约束，高度随文本增长（不截断字符）。
   receiptChip: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     alignSelf: "flex-start",
     gap: spacing.xs,
     maxWidth: "92%",

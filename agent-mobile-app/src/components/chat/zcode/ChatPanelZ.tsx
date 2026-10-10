@@ -61,6 +61,8 @@ const PAGE_SIZE = 50;
 // by loadMessages; trimming the head keeps the list from growing unbounded
 // while preserving the most recent messages (matches the PAGE_SIZE reload window).
 const MAX_MESSAGES = PAGE_SIZE * 2;
+// #59 命令回执 chip 的保留条数（localSteps 只增不减，长会话需有上界）
+const RECEIPT_KEEP = 20;
 
 // --- typewriter pacing -----------------------------------------------------
 // deepseek streams the whole reply in ~1.5s; applying every delta immediately
@@ -634,18 +636,17 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
     }
   };
 
-  /* ---- #59 命令族反馈：一行回执 chip（追加在消息流尾部，复用 localSteps） ---- */
+  /* ---- #59 命令族反馈：回执 chip（追加在消息流尾部，复用 localSteps） ---- */
+  // localSteps 无上界会在长会话里无限累积（chip 只增不减），裁到最近 RECEIPT_KEEP 条。
   const pushReceipt = useCallback((text: string) => {
-    setLocalSteps((prev) => [
-      ...prev,
-      {
-        kind: "receipt",
-        id: `cmd-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`,
-        createdAt: Date.now(),
-        // 反馈文本自带的可读勾由 chip 上的 ✓ 图标承担——去掉前缀避免"✓ ✓"
-        text: text.replace(/^✓\s*/, ""),
-      },
-    ]);
+    // 反馈文本自带的可读勾由 chip 上的 ✓ 图标承担——去掉前缀避免"✓ ✓"
+    const step: DisplayStep = {
+      kind: "receipt",
+      id: `cmd-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`,
+      createdAt: Date.now(),
+      text: text.replace(/^✓\s*/, ""),
+    };
+    setLocalSteps((prev) => [...prev, step].slice(-RECEIPT_KEEP));
   }, []);
 
   const send = async () => {
@@ -886,7 +887,9 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
             ) : null
           }
           renderItem={({ item, index }) => {
-            const prev = display[index - 1];
+            // index 来自 listData（display + localSteps），prev 也必须取 listData——
+            // 取 display[index-1] 在 localSteps 段恒为 undefined，回执会多吃一份上边距
+            const prev = listData[index - 1];
             const isTurnStart = !prev || prev.kind === "user" || item.kind === "user";
             // typewriter pacing: while a part is mid-stream, show only the
             // characters revealed so far so the reply visibly types out.

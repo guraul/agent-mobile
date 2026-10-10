@@ -267,7 +267,8 @@ async function main() {
   }
 
   // Step 5: 命令族反馈（#59）——/assignments、/projects 斜杠卡（Duties/Projects）已退役；
-  // Assignment 命令改为消息流尾部的一行回执 chip。仍不进 agent，NO_SEND 模式即可验证。
+  // Assignment 命令改为消息流尾部的回执 chip（反馈全文、可多行换行——#59 回归修复：单行截断会丢
+  // /assignments 列表条目与 proposal 的 confirm id）。仍不进 agent，NO_SEND 模式即可验证。
   if (hasTextarea) {
     const sendCard = async (cmd, testid, label) => {
       // 完整模式下发送后 composer 自动收起——先确保展开（NO_SEND 模式已展开则跳过）
@@ -297,9 +298,9 @@ async function main() {
       }
       check(label, visible, visible ? '' : `20s 内未出现回执 chip（${testid}）`);
     };
-    await sendCard('/assignments', '[data-testid="command-receipt"]', '斜杠 /assignments → 一行回执 chip（Duties/Projects 卡已退役）');
+    await sendCard('/assignments', '[data-testid="command-receipt"]', '斜杠 /assignments → 回执 chip（全文可见；Duties/Projects 卡已退役）');
   } else {
-    check('斜杠 /assignments → 一行回执 chip', false, '无输入框，跳过');
+    check('斜杠 /assignments → 回执 chip', false, '无输入框，跳过');
   }
 
   // Step 6: sessions 抽屉（#34F / issue #46）——chat 侧（market 目录）验证入口 + 两种手势。
