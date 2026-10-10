@@ -172,7 +172,7 @@ export function ProjectChatZ({ projectPath, onBack, kind, attention, initialSess
         </Box>
       ) : session ? (
         <View style={styles.flex}>
-          <ChatPanelZ key={session.id} sessionID={session.id} attention={attention} autoSendContext={autoSendContext} autoContextText={autoContextText} />
+          <ChatPanelZ key={session.id} sessionID={session.id} kind={kind} attention={attention} autoSendContext={autoSendContext} autoContextText={autoContextText} />
         </View>
       ) : (
         <Box padding="lg" style={styles.center}>

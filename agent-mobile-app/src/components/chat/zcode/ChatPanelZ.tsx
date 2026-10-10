@@ -53,6 +53,7 @@ import {
   type QueuedMessage,
 } from "../../../services/message-queue";
 import type { EngagedAttentionRef } from "../../../services/attention/store";
+import type { ConversationKind } from "../../../services/conversation-kind";
 import { MessageBubbleZ } from "./MessageBubbleZ";
 import { BusyDots } from "./BusyDots";
 import { showAlert } from "../../../services/alert";
@@ -82,8 +83,16 @@ const FALLBACK_AGENTS = [
   { id: "design", model: DEFAULT_MODEL },
 ] as const;
 
+// #57（E3-a）：chat 伴侣页发出的每条消息固定 agent=companion（只读 + 产品动作，
+// 服务端禁 bash/edit 全家）——不随 session.agent / 用户选择变化。chatcode 侧维持
+// build/plan/design 选择器。双保险语义：agent 配置断工具（真护栏，随 E1 上线）+
+// 客户端写死（行为一致）。服务端上线依赖 E1（生产 opencode v2 + companion 配置）。
+const CHAT_AGENT_ID = "companion";
+
 interface ChatPanelProps {
   sessionID: string;
+  /** #29 双页分流判据（talk.tsx 运行时判定）：chat=伴侣页（强制 companion + 无 agent 选择器 + 思考卡收敛），其余=chatcode 工作台（现状不动） */
+  kind?: ConversationKind;
   /** Phase 4：从 Attention 进入时携带——上下文卡 + 显式 Mark handled 入口 */
   attention?: EngagedAttentionRef;
   /** market 类 Create 流程：挂载后自动发送一条 Attention 上下文消息（用户显式 engage 的结果） */
@@ -92,7 +101,9 @@ interface ChatPanelProps {
   autoContextText?: string;
 }
 
-export function ChatPanelZ({ sessionID, attention, autoSendContext = false, autoContextText }: ChatPanelProps) {
+export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false, autoContextText }: ChatPanelProps) {
+  // #57 chat 伴侣页判据（kind 缺省按 chatcode 处理，行为与改造前一致）
+  const isChat = kind === "chat";
   const [messages, setMessages] = useState<OpenCodeMessage[]>([]);
   const [display, setDisplay] = useState<DisplayStep[]>([]);
   const [input, setInput] = useState("");
@@ -205,12 +216,16 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
   // listMessages returns chronological (oldest first); sort by creation time so
   // streaming updates land in the right spot regardless of API ordering, then
   // merge assistant steps into single turns (#32：连续 tool step 合并为折叠组——纯函数，语义同 mergeMessages）。
+  // #57：chat 伴侣页不渲染 reasoning step（BRIEF §3.7 追加拍板——思考卡是过程类 UI，
+  // 多步推理会密集刷出多张 {> 思考} 卡）。「她在动」的等待信号由 #58 的 busy 状态行
+  // 承载，故选「直接不渲染」而非折叠状态行（零新增过程 UI）。chatcode 侧维持 ThinkCard。
   const recomputeDisplay = useCallback((raw: OpenCodeMessage[]) => {
     const chronological = [...raw].sort(
       (a, b) => (a.info.time?.created ?? 0) - (b.info.time?.created ?? 0),
     );
-    setDisplay(groupToolSteps(mergeMessages(chronological)));
-  }, []);
+    const steps = groupToolSteps(mergeMessages(chronological));
+    setDisplay(isChat ? steps.filter((s) => s.kind !== "reasoning") : steps);
+  }, [isChat]);
 
   const loadMessages = useCallback(async () => {
     try {
@@ -595,7 +610,7 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
     opencodeClient
       .sendMessageAsync(sessionID, {
         parts: [{ type: "text", text: ctx.messageText }],
-        agent: agents[agentIdx].id,
+        agent: isChat ? CHAT_AGENT_ID : agents[agentIdx].id,
         model,
       })
       .then(() => stickToBottom.current = true)
@@ -613,7 +628,7 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
     opencodeClient
       .sendMessageAsync(sessionID, {
         parts: [{ type: "text", text: autoContextText }],
-        agent: agents[agentIdx].id,
+        agent: isChat ? CHAT_AGENT_ID : agents[agentIdx].id,
         model,
       })
       .then(() => { stickToBottom.current = true; })
@@ -686,7 +701,8 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
     try {
       await opencodeClient.sendMessageAsync(sessionID, {
         parts: [{ type: "text", text }],
-        agent: agents[agentIdx].id,
+        // #57：chat 伴侣页固定 companion，不随 session.agent / 用户选择变化；chatcode 侧照旧
+        agent: isChat ? CHAT_AGENT_ID : agents[agentIdx].id,
         model,
       });
       stickToBottom.current = true;
@@ -697,7 +713,7 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
     } finally {
       setSending(false);
     }
-  }, [sessionID, agents, agentIdx, model]);
+  }, [sessionID, isChat, agents, agentIdx, model]);
 
   // #33 排队队列操作统一入口：任何 chip 动作（删除/上移/回填）都解除发送阻塞
   const mutateQueue = useCallback((next: QueuedMessage[]) => {
@@ -1107,20 +1123,23 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
                 <RNText style={styles.maText} numberOfLines={1}>{model.modelID}</RNText>
               </Pressable>
               <View style={styles.flexSpacer} />
-              <Pressable
-                onPress={() => {
-                  setAgentIdx((idx) => (idx + 1) % agents.length);
-                  setModel(agents[(agentIdx + 1) % agents.length].model);
-                }}
-                onLongPress={() => setAgentMenuOpen(true)}
-                delayLongPress={400}
-                accessibilityLabel="Switch agent"
-                accessibilityRole="button"
-                style={styles.maBtn}
-              >
-                <View style={styles.maDot} />
-                <RNText style={styles.maText}>{agents[agentIdx].id}</RNText>
-              </Pressable>
+              {/* #57：chat 伴侣页无 agent 选择器（固定 companion）——agent pill 循环 + 长按面板仅 chatcode 侧渲染 */}
+              {!isChat && (
+                <Pressable
+                  onPress={() => {
+                    setAgentIdx((idx) => (idx + 1) % agents.length);
+                    setModel(agents[(agentIdx + 1) % agents.length].model);
+                  }}
+                  onLongPress={() => setAgentMenuOpen(true)}
+                  delayLongPress={400}
+                  accessibilityLabel="Switch agent"
+                  accessibilityRole="button"
+                  style={styles.maBtn}
+                >
+                  <View style={styles.maDot} />
+                  <RNText style={styles.maText}>{agents[agentIdx].id}</RNText>
+                </Pressable>
+              )}
             </View>
           </View>
         </View>
@@ -1151,8 +1170,10 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
         </ScrollView>
       </LightSheet>
 
-      {/* #33 agent 面板（agent ma-btn 长按唤起；轻点仍是循环切换）：LightSheet 载体 */}
-      <LightSheet visible={agentMenuOpen} onClose={() => setAgentMenuOpen(false)} testID="agent-sheet">
+      {/* #33 agent 面板（agent ma-btn 长按唤起；轻点仍是循环切换）：LightSheet 载体。
+          #57：chat 伴侣页固定 companion、无选择器 → 面板仅 chatcode 侧渲染 */}
+      {!isChat && (
+        <LightSheet visible={agentMenuOpen} onClose={() => setAgentMenuOpen(false)} testID="agent-sheet">
         <View style={styles.sheetHeader}>
           <Text variant="lightBodyStrong" color="lightInk">选择 Agent</Text>
         </View>
@@ -1180,7 +1201,8 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
             );
           })}
         </ScrollView>
-      </LightSheet>
+        </LightSheet>
+      )}
 
       {pendingQuestion ? (
         <LightSheet visible onClose={rejectQuestion} testID="question-sheet">

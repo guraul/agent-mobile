@@ -1,6 +1,7 @@
 # modules/services.md —— opencode 对接服务层
 
 > 最后更新：2026-10-10 · commit：`feat(chat): busy 真实信号（#58）`（新增 `busy-signal.ts` 纯函数 + 单测；ChatPanelZ 状态行判据由 `sending` 改为事件驱动 busy）
+> 上一版：2026-10-10 · commit：`feat(chat): chat 页强制 agent=companion（#57 E3-a 客户端半边）`（chat 侧三处 `sendMessageAsync` 固定 `agent:"companion"`）
 > 上一版：2026-08-30 · commit：`d255c48`（bff-config/model-prefs/bff-health/getBaseUrl 运行时覆盖 + OPTIONS 探测 + loadToken 修复）
 
 ## 模块职责
@@ -59,7 +60,7 @@ auth.ts ──Bearer JWT──► 认证（family-finance 用户）       openco
 | `getSessionStatus(directory?)` | `GET /session/status?directory=` | busy/retry 状态表 |
 | `replyPermission(id,permissionID,response)` | `POST /session/{id}/permissions/{pid}` | 回复权限（once/always/reject） |
 | `sendMessage(id,body)` | `POST /session/{id}/message` | 同步发送 |
-| `sendMessageAsync(id,body)` | `POST /session/{id}/prompt_async` | 异步发送（流式） |
+| `sendMessageAsync(id,body)` | `POST /session/{id}/prompt_async` | 异步发送（流式）。body 可带 `agent`/`model`（**按消息指定**，session 建后不可变）。**#57 起 chat 侧（kind==="chat"）三处发送固定 `agent:"companion"`**（伴侣 agent：只读 + 产品动作，服务端禁 bash/edit 全家，配置随 E1 上线）；chatcode 侧仍发 agents 列表当前选中值 |
 | `abort(id)` | `POST /session/{id}/abort` | 中止 |
 | `login(username,password)` | `POST /api/auth/login`（BFF） | 登录拿 JWT（委托 auth.ts） |
 | `listProviders()` | `GET /config/providers` | 动态模型列表 `{providers, default}` |
