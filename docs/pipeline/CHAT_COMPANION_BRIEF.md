@@ -451,7 +451,19 @@ E0（只读探针，必须第一）
 
 **✅ 好消息（可行性）**：`/api/event` 的 SSE 仍是标准 `text/event-stream`；`session.create` 原生支持 `agent`/`model`（E3-a 反而更简单）；exa MCP 端点运维侧可达（405 探测）；v2 有 `/api/experimental/migration/v1`。
 
-**仍须实测**：① `/api/session/{id}/prompt` 的 200 返回是否**立即**（durable admit 语义暗示不阻塞 agent loop，与 `prompt_async` 的"不等跑完"一致，但未实测）；② `message.part.delta` 在 v2 运行时是否真的发出（源码只在 v1 兼容层见到）；③ v1→v2 迁移 1.8G 库的耗时与成败。
+**仍须实测**：① ~~prompt 的 200 是否立即~~ **→ 已实测，见下**；② `message.part.delta` 在 v2 运行时是否真发出（源码只在 v1 兼容层见到）**→ 半实测，见下**；③ v1→v2 迁移 1.8G 库的耗时与成败。
+
+**E1 运行时探针（2026-10-10；本机 v2.0.26 隔离实例，不碰生产；已清理）**：
+
+- **方法**：`OPENCODE_DB` + `OPENCODE_CONFIG_DIR` 指向 `/tmp` 隔离副本 → `serve --port 4099` → Node 原生 fetch 探针（`test/v2-contract-probe.mjs`）。实例已杀、临时目录已删。
+- **鉴权（新契约）**：v2 **不是 Bearer**，是 **Basic `opencode:<server password>`**（`auth.ts` 的 `credentials.username` 默认 `"opencode"`；密码 = serve 启动时打印的 `server password …`）。Bearеr → 401。
+- **模型引用形状（新契约）**：`{providerID, id}`——**不是 v1 的 `{providerID, modelID}`**（用 `modelID` → 400 `Missing key at ["model"]["id"]`）。
+- **✅ 结论 1**：`POST /api/session/{id}/prompt` **立即返回**（实测 **1066ms**，200 + `{data:{id…, type:"user", payload:{text}, delivery:"steer"}}`）→ **durable admit / 不阻塞 agent loop 语义成立**，与 v1 `prompt_async` 的"204 立即返回"**行为等价**（仅状态码与 body 不同）→ **BFF/App 不需要改成阻塞式**。
+- **✅ 结论 2（半）**：**`message.part.delta` 未出现在 v2 运行时事件流**。10s 采样全是结构化生命周期事件：`server.connected` / `project.updated` / `integration.updated` / `provider.updated` / `model.updated` / `agent.updated` / `command.updated` / `skill.updated` / `websearch.updated` / `reference.updated` / `plugin.updated` / `session.inbox.enqueued` / `session.execution.started` / `session.instructions.updated` / `session.inbox.delivered` / `session.step.started` / `session.step.failed` / `session.execution.failed`。帧形状实测 = `{id, created?, type, location?, data}`。
+  - ⚠️ **未定论**：本次 `step.failed` 原因是 **`provider.quota` 429（`FreeUsageLimitError`）**——**模型侧限流，不是契约问题**。所以"v2 用什么事件承载文本增量"**尚无定论**（可能仍是 delta 系、只是没跑到；也可能是 `session.step.*`/inbox 系）→ **须换有额度的模型再跑一次对照**。
+- **✅ 结论 3**：`POST /api/session` 返回 `{data:{id, projectID, agent, model:{id,providerID,variant}, location:{directory}, subpath}}` → **`agent`/`model` 确在建会话时生效**（§3.2 强制机制换实现的路径已验证可用）。
+
+**⚠️ 执行面阻塞（2026-10-10，影响所有 opencode 委派）**：`opencode/space-bunny-free` **免费额度限流**（429 `FreeUsageLimitError`）——#58/#59 两个实现子代理各 4-6 次尝试**全部失败**，**未改任何文件**（两个 worktree `git status` 均干净）。子代理按 AGENTS.md 规定 13 **未降级、未换模型、未绕道**，如实回报。**解除方式需用户决策**（等额度窗口 / 换模型 / 改由 DSH 直接执行）。
 
 **DSH 指令机制实况（2026-10-10 实测，回答"DSH 的 AGENTS.md 在哪里 / 有没有全局的"）**：
 
