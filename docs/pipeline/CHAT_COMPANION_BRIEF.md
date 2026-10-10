@@ -416,6 +416,20 @@ E0（只读探针，必须第一）
    - **采用的替代（不依赖该假设）**：新项目分支取 slug **以 worktree/path 为准**（memory 落点本就是 slug）。E3-d 实现时用未登记目录跑一次端到端即可终验，**不必现在写测试**。
    - 另：本机 `project.id` = path 的哈希（21 行各异）——**勿把 worktree path 当 project id 用**。
 
+**E1 生产勘察结论（2026-10-10，只读；⚠️ 发现 3 个阻断级风险，已同步 issue #53）**：
+
+> **一句话：v1→v2 不是"换个二进制"，而是"BFF/App 契约重写 + 1.8G 库不可逆迁移 + 插件/配置重写"。**
+
+- **R1（阻断）4 个 v1 专有路由在 v2 不存在**：BFF 用 `/global/event`（`packages/web/lib/opencode.ts:4` + `app/api/opencode/stream/route.ts:50` + `lib/product/opencode-tap.ts` 3 处）；App 用裸 `/session`、`/session/{id}/prompt_async`、`/config`、`/global/event`。v2 二进制实测：**`prompt_async` 0 命中**、无裸 `/session`、无裸 `/config`、无 `/global/*`，事件流改名 **`/api/event`**。→ **升级当天手机端聊天/发消息/项目列表 404、SSE 断流。**
+- **R2（阻断）1.8 GB 库就地迁移且不可逆**：`opencode.db` = 1.8G（1877843968 B），session 100 / message 3938 / part 15871。v1 的 `migration` 表已 38 条（含 `20260622170816_reset_v2_session_state`），v2 需跑到 **49 条**并新建 **7 张表**（`session_v2`/`session_pending`/`worktree`/`instruction_entry`/`instruction_blob`/`kv`/`session_inbox`）；迁移含 **清空型**操作（`clear_v1_session_permission`）→ **回滚必须"二进制 + 数据库"一起，只回二进制不够。**
+- **R3（高）配置键改名**：`plugin`→**`plugins`**、`agent`→**`agents`**、`provider`→**`providers`**（`instructions` 保留；`mcp` 为 `{servers:{…}}`）。生产用单数 `"plugin"` → v2 无此字段。
+- **R4（高）memx 锁死 v1**：`@opencode-ai/plugin` **^1.18.12**，v1 插件 API（`event` hook `session.idle`/`session.deleted` + `tool.schema` + `client.session.messages`）；v2 插件 API **effect-schema 化**（`Config.Plugin.Entry` 变 `{package, options}`）→ 大概率不兼容，且**加载失败可能拖垮整条插件链**。
+- **R5（中）** 生产 agent model 仍为已下线的 `deepseek/deepseek-v4-flash`（v2 schema 更严 → 可能启动即失败）。**R6（中）** systemd `ExecStart` 指向 `/usr/lib/node_modules/opencode-ai/bin/opencode.exe` → 换安装方式（curl/bun）会让 systemd 起不来。**R7（中）无回滚物料**：`~/.npm/_cacache` 不存在、无旧二进制备份 → 回滚只能联网；`npm pack opencode-ai@1.18.34` 可作回滚物料。**R8（低）** npm 慢（25MB 8s 未传完），v2 二进制 ~190MB。
+- **✅ 好消息**：**exa MCP 端点可达**（`https://mcp.exa.ai/mcp` → 405，GET 不允许 = MCP 只收 POST，符合预期）；npm registry 可达；**磁盘可用 22G**（40G 用 17G）足够快照；v2 保留 `message.part.delta` / `session.*` 事件名，与 BFF `createDeltaBuffer` 假设一致；v2 有 `/api/experimental/migration/v1`。
+- **建议路径（未获批不执行）**：① 同服务器**不同端口 + DB 副本**起 v2 实例做**契约验证**（`/api/session/{id}/prompt` 是否等价 `prompt_async` 的 204 异步、`/api/event` 帧格式）→ ② DB **三件套快照 + 还原演练** → ③ 配置键迁移 + memx 适配或短期停用 → ④ 保持 npm 安装方式（不动 systemd 路径）→ ⑤ `npm pack` 存回滚物料。
+- **只读无法确认（须实测）**：`/api/session/{id}/prompt` 的异步语义；v2 是否留旧路由别名；`/api/event` 帧封装格式；memx 在 v2 的加载行为；1.8G 库迁移耗时与成败。
+- **⚠️ 对排期的影响**：R1 使 **E1 从"运维动作"升级为"BFF + App 契约改造"** → E1 体量显著变大，且**生产升级前必须先有契约验证环境**。E3-a（#57）与 E3-d2（#61）依赖 E1，随之顺延。
+
 **DSH 指令机制实况（2026-10-10 实测，回答"DSH 的 AGENTS.md 在哪里 / 有没有全局的"）**：
 
 - **运行环境证据**：`DSH_HOME=/Users/gubin/.dsh`、`DSH_PROFILE=web`、`DSH_PROFILE_DIR=/Users/gubin/.dsh/profiles/web`、`DSH_SESSION_ID=session-2a9a04b3-…`、`DSH_WEB_URL=http://127.0.0.1:3080`。
