@@ -430,6 +430,29 @@ E0（只读探针，必须第一）
 - **只读无法确认（须实测）**：`/api/session/{id}/prompt` 的异步语义；v2 是否留旧路由别名；`/api/event` 帧封装格式；memx 在 v2 的加载行为；1.8G 库迁移耗时与成败。
 - **⚠️ 对排期的影响**：R1 使 **E1 从"运维动作"升级为"BFF + App 契约改造"** → E1 体量显著变大，且**生产升级前必须先有契约验证环境**。E3-a（#57）与 E3-d2（#61）依赖 E1，随之顺延。
 
+**E1 契约验证结论（2026-10-10，源码级；已拿到 v2.0.26 源码 `~/workspace/opencode-src`）**：
+
+> **权威依据 = v2.0.26 tag 源码**（`packages/protocol/src/groups/{session,event}.ts`、`packages/schema/src/{prompt-input,location}.ts`），非二进制猜测。v1 形状由 App 代码实证（`opencode-client.ts:224` + `opencode-events.ts:118`）。
+
+| 能力 | v1（现状，App/BFF 在用） | v2.0.26（目标） | 改造量 |
+|---|---|---|---|
+| **建 session** | `POST /session`，吃裸 `{directory}` | `POST /api/session`，`location: {directory}`（`Location.PublicRef`，**directory 必填**）；另有 `agent` / `model` / `permissions` / `parentID` | 路径 + 参数名改；**新增能力：建 session 时即可带 agent/model** |
+| **发消息** | `POST /session/{id}/prompt_async`，body `{parts:[{type:"text",…}], agent, model}`，**204 立即返回**（异步语义） | `POST /api/session/{id}/prompt`，body `{text: string, agents?: [{name}], files?, skills?, id?, delivery?, resume?}`，**200 + `{data: SessionInbox.User}`**（durable admit） | **重大**：`parts`→`text`；`agent` 字符串→`agents` 数组 |
+| **逐条指定 agent/model** | `prompt_async` body 里逐条传 `agent` + `model` | ⚠️ **prompt 载荷里没有 model**；模型改由 **`POST /api/session/{id}/model {model}`**（"Switch session model"，影响后续 turn）或建 session 时的 `model`；`agents[]` 是**提及式附件**（`{name, mention?}`），非会话选择器 | **改变了 §3.2 的强制机制**（见下） |
+| **事件流** | `GET /global/event`（App `opencode-events.ts:118`；BFF `stream/route.ts:50` + `opencode-tap.ts` 3 处） | `GET /api/event`（"native events + plugin RPC across all server locations"），SSE `StreamSse(data: V2Event)` | 路径改；**慢消费者会溢出断流、断连期间事件丢失**（v2 明示 volatile 契约） |
+| **事件帧** | `{properties: {...}}` 包装 + 裸 `type` | `{id, created, metadata?, type, location, data}`；`message.part.delta` **仅存在于 `schema/src/v1/` 兼容层** | **帧格式与字段全部不同** → BFF `createDeltaBuffer` / App 打字机解析要改 |
+| **配置** | `GET /config` | `GET /api/config` | 路径改 |
+| **路由前缀** | 无前缀 | **全部 `/api/*`** | 全量 |
+
+**⚠️ 对已拍板决策的影响（E3-a 强制机制要改）**：
+- 单元 2 拍的是"**逐条消息指定 agent=companion**"（`prompt_async` 支持逐条 agent）。**v2 的 prompt 端点不再接受 model、`agents[]` 语义也不是选择器** → 强制方式改为 **建 session 时定 agent/model（`POST /api/session` 带 `agent`+`model`）**；模型切换另有 `POST /api/session/{id}/model`。
+- **这不是推翻意图，是换实现**：chat 页会话本就由 `resolveConversationKind` 分流 → **建 session 时就能确定 kind，天然适合"建时定 agent"**，比"逐条传"更稳。
+- **同族影响**：UI 的 agent 循环切换 + `agent-sheet` 在 v2 下应改为调 `POST /api/session/{id}/model`（chatcode 侧）；chat 侧则完全去掉选择器（与 §3.2 一致）。
+
+**✅ 好消息（可行性）**：`/api/event` 的 SSE 仍是标准 `text/event-stream`；`session.create` 原生支持 `agent`/`model`（E3-a 反而更简单）；exa MCP 端点运维侧可达（405 探测）；v2 有 `/api/experimental/migration/v1`。
+
+**仍须实测**：① `/api/session/{id}/prompt` 的 200 返回是否**立即**（durable admit 语义暗示不阻塞 agent loop，与 `prompt_async` 的"不等跑完"一致，但未实测）；② `message.part.delta` 在 v2 运行时是否真的发出（源码只在 v1 兼容层见到）；③ v1→v2 迁移 1.8G 库的耗时与成败。
+
 **DSH 指令机制实况（2026-10-10 实测，回答"DSH 的 AGENTS.md 在哪里 / 有没有全局的"）**：
 
 - **运行环境证据**：`DSH_HOME=/Users/gubin/.dsh`、`DSH_PROFILE=web`、`DSH_PROFILE_DIR=/Users/gubin/.dsh/profiles/web`、`DSH_SESSION_ID=session-2a9a04b3-…`、`DSH_WEB_URL=http://127.0.0.1:3080`。
