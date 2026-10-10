@@ -1,0 +1,131 @@
+import { describe, it, expect } from "vitest";
+import {
+  BUSY_SILENCE_MS,
+  IDLE_BUSY_STATE,
+  classifyBusyEvent,
+  reduceBusyEvent,
+  reduceBusyTick,
+  seedBusy,
+  type BusyState,
+} from "./busy-signal";
+
+// #58 busy 真实信号纯函数单测。
+// 红线：判定只依赖"事件类型 + 时间戳"，绝不覆盖 messages / part（打字机冲突教训）。
+
+const ACTIVITY: BusyState = { busy: true, lastEventAt: 10_000 };
+
+describe("classifyBusyEvent", () => {
+  it("本 session 的产出/增量事件 → activity", () => {
+    for (const type of [
+      "message.updated",
+      "message.part.updated",
+      "delta",
+      "message.removed",
+      "question.asked",
+      "question.v2.asked",
+      "question.replied",
+      "permission.asked",
+      "permission.replied",
+      "session.updated",
+      "session.created",
+    ]) {
+      expect(classifyBusyEvent({ type, sessionID: "s1" }, "s1")).toBe("activity");
+    }
+  });
+
+  it("服务端结束信号 → ended", () => {
+    expect(classifyBusyEvent({ type: "session.idle", sessionID: "s1" }, "s1")).toBe("ended");
+    expect(classifyBusyEvent({ type: "session.error", sessionID: "s1" }, "s1")).toBe("ended");
+  });
+
+  it("session.status 按状态值判：busy/retry = activity，idle = ended", () => {
+    expect(classifyBusyEvent({ type: "session.status", sessionID: "s1", status: "busy" }, "s1")).toBe("activity");
+    expect(classifyBusyEvent({ type: "session.status", sessionID: "s1", status: "retry" }, "s1")).toBe("activity");
+    expect(classifyBusyEvent({ type: "session.status", sessionID: "s1", status: "idle" }, "s1")).toBe("ended");
+    // status 缺失（未知 shape）时保守判 ended，不能把状态缺失当在跑
+    expect(classifyBusyEvent({ type: "session.status", sessionID: "s1" }, "s1")).toBe("ended");
+  });
+
+  it("连接级事件 → ignored（不是 agent 活动）", () => {
+    expect(classifyBusyEvent({ type: "server.connected" }, "s1")).toBe("ignored");
+    expect(classifyBusyEvent({ type: "stream.error" }, "s1")).toBe("ignored");
+  });
+
+  it("别 session 的事件 → ignored", () => {
+    expect(classifyBusyEvent({ type: "delta", sessionID: "other" }, "s1")).toBe("ignored");
+    expect(classifyBusyEvent({ type: "session.idle", sessionID: "other" }, "s1")).toBe("ignored");
+  });
+
+  it("未知新事件类型保守算 activity（宁可多显示一会儿，不中途闪掉）", () => {
+    expect(classifyBusyEvent({ type: "message.part.added", sessionID: "s1" }, "s1")).toBe("activity");
+    expect(classifyBusyEvent({ type: "storage.write", sessionID: "s1" }, "s1")).toBe("activity");
+  });
+});
+
+describe("reduceBusyEvent", () => {
+  it("activity → busy=true 并记录时间戳", () => {
+    expect(reduceBusyEvent(IDLE_BUSY_STATE, "activity", 1_000)).toEqual({ busy: true, lastEventAt: 1_000 });
+  });
+
+  it("ignored → 原样返回（不翻 busy、不推进时间戳）", () => {
+    expect(reduceBusyEvent(ACTIVITY, "ignored", 99_000)).toBe(ACTIVITY);
+    expect(reduceBusyEvent(IDLE_BUSY_STATE, "ignored", 1_000)).toBe(IDLE_BUSY_STATE);
+  });
+
+  it("已见过活动事件后 ended → 立即结束", () => {
+    expect(reduceBusyEvent(ACTIVITY, "ended", 20_000)).toEqual(IDLE_BUSY_STATE);
+  });
+
+  it("还没见过活动事件时 ended 不可信 → 保持 busy（防 #44 提前判结束）", () => {
+    const seeded = seedBusy(IDLE_BUSY_STATE, "busy", 5_000);
+    expect(seeded).toEqual({ busy: true, lastEventAt: 5_000 });
+    // 播种本身带时间戳，所以这里构造"无活动记录"的 busy 态更贴近受理期空窗：
+    const inflight: BusyState = { busy: true, lastEventAt: null };
+    expect(reduceBusyEvent(inflight, "ended", 6_000)).toBe(inflight);
+  });
+
+  it("连续 activity 只更新时间戳， busy 保持 true", () => {
+    let s = reduceBusyEvent(IDLE_BUSY_STATE, "activity", 1_000);
+    s = reduceBusyEvent(s, "activity", 1_400);
+    s = reduceBusyEvent(s, "activity", 1_800);
+    expect(s).toEqual({ busy: true, lastEventAt: 1_800 });
+  });
+});
+
+describe("reduceBusyTick", () => {
+  it("未 busy → 原样", () => {
+    expect(reduceBusyTick(IDLE_BUSY_STATE, 10_000_000)).toBe(IDLE_BUSY_STATE);
+  });
+
+  it("距最近事件未超过静默超时 → 保持 busy", () => {
+    expect(reduceBusyTick(ACTIVITY, 10_000 + BUSY_SILENCE_MS - 1)).toBe(ACTIVITY);
+  });
+
+  it("超过静默超时 → 结束", () => {
+    expect(reduceBusyTick(ACTIVITY, 10_000 + BUSY_SILENCE_MS)).toEqual(IDLE_BUSY_STATE);
+    expect(reduceBusyTick(ACTIVITY, 10_000 + BUSY_SILENCE_MS + 5_000)).toEqual(IDLE_BUSY_STATE);
+  });
+
+  it("自定义 silenceMs 生效", () => {
+    expect(reduceBusyTick(ACTIVITY, 10_500, 400)).toEqual(IDLE_BUSY_STATE);
+    expect(reduceBusyTick(ACTIVITY, 10_300, 400)).toBe(ACTIVITY);
+  });
+
+  it("busy 但无活动记录（受理期空窗）→ 不误判结束", () => {
+    const inflight: BusyState = { busy: true, lastEventAt: null };
+    expect(reduceBusyTick(inflight, 10_000_000)).toBe(inflight);
+  });
+});
+
+describe("seedBusy", () => {
+  it("读数为 busy / retry → 置 busy", () => {
+    expect(seedBusy(IDLE_BUSY_STATE, "busy", 7_000)).toEqual({ busy: true, lastEventAt: 7_000 });
+    expect(seedBusy(IDLE_BUSY_STATE, "retry", 7_000)).toEqual({ busy: true, lastEventAt: 7_000 });
+  });
+
+  it("读数不是 busy → 原样返回（只播种、绝不清洗已在跑的 busy）", () => {
+    expect(seedBusy(IDLE_BUSY_STATE, "idle", 7_000)).toBe(IDLE_BUSY_STATE);
+    expect(seedBusy(IDLE_BUSY_STATE, undefined, 7_000)).toBe(IDLE_BUSY_STATE);
+    expect(seedBusy(ACTIVITY, "idle", 7_000)).toBe(ACTIVITY);
+  });
+});
