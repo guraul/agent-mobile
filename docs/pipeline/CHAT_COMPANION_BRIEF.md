@@ -135,6 +135,45 @@ chat 里 NL 说"去把 X 做了"（或她识别出工程意图主动提议）
 
 **上下文通道**：`autoContextText` 是 URL query 参数，长文本会爆 → 定 **(b)**：**BFF 存 handoff 文本，URL 只带 `handoffId`**，ChatPanelZ 拉取后发首条消息。
 
+### BFF 两端点设计（E3-d2 施工依据 · 2026-10-10 提案，已按 BFF 现有惯例校准）
+
+> 依据：BFF 现有惯例（已只读核实）——**SQLite（`getDb()`）+ `lib/product/<x>-repo.ts` 薄 SQL 层 + ULID 主键 + snake_case 行映射 + `{error}` 错误体 + `requireAuthHeader` 写鉴权（读接口放行）**。故本设计**不引入新架构**。
+
+**端点 1 · handoff 存取（"哑存储"，§3.6 已定原则）**
+
+| | |
+|---|---|
+| `POST /api/product/handoff` | body `{text: string(必填,≤8KB), sourceSessionID?: string, target?: {projectPath?: string, name?: string}}` → `201 {handoffId: "hnd_<ulid>"}`。**校验**：text 非空且 ≤8KB（超长 400）。 |
+| `GET /api/product/handoff/{handoffId}` | → `200 {handoffId, text, sourceSessionID, target, createdAt, consumedAt?}`；不存在/过期 → `404 {error}` |
+| 存储 | **新表 `handoff`**（同一 SQLite 库，`app/api` 同款 repo 薄层）：`id, text, source_session_id, target_json, created_at, consumed_at, expires_at` |
+| TTL / 清理 | 复用仓内既有**过期清理惯例**（如 assignment-proposal 的 TTL + 落库时顺带清理）：`expires_at = created_at + 7d`；**读取时判过期**，插入时顺带删过期行。 |
+| 语义边界 | **BFF 只存不解析**——不生成摘要、不修改文本（摘要由 companion 那条回复产生；"重新总结"按钮也由她重出文本）。`consumed_at` 仅用于诊断/幂等，**不做一次性消费**。 |
+| E4 扩展 | 写 memory 是**同一次移交流程的额外一步**，**不改变本端点契约**（memory 落点在 opencode 侧 slug 目录，不经此端点）。 |
+
+**端点 2 · 只读 session 状态/最近消息（回程的硬依赖）**
+
+| | |
+|---|---|
+| `GET /api/product/session-status?directory=<abs>` | → `200 {items: [{sessionID, title, state, updatedAt}]}`。**状态口径复用现有 `getSessionStatus()`**（BFF 已有该投影），不新增推导逻辑。 |
+| `GET /api/product/session-messages?sessionID=<id>&limit=N` | → `200 {items: [{role, text, createdAt}]}`，**默认 N=20、上限 50**；`text` 为**截断摘要**（≤500 字符）；**排除 reasoning / 工具载荷**。 |
+| 数据来源 | ⚠️ **必须直读 opencode 存储**（`~/.local/share/opencode/opencode.db`，session/消息在 server 侧 DB，**不在项目文件树里**——这正是"read/grep 够不着"的原因）。实现要点：**只读打开**（`readonly: true`，不写 WAL）、只取必要列、**注意 opencode 正在写该库**（WAL 模式下并发读安全，但需容错重试）。 |
+
+**链路（写死，防实现搞反）**
+
+```
+companion 回复摘要（目标/边界/落点）
+  → 移交卡展示原文 + 可改 + 可"先不转"
+  → 确认 → POST /api/product/handoff → 得 handoffId
+  → 引用模块：POST /api/session（v2 契约：location+agent+model）建 session
+  → 跳转 chatcode 页 ?handoffId=…
+  → ChatPanelZ: GET /api/product/handoff/{id} → 作为首条用户消息发出
+  → 回程：GET session-status / session-messages（只读）→ 她据实回答（查不到就说查不到）
+```
+
+**两处开放项（施工前确认）**
+1. **是否把这两组端点也给 companion 开放为工具**（她要"答得上"必须有工具能调）；或先只做 BFF 端点、工具随 E4 插件批次一起给。**建议：端点先做（E3 范围），工具在 E3 内也给出（否则"继续陪着看进展"不成立）**。
+2. **handoff 是否需要"给她记一句"**：传输质量受"用户当时怎么说的 + 摘要"共同影响。**建议先不加**（保持契约最小），若实测发现工程 agent 缺意图上下文，再在 E4 用 memory 补。
+
 **E3 / E4 分层（同一张卡、同一份文本，不架构分叉）**：
 
 - **E3（无记忆上线）**：移交卡（新/既有分叉）+ 建项目 + 建 session + 投喂摘要。
