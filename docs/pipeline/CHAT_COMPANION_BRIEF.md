@@ -229,6 +229,7 @@ companion 回复摘要（目标/边界/落点）
 - **前置依赖（必须与 B 同批做，否则 B 失效）**：**busy 源从 `sending` 换成真实信号**——SSE 仍有 delta 流入，或轮询 `session/status`（chat.md 已注明该字段实测准确、且明确"勿再用 sending"）。**禁止把动效挂在 `sending` 上**——否则 1.4s 后动效消失、她还在跑，观感比现状更差。该数据层修复顺带成为 **#44 排队重启的前置口子**（#44 若重启反正要换这个信号，不额外算成本）。
 - **结果留痕仍走单元 1 原则**（§3.1）：约束用户的结果（建任务 / 存记忆）给一行轻量回执 chip；纯检索过程（websearch / 读记忆 / read·grep·glob）彻底无痕。二者叠加即"chat 里没有承载工程过程的 UI"。
 - **chatcode 侧不动**（信息层 / diff 卡 / 工具展开全保留，chatcode 是工程工作台，判断依据仍是 `resolveConversationKind`）。
+- **⚠️ 2026-10-10 追加拍板（真机反馈 → 并入 #57）**：**伴侣页的「思考」卡片也要收敛**。#59 只退役了 Duties/Projects 两张卡，**`ThinkCard`（reasoning step 卡，`message-merging.ts:129`）仍按 step 渲染** → 真机上一次多步推理密集刷出多张 `{> 思考}` 虚线卡（本机同库实测：reasoning part 6456 > text part 3675）。它属"过程类 UI"，按本节「chat 页不新增任何工具类 UI」的精神**本该一并收敛**（此前只是漏在 #59 范围外）。**决定**：并入 **#57（E3-a）同批做**——同一次 chat 页改造，避免二次动同一段渲染逻辑，**不单独开子 issue**；收敛方式择一（**折叠成单条状态行**，如 `思考中…` / `已思考 N 步`；**或直接不渲染**），判准不变 = **不新增过程类 UI**；chatcode 侧思考展示不动。
 
 **被否 / 归档的备选**：
 
@@ -343,7 +344,7 @@ E0（只读探针，必须第一）
 |---|---|---|---|
 | 1 | E0 开工前探针（只读） | §8 五个未确认事实：生产 opencode 是否装 memx / v1 有无 websearch / 本机 v2 的 websearch MCP 名 / assignment 引擎程序化建任务 API / `createSession({directory})` 未登记目录是否隐式产生 project | 无。**只读，禁写生产** |
 | 2 | E2 homebase 改名迁移 | ① agent-mobile 侧引用清单更新（**11 处内**：`conversation-kind.ts:9` + 单测断言 2 处 + 4 个 e2e 脚本 8 处 + KB 文档）；② server 侧引用（systemd `WorkingDirectory` / opencode 配置 / 部署脚本）；③ GitHub 仓改名 `guraul/family-finance` → `homebase`；④ 服务器目录迁移；⑤ `personal-context` 包骨架落地 | 名字已定 = `homebase`。**④ 的"新目录路径"待用户确认**（默认 `homebase`） |
-| 3 | E3-a companion agent 接线 | opencode agent 配置（白名单 + 禁 bash/edit/write）+ 客户端**强制 agent=companion**（`prompt_async` 逐条指定）；顺带 `ChatPanelZ.tsx:77` 名单与 chat 侧去选择器 | E0（websearch 名）+ **E2**（路径与 `personal-context` 就位） |
+| 3 | E3-a companion agent 接线（#57） | opencode agent 配置（白名单 + 禁 bash/edit/write）+ 客户端**强制 agent=companion**（`prompt_async` 逐条指定）；顺带 `ChatPanelZ.tsx:77` 名单与 chat 侧去选择器；**＋伴侣页思考卡收敛**（2026-10-10 追加，见 §3.7） | E0（websearch 名）+ **E2**（路径与 `personal-context` 就位）；**生产侧还依赖 E1** |
 | 4 | E3-b busy 真实信号 + 状态行动效（④-1） | `sending` → SSE delta 或 `session/status`；状态行加动效；**零新增工具类 UI** | 无 |
 | 5 | E3-c ④-2 退役 + ⑥ 入口 | 删 Duties/Projects 卡 + `chat-cards` + 单测 + `localSteps` 消费点；命令族反馈改留痕 chip；去掉 `ProjectChatZ.tsx:139` 的 kind 条件 | 无（**可最先做**） |
 | 6 | E3-d 出口② | NL → 编译 → chat 内确认卡 → 写 assignment 引擎 | E0（assignment readiness 门，不 ready 先补口子） |
