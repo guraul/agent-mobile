@@ -1,7 +1,7 @@
 # Agent Mobile 项目知识库 · 索引总览
 
 > 最后更新：2026-09-29 · **双 chat 页（epic #35）五项收官**：`/talk` 单路由 + 运行时 directory 判据分流到
-> chat（伴侣页）/ chatcode（工作台壳）两形态，含内白卡（inner-card + Duties/Projects）、工具折叠组、thinking、
+> chat（伴侣页）/ chatcode（工作台壳）两形态，含命令族回执 chip（#59 起取代内白卡）、工具折叠组、thinking、
 > diff 卡、composer 两态、排队队列。talk/assignments/kb 已全部浅色化。
 > 上一版：2026-09-28 RN 浅色迁移 epic #7 主体完成（PR #16-#23），基准 `docs/pipeline/RN_MIGRATION_BRIEF.md`，决策 D1-D10。
 > 聊天模块细节以 [modules/chat.md](modules/chat.md) 为准，分流判据以 [modules/router.md](modules/router.md) 为准。
@@ -76,7 +76,7 @@ Settings（连接/账号/BFF 地址/model 偏好）/ Memory / Knowledge / Fund �
 | 组件库（primitives/feedback/navigation + pulse） | components | `agent-mobile-app/src/components/index.ts` |
 | 设计 token（暗色主题，紫罗兰 accent） | theme | `agent-mobile-app/src/theme/index.ts` |
 | 双 chat 页分流判据（directory → chat/chatcode，纯函数） | router | `agent-mobile-app/src/services/conversation-kind.ts` |
-| 聊天气泡内白卡（inner-card 框架 + Duties/Projects 卡数据） | chat | `agent-mobile-app/src/components/chat/zcode/InnerCard.tsx` + `services/chat-cards.ts` |
+| 命令族反馈回执 chip（Assignment 斜杠命令的留痕，反馈全文可多行；取代已退役的 Duties/Projects 内白卡） | chat | `agent-mobile-app/src/services/command-receipt.ts`（纯函数 + 单测）+ `ChatPanelZ.tsx`（`localSteps`）+ `zcode/MessageBubbleZ.tsx`（`kind === "receipt"` 渲染） |
 | Web 静态预览服务（`serve-static.mjs`，端口见下） | ops | `agent-mobile-app/scripts/serve-static.mjs` |
 | APK 下载服务（9928，备用） | ops | `test/download/pulse.apk`（python3 http.server） |
 | E2E 测试（Playwright） | ops | `agent-mobile-app/scripts/e2e/pulse-e2e.mjs` |

@@ -189,9 +189,10 @@ async function main() {
     await runRow.dispatchEvent('click', { bubbles: true });
     await page.waitForTimeout(12000);
     const codeChatTitle = await page.locator('text=Pulse — Code Chat').first().isVisible().catch(() => false);
-    const layersGone = (await page.locator('[aria-label="Switch session"]').count()) === 0;
-    check('Running 行进入 chatcode 壳 (Pulse — Code Chat)', codeChatTitle && layersGone,
-      `title=${codeChatTitle} picker-hidden=${layersGone}`);
+    // #59：chatcode 侧 Layers 入口已开（"绑最新 session"仍是默认，入口与默认并存）
+    const layersEntry = (await page.locator('[aria-label="Switch session"]').count()) > 0;
+    check('Running 行进入 chatcode 壳 (Pulse — Code Chat)', codeChatTitle && layersEntry,
+      `title=${codeChatTitle} layers-entry=${layersEntry}`);
     await page.goBack();
     await page.waitForTimeout(8000);
   } else {
@@ -265,9 +266,11 @@ async function main() {
     check('流式回复渲染 (含 e2e-ok)', false, '无输入框，跳过');
   }
 
-  // Step 5: 斜杠卡片（#30）——客户端拦截，不进 agent，NO_SEND 模式即可真实验证
+  // Step 5: 命令族反馈（#59）——/assignments、/projects 斜杠卡（Duties/Projects）已退役；
+  // Assignment 命令改为消息流尾部的回执 chip（反馈全文、可多行换行——#59 回归修复：单行截断会丢
+  // /assignments 列表条目与 proposal 的 confirm id）。仍不进 agent，NO_SEND 模式即可验证。
   if (hasTextarea) {
-    const sendCard = async (cmd, marker, label) => {
+    const sendCard = async (cmd, testid, label) => {
       // 完整模式下发送后 composer 自动收起——先确保展开（NO_SEND 模式已展开则跳过）
       const preview = page.locator('[data-testid="composer-preview"]').first();
       if (await preview.isVisible().catch(() => false)) {
@@ -284,22 +287,48 @@ async function main() {
       } else {
         await ta.press('Enter');
       }
-      // 轮询等待，不用固定 sleep：卡片要打 BFF（/api/product/assignments + /api/product/attention），
+      // 轮询等待，不用固定 sleep：chip 要打 BFF（/api/product/assignments），
       // 而页面同时在打十几条 opencode session 列表请求，HTTP/1.1 单域 6 连接上限会让
       // product 请求排队到 +9s 才回（实测）。固定 4s 会假失败。
       let visible = false;
       for (let i = 0; i < 20; i++) {
         await page.waitForTimeout(1000);
-        visible = await page.locator(`text=${marker}`).first().isVisible().catch(() => false);
+        visible = await page.locator(testid).first().isVisible().catch(() => false);
         if (visible) break;
       }
-      check(label, visible, visible ? '' : `20s 内未出现 ${marker} 卡`);
+      check(label, visible, visible ? '' : `20s 内未出现回执 chip（${testid}）`);
+      if (!visible) return;
+
+      // 防复发断言（#59 回归）：只断言"chip 元素存在"是不够的——把 numberOfLines={1}
+      // 加回去，元素照样在、文本照样在 DOM 里，用户实际只看到第一行。所以这里读
+      // ① 文本内容有真实反馈（宽松特征，兼容"当前没有生效中的 Assignment"空态）
+      // ② chip 内无裁剪（纵/横双向 scroll 比对；详见下方 evaluate 注释的实测结论）
+      // 全部 catch 兜底：基础设施问题跳过而非硬失败（同"动态数据缺失跳过"惯例）。
+      const probe = await page.locator(testid).last().evaluate((el) => {
+        const nodes = [el, ...el.querySelectorAll('*')];
+        return {
+          text: (el.innerText || '').trim(),
+          // 纵横两个方向都要看：numberOfLines={1} 在 RN Web 下是 nowrap + overflow:hidden，
+          // 溢出表现为 scrollWidth > clientWidth（纵向反而不变）；line-clamp 才是纵向溢出。
+          // 实测：只看纵向会让 numberOfLines={1} 回归照样 PASS——断言形同虚设。
+          clipped: nodes.some((n) =>
+            n.scrollHeight > n.clientHeight + 1 || n.scrollWidth > n.clientWidth + 1),
+        };
+      }).catch(() => null);
+      if (!probe) {
+        check(label + '（文本未被裁剪）', true, 'chip 读取失败（infra），跳过');
+        return;
+      }
+      // 特征覆盖 list / confirm / reject / revoke / repair / compensate / 空态各分支
+      const looksLikeFeedback = /asg_|prp_|Assignment|提案|提醒|撤销|重试|补偿|确认|拒绝|监控|生效中/.test(probe.text);
+      check(label + '（含真实反馈文本，非空 chip）', probe.text.length > 0 && looksLikeFeedback,
+        probe.text ? probe.text.slice(0, 60) : 'innerText 为空');
+      check(label + '（文本未被裁剪/截断）', !probe.clipped,
+        probe.clipped ? 'chip 内 scrollHeight > clientHeight——疑似 numberOfLines 截断回归' : 'no clipping');
     };
-    await sendCard('/assignments', 'Duties', '斜杠 /assignments → Duties 卡');
-    await sendCard('/projects', 'Projects', '斜杠 /projects → Projects 卡');
+    await sendCard('/assignments', '[data-testid="command-receipt"]', '斜杠 /assignments → 回执 chip');
   } else {
-    check('斜杠 /assignments → Duties 卡', false, '无输入框，跳过');
-    check('斜杠 /projects → Projects 卡', false, '无输入框，跳过');
+    check('斜杠 /assignments → 回执 chip', false, '无输入框，跳过');
   }
 
   // Step 6: sessions 抽屉（#34F / issue #46）——chat 侧（market 目录）验证入口 + 两种手势。

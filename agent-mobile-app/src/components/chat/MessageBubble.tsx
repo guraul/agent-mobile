@@ -29,8 +29,10 @@ export const MessageBubble = React.memo(function MessageBubble({ step }: { step:
   if (step.kind === "reasoning" || step.kind === "tool" || step.kind === "toolGroup") {
     return <StepChip step={step} />;
   }
-  // #30 本地卡片步不经旧组件（fork 遗留，无路由引用）
-  if (step.kind === "dutiesCard" || step.kind === "projectsCard") {
+  // #59：Duties/Projects 卡片步已随斜杠命令退役；回执 chip 由 zcode 渲染层承担
+  //（MessageBubbleZ 的 receipt 分支）。legacy fork 无 localSteps，回执步实际不可达；
+  // 显式拦掉，避免真被喂到时 fall-through 成暗色 AI 气泡（视觉错乱）。
+  if (step.kind === "receipt") {
     return null;
   }
 
