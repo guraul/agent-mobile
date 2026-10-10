@@ -51,16 +51,26 @@
 8. **临时测试脚本 / 截图 / 日志统一放仓库根 `test/` 目录**，勿散落 /tmp。`test/` 已加入 `.gitignore` 不入库，需要留存的结果写进知识库或脚本化进 `agent-mobile-app/scripts/`。
 9. **仓库根的历史遗留目录 `src/`（设计期源码）、`showcase/`（静态原型）、`showcase2/`（Showcase 应用）已于 2026-09-27 删除**（showcase2 设计已移植进 `agent-mobile-app`，其余淘汰；需要时查 git 历史）。运行态代码只在 `agent-mobile-app/`。
 10. **图片/PDF 一律走 vision-reader 子代理，主模型禁止直接 `read` 图片或 PDF 文件路径**：主模型 `deepseek-v4-flash`（volcengine-plan）不支持图片输入，直接 `read` 会把图片带进请求历史，服务端每次返回 `Model do not support image input`，导致对话卡死在重复报错。读图时只把文件路径交给 vision-reader（`task` + `subagent_type: "vision-reader"`），主模型请求里绝不携带图片附件。
+11. **DSH 控制 opencode 做事；能用 opencode 就走 opencode（2026-10-10 用户拍板）**：**DSH = 控制面**（编排 / 决策 / 审阅 / 验收），**opencode = 执行面**（改代码 / 跑测试 / 探查 / 实现）。凡属可委派的执行类工作，**优先委派给 opencode 子代理（product 子代理角色库）**，而不是主模型亲自上手，也不走其他 product CLI（claude-code / codex / acp）。DSH 的四个子代理角色（`code-review` / `debug` / `explore` / `general`）**已全部 pin 到 opencode**（用户 2026-10-10 配置并实测可调用）——委派时**无需再逐次指定 provider**。
+    - **作用域边界（防歧义）**：本规则适用于**实现 / 执行阶段**。**产品决策讨论、拍板记录、交底书（BRIEF）与知识库落档，仍由 DSH 主模型直接做**——这类工作依赖当前对话上下文，且 subagent 看不到主会话，外包会导致决策链断裂（本仓 `docs/pipeline/CHAT_COMPANION_BRIEF.md` 的逐单元落档即为典型）。
+    - **只读小探针**（单条 `grep` / `cat` / `sqlite -readonly` 即可答）由主模型直接跑更快，不算违规。
+12. **子代理模型固定 `opencode/space-bunny-free`**：经 opencode 委派子代理时，模型用 **`opencode/space-bunny-free`**（用户 2026-10-10 指定）。⚠️ **角色库不 pin 模型**（`product_roles` 已核实：四角色只有 `provider: "opencode"`，**无 model 字段**；`~/.dsh/product-subagents-registry.json` 也查不到模型）→ **每次委派都要显式传 `model: "opencode/space-bunny-free"`**，不能指望"已 pin 自动生效"（传参形式与 `prompt_async` 的逐条 model 一致）。作用域 = **DSH 子代理委派**，与 App 运行时模型（手机端统一 `opencode/mimo-v2.6-flash-free`，见 issue #41/#42）**是两回事，勿互相套用**。该模型已在 `opencode models` 列表中确认存在。
+13. **子代理模型不可用时：报告，不降级（用户硬约束）**：若指定模型（如 `opencode/space-bunny-free`）**不可用**（不存在 / 鉴权失败 / 报错 / 无响应），**立即停下并告知用户**，**严禁自行降级、替换模型、改配置、切 provider，或用其他方式绕道兜底**（含"先用别的模型顶一下"）。与第 10 条 vision-reader 的"不得自行降级重试"同源；**宁可失败并如实报告，不可静默降质**。
 
 ## BROWSER AUTOMATION (Playwright)
 
-Playwright 依赖位于 `~/.claude/skills/playwright-skill/`（headless Linux 服务器，无桌面环境）。
+skill 位于 `~/.agents/skills/playwright-skill/`（`~/.agents/skills` 由 DSH 自动扫描，无需注册）。
 
-- 永远 `headless: true`，复用系统 chromium：`executablePath: '/root/.cache/ms-playwright/chromium_headless_shell-1228/chrome-headless-shell-linux64/chrome-headless-shell'` + `args: ['--no-sandbox']`
-- **勿 `playwright install`**（复用 playwright-skill 依赖，浏览器已装；本机 snap chromium 已删）
+- 执行：`cd ~/.agents/skills/playwright-skill && node run.js <script.js>`
+- **永远 `headless: true`**；截图存 `/tmp/`（或仓库根 `test/`，见强制规定 8），用 Read tool 展示
+- 浏览器可切换：`PW_BROWSER=chrome|chromium`（不设置则自动探测）；**macOS 本机与 Linux 服务器通用**
+- **不要把 playwright 装进本仓库**：会动 `pnpm-lock.yaml`。仓库内已有 `playwright-core`（devDependency），脚本经 `createRequire` 复用 skill 目录的依赖
+- 适用范围：页面截图、表单测试、页面验证、二维码扫码、渲染后内容抓取
+
+**⚠️ 仓库自带 e2e 脚本目前只适用于服务器（Linux）环境**：`agent-mobile-app/scripts/e2e/pulse-e2e.mjs`（`pnpm e2e` / `pnpm e2e:nosend`）、`phase9-e2e.mjs`、`phase13-e2e.mjs`、`v011-e2e.mjs` 里共 **17 处 `/root/...` 硬编码**——包括浏览器可执行路径（`/root/.cache/ms-playwright/chromium_headless_shell-1228/...`）、`.env.local` 读取路径、以及 `projectPath` 参数。**在 macOS 本机直接 `pnpm e2e` 会失败**（路径不存在）；本机要跑浏览器验证，用上面的 skill 方式另写脚本，或先修这些硬编码（改脚本属 E2 改名迁移范围，勿顺手改）。
+
 - headless 中 `locator.click`/`mouse` 对 RN Web Pressable 时序不稳定，可用 `dispatchEvent(new MouseEvent('click',{...}))` 复现真实点击
 - E2E 断言尽量结合角色（USER/AI）与位置，避免 AI 回复引用测试文本导致误命中
-- 截图保存到 `test/` 或 `/tmp/opencode/`，需要时用 vision-reader 子代理解读
 
 ## 常用命令（详情见 OPERATIONS.md）
 
