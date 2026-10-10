@@ -5,6 +5,7 @@
 > **接手方**：GLM ZCode
 > **唯一进度权威**：`docs/pipeline/CHAT_COMPANION_BRIEF.md`（92 KB，自包含）。**本文件是"状态快照 + 操作手册"**，不替代 BRIEF；两者冲突时**以 BRIEF 为准**。
 > **本文件取代** `CHAT_COMPANION_KICKOFF_PROMPT.md`（那份是 2026-10-08 的旧开工 prompt，**内含已过时的接手点，已加失效横幅，勿再使用**）。
+> **配套开工 prompt**：`docs/pipeline/CHAT_COMPANION_ZCODE_PROMPT.md`（可直接整段粘贴给 ZCode 启动）。
 
 ---
 
