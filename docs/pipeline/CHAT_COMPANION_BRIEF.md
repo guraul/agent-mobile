@@ -460,10 +460,19 @@ E0（只读探针，必须第一）
 - **模型引用形状（新契约）**：`{providerID, id}`——**不是 v1 的 `{providerID, modelID}`**（用 `modelID` → 400 `Missing key at ["model"]["id"]`）。
 - **✅ 结论 1**：`POST /api/session/{id}/prompt` **立即返回**（实测 **1066ms**，200 + `{data:{id…, type:"user", payload:{text}, delivery:"steer"}}`）→ **durable admit / 不阻塞 agent loop 语义成立**，与 v1 `prompt_async` 的"204 立即返回"**行为等价**（仅状态码与 body 不同）→ **BFF/App 不需要改成阻塞式**。
 - **✅ 结论 2（半）**：**`message.part.delta` 未出现在 v2 运行时事件流**。10s 采样全是结构化生命周期事件：`server.connected` / `project.updated` / `integration.updated` / `provider.updated` / `model.updated` / `agent.updated` / `command.updated` / `skill.updated` / `websearch.updated` / `reference.updated` / `plugin.updated` / `session.inbox.enqueued` / `session.execution.started` / `session.instructions.updated` / `session.inbox.delivered` / `session.step.started` / `session.step.failed` / `session.execution.failed`。帧形状实测 = `{id, created?, type, location?, data}`。
-  - ⚠️ **未定论**：本次 `step.failed` 原因是 **`provider.quota` 429（`FreeUsageLimitError`）**——**模型侧限流，不是契约问题**。所以"v2 用什么事件承载文本增量"**尚无定论**（可能仍是 delta 系、只是没跑到；也可能是 `session.step.*`/inbox 系）→ **须换有额度的模型再跑一次对照**。
+  - ⚠️ **未定论**：本次 `step.failed` 原因是 **`provider.quota` 429（`FreeUsageLimitError`）**——**模型侧限流，不是契约问题**。所以"v2 用什么事件承载文本增量"**当时尚无定论** → **已换有额度的模型补测（见下）**。
+  - ✅ **补测定论（同日，`step-5-preview-free` 重跑，prompt 200 / `finish=stop`）**：v2 的流式增量**不是** `message.part.delta`，而是 **`session.text.delta` / `session.reasoning.delta` / `session.tool.input.delta`**（源码 `packages/schema/src/session-event.ts` 权威）：
+    - **`session.text.started`**（durable）：`{assistantMessageID, ordinal}`
+    - **`session.text.delta`**（**ephemeral / live-only**）：`{assistantMessageID, ordinal, delta: string}` ← **打字机数据源**
+    - **`session.text.ended`**（durable）：`{assistantMessageID, ordinal, text（完整值）, state?}` —— 注释原文 "replayable full-value boundary"
+    - 同族：`session.reasoning.delta`（thinking 块）、`session.tool.input.delta`（工具入参流）、`session.step.streamed`、`session.compaction.delta`
+    - **`session.message.content.updated` 勿用**：源码注释明写 **"Replay-only: older releases allowed replacing completed assistant content"** → 不是增量通道。
+    - **⚠️ 语义要点**：delta 是 **ephemeral（live-only）**——"Stream fragments are live-only; Text.Ended is the replayable full-value boundary" → **断连期间的增量会丢**。v1 的 BFF 假设"delta 累积 = 全文"，v2 须改为"**以 `text.ended` 的完整 text 为准 + delta 只做实时感**"。
+    - **对 BFF/App 的改造含义（可直接施工）**：订阅 `/global/event`→`/api/event`；解析 `{id, created?, type, location?, data}`；**事件名 `message.part.delta`→`session.text.delta`**；字段 `properties.text`→`data.delta`；用 `data.assistantMessageID` + `data.ordinal` 定位与排序；打字机 `revealChars` 的 key 由 partID 改为 `assistantMessageID`(+ordinal)。
+    - 本机两次探针未抓到该事件（一次限流未生成、一次 10-15s 窗口内只见生命周期事件）→ 印证其 **ephemeral + 只在生成瞬间推送**；**事件名与载荷以源码为准，不依赖抓包**。
 - **✅ 结论 3**：`POST /api/session` 返回 `{data:{id, projectID, agent, model:{id,providerID,variant}, location:{directory}, subpath}}` → **`agent`/`model` 确在建会话时生效**（§3.2 强制机制换实现的路径已验证可用）。
 
-**⚠️ 执行面阻塞（2026-10-10，影响所有 opencode 委派）**：`opencode/step-5-preview-free` **免费额度限流**（429 `FreeUsageLimitError`）——#58/#59 两个实现子代理各 4-6 次尝试**全部失败**，**未改任何文件**（两个 worktree `git status` 均干净）。子代理按 AGENTS.md 规定 13 **未降级、未换模型、未绕道**，如实回报。**解除方式需用户决策**（等额度窗口 / 换模型 / 改由 DSH 直接执行）。
+**⚠️ 执行面阻塞记录（2026-10-10；已由用户换模型解决）**：`opencode/space-bunny-free` 免费额度限流（429 `FreeUsageLimitError`）→ #58/#59 两批子代理共 10 次尝试**全部失败**，**未改任何文件**（worktree 均干净），且**未降级/未换模型/未绕道**（遵守规定 13）。**用户当日拍板换 `opencode/step-5-preview-free`**（已实测可用），两任务重派。
 
 **DSH 指令机制实况（2026-10-10 实测，回答"DSH 的 AGENTS.md 在哪里 / 有没有全局的"）**：
 
