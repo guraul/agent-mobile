@@ -9,6 +9,16 @@
 // 静默 BUSY_SILENCE_MS 没有任何事件 → 判定已跑完；session.idle / session.error /
 // session.status(idle) 是服务端的明确结束信号，提前结束。
 //
+// 判定方向：**显式白名单**——只有 ACTIVITY_TYPES / ACTIVITY_PREFIXES 里列举的事件
+// 算 activity，其余一律 ignored（连接级噪音 server.heartbeat / server.connected /
+// stream.error 等全走兜底）。之所以把"保守默认"从 activity 反转成 ignored：
+//   - server.heartbeat 是**周期性**的（BFF 每 10s 一发）。10s < BUSY_SILENCE_MS(20s)，
+//     判成 activity 就会永远刷新 lastEventAt → chat 页不发消息时「运行中…」永久卡住。
+//   - 20s 静默兜底本来就足以覆盖真实的长工具调用，漏判活动事件最多是「运行中…」
+//     晚 20s 消失。
+//   - 两者代价不对称 → 偏"忽略未知"：漏判一个未知活动事件的代价只是晚 20s 收工，
+//     而把噪音当活动的代价是永久卡住。
+//
 // 红线：零 RN 依赖、纯函数可单测；只判定 busy，绝不覆盖 messages / part
 // （历史上轮询整条替换 part 会破坏打字机逐字揭示——本模块不碰消息数据）。
 
@@ -23,17 +33,32 @@ export type BusyEventKind = "activity" | "ended" | "ignored";
 export interface BusyEventInput {
   /** OpenCodeEvent.type */
   type: string;
-  /** 事件隶属的 session；连接级事件（server.connected / stream.error）没有 */
+  /** 事件隶属的 session；连接级事件（server.connected / stream.error / server.heartbeat）没有 */
   sessionID?: string;
   /** `session.status` 的状态值（busy / retry / idle） */
   status?: string;
 }
 
+/** 显式活动事件（精确类型）：只有这些才刷新 busy 时间戳 */
+const ACTIVITY_TYPES = new Set([
+  "delta",
+  "message.part.updated",
+  "message.updated",
+  "message.removed",
+  "session.updated",
+  // 会话生命周期上"本轮开始"的一次性事件，判 activity 合理且无害
+  "session.created",
+]);
+
+/** 显式活动事件前缀（question.* / permission.* 的问法会随版本变，只匹配前缀） */
+const ACTIVITY_PREFIXES = ["question.", "permission."];
+
 /**
  * Classify a raw stream event for the busy signal.
  *
- * 保守方向：未知的新事件类型一律算 activity——宁可让「运行中…」多留一会儿，
- * 也不要在 agent 长工具调用中途把 busy 闪掉（#44 的教训是"假结束"，不是"假运行"）。
+ * 方向：**显式列举**活动事件，其余（未知类型 + 连接级事件 server.heartbeat /
+ * server.connected / stream.error …）一律 ignored。见文件头"判定方向"注释——周期性
+ * 心跳当 activity 会让 busy 永久为真，而 20s 静默兜底足以覆盖真实的长工具调用。
  */
 export function classifyBusyEvent(
   { type, sessionID, status }: BusyEventInput,
@@ -47,9 +72,11 @@ export function classifyBusyEvent(
   }
   // 服务端明确结束信号
   if (type === "session.idle" || type === "session.error") return "ended";
-  // 连接级事件不是 agent 活动
-  if (type === "server.connected" || type === "stream.error") return "ignored";
-  return "activity";
+  // 活动事件白名单（session.status 的 activity 分支已在上面判过，这里不再重复）
+  if (ACTIVITY_TYPES.has(type)) return "activity";
+  if (ACTIVITY_PREFIXES.some((prefix) => type.startsWith(prefix))) return "activity";
+  // 兜底：连接级噪音（server.heartbeat / server.connected / stream.error）与未知类型
+  return "ignored";
 }
 
 export interface BusyState {
