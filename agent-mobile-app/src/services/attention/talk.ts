@@ -1,7 +1,7 @@
 import { opencodeClient } from "../opencode-client";
 import { engageAttention } from "./client";
 import { classifyRuntimeFailure } from "../runtime-presence";
-import { MARKET_TALK_DIRECTORY } from "../conversation-kind";
+import { CHAT_AGENT_ID, CHAT_MODEL, MARKET_TALK_DIRECTORY } from "../conversation-kind";
 import type { PulseAttentionItem } from "./store";
 
 // Attention → Talk 会话解析（v0.1.1）：从 index.tsx onAttentionPress 抽出的共享路径，
@@ -39,6 +39,9 @@ export async function resolveAttentionConversation(a: AttentionRef): Promise<Res
     const created = await opencodeClient.createSession({
       directory: MARKET_TALK_DIRECTORY,
       title: `处理：${a.title}`.slice(0, 80),
+      // #53（E1 v2）：market 会话是 chat 侧——建会话即定 companion
+      agent: CHAT_AGENT_ID,
+      model: { ...CHAT_MODEL },
     });
     try { await engageAttention(a.id, created.id); } catch { /* engage 失败不阻塞进入 Talk */ }
     return { sessionId: created.id, projectPath: MARKET_TALK_DIRECTORY, created: true };

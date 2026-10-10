@@ -30,10 +30,12 @@ export interface QuestionRequest {
 export interface PermissionRequest {
   id: string;
   sessionID: string;
-  permission: string;
+  // #53（E1 v2）：字段名 permission/patterns → action/resources（旧名保留可选兼容）
+  permission?: string;
+  action?: string;
   patterns?: string[];
+  resources?: string[];
   metadata?: Record<string, unknown>;
-  always?: string[];
   tool?: { messageID?: string; callID?: string };
 }
 
@@ -97,7 +99,63 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     throw new Error(`opencode ${path} failed: ${res.status} ${res.statusText} ${body}`);
   }
   if (res.status === 204) return undefined as T;
-  return (await res.json()) as T;
+  const json = await res.json();
+  // #53（E1 v2）：所有 REST 响应带 {data:...} 信封（/api/provider 还带 location）——统一解包
+  if (json && typeof json === "object" && !Array.isArray(json) && "data" in (json as Record<string, unknown>)) {
+    return (json as { data: T }).data;
+  }
+  return json as T;
+}
+
+// #53（E1 v2）：form（question 机制的 v2 形态）。fields 为多字段定义；
+// answer 为 {fieldKey: value}（multiselect → string[]）。
+export interface FormRequest {
+  id: string;
+  sessionID: string;
+  title?: string;
+  metadata?: Record<string, unknown>;
+  fields?: {
+    key: string;
+    title?: string;
+    description?: string;
+    type?: string;
+    required?: boolean;
+    hidden?: boolean;
+    options?: (string | { label?: string })[];
+  }[];
+}
+
+// #53（E1 v2）：扁平消息（元数据 + content）→ App 的 {info, parts} 模型。
+// content 项无全局 id 的用 `${messageID}:c${index}` 合成（占位/事件流用块类型+ordinal，
+// 两者不同空间——占位 part 只活在流式期间，refetch 后被真 parts 替换）。
+interface V2Message {
+  id: string;
+  type: string;
+  sessionID?: string;
+  time?: { created?: number };
+  content?: {
+    type: string;
+    text?: string;
+    id?: string;
+    name?: string;
+    state?: { status?: string; input?: unknown; output?: unknown; title?: string; metadata?: Record<string, unknown> };
+  }[];
+  error?: unknown;
+}
+
+function mapV2Message(m: V2Message): OpenCodeMessage {
+  const role: "user" | "assistant" = m.type === "user" ? "user" : "assistant";
+  const parts = (m.content ?? []).map((c, i): OpenCodePart => {
+    const id = c.id ?? `${m.id}:c${i}`;
+    if (c.type === "tool") {
+      return { id, type: "tool", tool: c.name, state: c.state } as OpenCodePart;
+    }
+    return { id, type: c.type, text: c.text } as OpenCodePart;
+  });
+  return {
+    info: { id: m.id, role, sessionID: m.sessionID ?? "", time: { created: m.time?.created ?? 0 } },
+    parts,
+  };
 }
 
 export const opencodeClient = {
@@ -105,8 +163,19 @@ export const opencodeClient = {
     return loginToBff(username, password);
   },
 
-  listProviders(): Promise<{ providers: { id: string; name?: string; models: Record<string, unknown> }[]; default: Record<string, string> }> {
-    return request(`/config/providers`);
+  // #53（E1 v2）：/config/providers → /api/model 扁平表，聚合成 v1 形状（selectModels 零改动）
+  async listProviders(): Promise<{ providers: { id: string; name?: string; models: Record<string, unknown> }[]; default: Record<string, string> }> {
+    const flat = await request<{ id: string; providerID: string; modelID: string; name?: string }[]>("/model");
+    const byProvider = new Map<string, { id: string; name?: string; models: Record<string, unknown> }>();
+    for (const m of flat ?? []) {
+      let p = byProvider.get(m.providerID);
+      if (!p) {
+        p = { id: m.providerID, name: m.providerID, models: {} };
+        byProvider.set(m.providerID, p);
+      }
+      p.models[m.modelID] = { name: m.name ?? m.modelID };
+    }
+    return { providers: Array.from(byProvider.values()), default: {} };
   },
 
   listAgents(): Promise<{ name: string; mode?: string; model?: { providerID: string; modelID: string } }[]> {
@@ -126,7 +195,13 @@ export const opencodeClient = {
     return request<OpenCodeSession>(`/session/${id}`);
   },
 
-  createSession(body: { directory?: string; title?: string }): Promise<OpenCodeSession> {
+  createSession(body: {
+    directory?: string;
+    title?: string;
+    // #53（E1 v2）：agent/model 建会话时定（逐消息指定已废除）
+    agent?: string;
+    model?: { providerID: string; modelID: string };
+  }): Promise<OpenCodeSession> {
     return request<OpenCodeSession>("/session", {
       method: "POST",
       body: JSON.stringify(body),
@@ -144,12 +219,25 @@ export const opencodeClient = {
     });
   },
 
-  listMessages(id: string, options?: { limit?: number; offset?: number }): Promise<OpenCodeMessage[]> {
-    const qs: string[] = [];
-    if (options?.limit != null) qs.push(`limit=${options.limit}`);
-    if (options?.offset != null) qs.push(`offset=${options.offset}`);
-    const q = qs.length ? `?${qs.join("&")}` : "";
-    return request<OpenCodeMessage[]>(`/session/${id}/message${q}`);
+  // #53（E1 v2）：消息列表只含元数据（无 content），content 在单条端点；分页改 cursor/order。
+  // 这里拉一页元数据（desc 取最近）→ 并行拉 content → 映射回 App 的 {info, parts} 模型
+  // （chronological 语义不变：返回前按 time.created 排序）。
+  async listMessages(id: string, options?: { limit?: number; offset?: number }): Promise<OpenCodeMessage[]> {
+    const limit = options?.limit ?? 50;
+    const raw = await request<V2Message[]>(`/session/${id}/message?limit=${limit}&order=desc`);
+    const detailed = await Promise.all(
+      raw.map(async (m) => {
+        try {
+          return await request<V2Message>(`/session/${id}/message/${m.id}`);
+        } catch {
+          return m; // 单条失败降级用元数据（无 content，渲染层跳过空 part）
+        }
+      }),
+    );
+    return detailed
+      .map(mapV2Message)
+      .sort((a, b) => (a.info.time?.created ?? 0) - (b.info.time?.created ?? 0));
+    // 语义红线：chronological（旧在前）不变——排序以 time.created 为准
   },
 
   getSessionStatus(directory?: string): Promise<Record<string, "busy" | "retry" | "idle">> {
@@ -160,11 +248,12 @@ export const opencodeClient = {
   // Reply to a permission request (bash/edit/external-directory access etc).
   // `reply` is once/always/reject; an optional message accompanies a reject.
   replyPermission(
+    sessionID: string,
     requestID: string,
     reply: "once" | "always" | "reject",
     message?: string,
   ): Promise<boolean> {
-    return request<boolean>(`/permission/${requestID}/reply`, {
+    return request<boolean>(`/session/${sessionID}/permissions/${requestID}/reply`, {
       method: "POST",
       body: JSON.stringify({ reply, ...(message ? { message } : {}) }),
     });
@@ -179,24 +268,31 @@ export const opencodeClient = {
   // Reply to a `question` tool request (the agent asks a clarifying question and
   // blocks until answered). `answers` is one entry per question in the request;
   // each entry is the array of selected option labels (empty = unanswered).
-  replyQuestion(requestID: string, answers: string[][]): Promise<boolean> {
-    return request<boolean>(`/question/${requestID}/reply`, {
+  // #53（E1 v2）：question 机制改为 form（form.created/replied/cancelled + session.form.* 端点）。
+  // reply 的 answer 是 {字段名: 值} 记录（form Answer）。
+  replyForm(sessionID: string, formID: string, answer: Record<string, string | string[]>): Promise<boolean> {
+    return request<boolean>(`/session/${sessionID}/form/${formID}/reply`, {
       method: "POST",
-      body: JSON.stringify({ answers }),
+      body: JSON.stringify({ answer }),
     });
   },
 
-  // Reject/dismiss a pending question request so the agent doesn't hang forever
-  // waiting for an answer the phone can't give.
-  rejectQuestion(requestID: string): Promise<boolean> {
-    return request<boolean>(`/question/${requestID}/reject`, { method: "POST" });
+  cancelForm(sessionID: string, formID: string): Promise<boolean> {
+    return request<boolean>(`/session/${sessionID}/form/${formID}`, { method: "DELETE" });
   },
 
-  // List pending question requests (the agent is waiting for answers). Used to
-  // recover a question that was asked before this chat opened (SSE won't replay
-  // question.v2.asked).
-  listQuestions(): Promise<QuestionRequest[]> {
-    return request<QuestionRequest[]>(`/question`);
+  // 恢复聊天打开前已 pending 的 form（SSE 不重放 form.created）
+  listForms(sessionID: string): Promise<FormRequest[]> {
+    return request<FormRequest[]>(`/session/${sessionID}/form`);
+  },
+
+  // 运行中切换 agent/model（chatcode 选择器用；chat 侧建会话已定 companion+space-bunny）
+  switchAgent(id: string, agent: string): Promise<boolean> {
+    return request<boolean>(`/session/${id}/agent`, { method: "POST", body: JSON.stringify({ agent }) });
+  },
+
+  switchModel(id: string, model: { providerID: string; modelID: string }): Promise<boolean> {
+    return request<boolean>(`/session/${id}/model`, { method: "POST", body: JSON.stringify({ providerID: model.providerID, id: model.modelID }) });
   },
 
   sendMessage(
