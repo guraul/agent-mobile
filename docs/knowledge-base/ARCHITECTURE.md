@@ -4,7 +4,7 @@
 
 ## 整体架构
 
-单仓库多工件，后端为**外部 OpenCode Server**（经 family-finance BFF 中间层访问）：
+单仓库多工件，后端为**外部 OpenCode Server**（经 homebase BFF 中间层访问）：
 
 | 工件 | 形态 | 状态 | 说明 |
 |---|---|---|---|
@@ -12,7 +12,7 @@
 | `src/`（仓库根） | React/TSX 源码 | ⚠️ 设计期，非运行态 | 早期屏幕设计（Agents/Activity/Settings），无 package.json |
 | `showcase/` | 静态 HTML | ⚠️ 原型 | 浏览器打开 `showcase/index.html`（iPhone 16 Pro 393×852 mockup） |
 | `docs/knowledge-base/` | Markdown 文档 | ✅ 参考 | 设计规范与评审 + 知识库，是 UI 实现的依据 |
-| family-finance BFF | Next.js（外部仓库） | ✅ 运行时依赖 | JWT 认证 + REST 转发 + SSE 缓冲合并（打字机）+ CORS |
+| homebase BFF | Next.js（外部仓库） | ✅ 运行时依赖 | JWT 认证 + REST 转发 + SSE 缓冲合并（打字机）+ CORS |
 | OpenCode Server | 外部进程（`opencode serve`） | ✅ 运行时依赖 | 项目/会话/消息/权限的数据源（127.0.0.1:4096，仅 BFF 可达） |
 
 > 注意：仓库根 `src/` 与 `agent-mobile-app/src/` 是两个不同代码库，勿混淆。

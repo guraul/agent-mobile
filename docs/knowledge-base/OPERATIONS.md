@@ -12,7 +12,7 @@
 
 > **阶段 2 起手机端不再持有 opencode 凭证**（`EXPO_PUBLIC_OPENCODE_USERNAME/PASSWORD` 已删除，凭证只在 BFF 侧）。
 
-### BFF（family-finance/packages/web/.env.local，未提交）
+### BFF（homebase/packages/web/.env.local，未提交）
 
 | 变量 | 用途 | 是否必填 | 默认值 |
 |---|---|---|---|
@@ -35,10 +35,10 @@ pnpm start                 # expo start（交互式，可选 --tunnel 供手机 
 
 依赖版本约束：Node 24.21.0（仓库根 `.nvmrc` 已锁定，`nvm use` 即可；两个 package.json 的 `engines` 均要求 `>=24.21.0`）、Expo SDK 57（`npx expo install` 安装依赖保证版本匹配）。
 
-### BFF（family-finance）
+### BFF（homebase）
 
 ```bash
-cd family-finance
+cd homebase
 pnpm install
 pnpm --filter web exec next dev -H 0.0.0.0 -p 19234   # 生产 BFF（主 checkout）
 pnpm --filter web exec next dev -H 0.0.0.0 -p 19235   # 阶段 2 worktree BFF（开发验证）
@@ -59,7 +59,7 @@ pnpm e2e:nosend            # E2E 跳过发消息步骤（E2E_NO_SEND=1）
 - E2E 浏览器：自动探测 headless shell → snap chromium；**勿 `playwright install`**（复用 playwright-skill 依赖）。
 - 自定义地址：`E2E_URL=http://<host>:9928/pulse pnpm e2e`。
 
-### BFF（family-finance）
+### BFF（homebase）
 
 ```bash
 pnpm test                  # vitest 单测（lib/*.test.ts：auth-shared/opencode/opencode-stream）
@@ -81,7 +81,7 @@ node test/bff-e2e.mjs      # 登录 → 横幅消失 → 打开项目 → 动态
 > **手动兜底** = `scripts/pipeline/deploy.sh`；**回滚** = `scripts/pipeline/rollback.sh`（releases 任意秒切）。手册见 `docs/pipeline/README.md`。
 >
 > **服务器布局**：`/root/project/agent-mobile/agent-mobile-app/` 下 `releases/<id>/` 为产物目录（保留最近 5 版），`dist` 是指向当前版本的软链；`serve-9928.service` 托管（enabled 开机自启），重启才刷新 gzipCache。
-> **BFF CORS 允许列表只放行 9928 的三个 origin**（`106.13.181.13`/`127.0.0.1`/`localhost`，见 family-finance `lib/cors.ts`），
+> **BFF CORS 允许列表只放行 9928 的三个 origin**（`106.13.181.13`/`127.0.0.1`/`localhost`，见 homebase `lib/cors.ts`），
 > 静态版换端口浏览器端会全被 CORS 拦——所以换端口前必须先改 BFF CORS 允许列表。
 
 ```bash
@@ -96,7 +96,7 @@ scripts/pipeline/status.sh             # 全链路状态
 - 服务地址：`http://106.13.181.13:9928`（Pulse 首页在 /；/memory /me 重定向到 /）
 - serve-static.mjs 特性：gzip（bundle 3MB→0.5MB）、`Cache-Control: no-store`（防浏览器缓存）；ROOT 硬编码指向 dist（软链可穿透）
 - **gzipCache 陷阱**：任何方式替换产物后**必须** `systemctl restart serve-9928`（deploy.sh / workflow 已内置）——`gzipCache` 按路径缓存 gzipped 字节，不重启返回旧 bundle（见 CONVENTIONS）
-- 进程管理（2026-09-27 全部收编 systemd，均 enabled 开机自启）：`serve-9928.service`（主应用静态版）/ `bff-19234.service`（family-finance BFF）/ `opencode-4096.service`（opencode server）。服务器 node = v24.21.0（nodesource apt）。
+- 进程管理（2026-09-27 全部收编 systemd，均 enabled 开机自启）：`serve-9928.service`（主应用静态版）/ `bff-19234.service`（homebase BFF）/ `opencode-4096.service`（opencode server）。服务器 node = v24.21.0（nodesource apt）。
 
 ## Expo Go 真机预览（备用方案，9928 端口）
 
@@ -190,7 +190,7 @@ curl -u opencode:<密码> http://127.0.0.1:4096/global/health
 | 端口 | 用途 | 进程 |
 |---|---|---|
 | 9928 | Web 静态预览（当前，serve-9928） | `serve-9928.service`（node serve-static.mjs，gzip） |
-| 19234 | BFF（family-finance 主 checkout next dev） | `next dev -p 19234` |
+| 19234 | BFF（homebase 主 checkout next dev） | `next dev -p 19234` |
 | 19235 | BFF（阶段 2 worktree next dev） | `next dev -p 19235` |
 | 4096 | OpenCode Server（AI agent 后端，127.0.0.1） | `opencode serve` |
 | 8081 | Metro dev server 默认端口（当前未用，9928 已占用） | `expo start` |

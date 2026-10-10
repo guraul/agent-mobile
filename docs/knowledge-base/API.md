@@ -4,13 +4,13 @@
 
 ## 结论
 
-**手机端经 family-finance BFF 访问 OpenCode Server（v1 协议）。** BFF 负责 JWT 认证、REST 转发、SSE 缓冲合并（打字机）、CORS。
+**手机端经 homebase BFF 访问 OpenCode Server（v1 协议）。** BFF 负责 JWT 认证、REST 转发、SSE 缓冲合并（打字机）、CORS。
 
 - 网络层：手机端 → BFF（HTTP + JWT Bearer）；BFF → opencode（HTTP + Basic auth，强制覆盖）。
 - 客户端：`src/services/opencode-client.ts` 封装 REST（BFF 前缀），`src/services/opencode-events.ts` 订阅 BFF stream。
 - 数据来源：Pulse 首页展示真实项目状态（分组导航），点击项目进入真实对话（流式回复 + 打字机 + 工具调用折叠）。
 
-## BFF 接口（family-finance，手机端访问）
+## BFF 接口（homebase，手机端访问）
 
 | 端点 | 方法 | 用途 | 认证 |
 |---|---|---|---|

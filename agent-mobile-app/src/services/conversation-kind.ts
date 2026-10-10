@@ -6,7 +6,7 @@
 // MARKET_TALK_DIRECTORY 原声明在 attention/talk.ts（market 会话统一挂该目录），
 // 为保持本文件零依赖可单测，常量收编到这里，attention/talk.ts 转为 re-export。
 
-export const MARKET_TALK_DIRECTORY = "/root/project/family-finance";
+export const MARKET_TALK_DIRECTORY = "/root/project/homebase";
 
 export type ConversationKind = "chat" | "chatcode";
 

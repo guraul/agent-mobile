@@ -5,16 +5,16 @@
 
 ## 模块职责
 
-OpenCode Server 对接：**经 family-finance BFF（JWT 认证）访问 REST/SSE**、消息增量 reducer、显示合并、项目状态机。**无 UI 依赖**，全部可单测。
+OpenCode Server 对接：**经 homebase BFF（JWT 认证）访问 REST/SSE**、消息增量 reducer、显示合并、项目状态机。**无 UI 依赖**，全部可单测。
 
 ## 架构（阶段 2 起）
 
 ```
-手机端 (agent-mobile-app)                family-finance BFF                 OpenCode Server
+手机端 (agent-mobile-app)                homebase BFF                       OpenCode Server
 config/opencode.ts ──baseUrl──► /api/auth/login ──JWT──► ──Basic──► http://127.0.0.1:4096
 opencode-client.ts ──────────► /api/opencode/rest/** ──────► REST 转发
 opencode-events.ts ──────────► /api/opencode/stream ───────► /global/event（SSE）
-auth.ts ──Bearer JWT──► 认证（family-finance 用户）       opencode 凭证在 BFF 侧（不再进 APK）
+auth.ts ──Bearer JWT──► 认证（homebase 用户）             opencode 凭证在 BFF 侧（不再进 APK）
 ```
 
 - 手机端只持有 **JWT**（AsyncStorage，key `pulse_opencode_token`），BFF 强制覆盖 Authorization 为 opencode Basic（不透传客户端 JWT）。
