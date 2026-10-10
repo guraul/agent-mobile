@@ -402,6 +402,7 @@ E0（只读探针，必须第一）
   - ⚠️ **前置未知**：**本机无 v1 环境可仿**（本机已 v2）→ v1→v2 的**真实升级路径与插件兼容性只能在生产窗口验证**；**升级前必须先在服务器做一次只读勘察**（当前 v1 的插件加载形态、DB 兼容性、回滚可行性）。**硬约束不变：测试只在本机做不了的部分，需用户批准后才在生产执行；受阻即停并告知，不降级不绕道。**
   - **v2 插件/内置能力事实**：v2 有 `plugin` 子命令（add/remove/list/check/update）+ 原生 `websearch`/`webfetch`；memx 需按 v2 插件 API 适配（属 E4）。
 - **E2 · homebase 改名迁移**（**名字已定 = `homebase`**）：引用清单（§3.11 ⑤：agent-mobile 11 处内 + KB 文档 + server 侧 **systemd 两行已实测**）→ GitHub 仓改名 `guraul/family-finance` → `homebase`（**已获同意；gh scopes 含 repo**）→ 服务器目录迁移至 `/root/project/homebase`（**已获同意，路径确认**）→ `personal-context` 包骨架落地。
+- ✅ **E3-b（#58）与 E3-c（#59）已于 2026-10-10 合并并部署成功**（PR #63 `26caf9a` / PR #64 `aeeed74`；deploy-web 两次 run 均 success，生产 9928 在线）。busy 真实信号 + 状态行动效、两卡退役 + 命令回执 chip + chatcode Layers 入口**均已上线**。
 - **E3 · companion 主体**（**无记忆上线**）：
   - `E3-a` agent 配置（白名单 + 强制接线 + chat 侧去 agent 选择器）——依赖 E0（✅ 已答：本机 v2 原生 `websearch`；**生产 v1 无**，见 §8 E0 第 2 条）+ **E2**。⚠️ **必须显式配 `model`**：生产 `opencode.json` 的 agent 仍写已下线的 `deepseek/deepseek-v4-flash`（issue #41 同源），不显式配则新 agent 会 `ProviderModelNotFoundError` 且**无 error 气泡**（最隐蔽失败形态）。
   - `E3-b` busy 真实信号替换 `sending` + 状态行动效 B（§3.7）；**零新增工具类 UI**；顺带成为 #44 的前置地基。
