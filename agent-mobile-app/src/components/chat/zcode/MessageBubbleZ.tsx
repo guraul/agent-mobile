@@ -4,13 +4,10 @@ import * as Clipboard from "expo-clipboard";
 import Markdown from "react-native-markdown-display";
 import { Check, Copy } from "lucide-react-native";
 import { Text } from "../../index";
-import { lightColors, lightChatColors, lightChatTypography, lightChatSizes } from "../../../theme";
+import { lightColors, lightChatColors, lightChatTypography, lightChatSizes, lightRadius, spacing } from "../../../theme";
 import type { DisplayStep, ToolStep } from "../../../services/message-merging";
-import type { DutyAction, DutyRow } from "../../../services/chat-cards";
 import { ThinkCard } from "./ThinkCard";
 import { ToolGroupCard } from "./ToolGroupCard";
-import { DutiesCard } from "./DutiesCard";
-import { ProjectsCard } from "./ProjectsCard";
 import { AiChatOrb } from "./AiChatOrb";
 
 // 气泡排版（chat.html .bubble 基准，#29）：14.5/400 lh21，双气泡配色。
@@ -108,16 +105,10 @@ function CheckBadge() {
 export const MessageBubbleZ = React.memo(function MessageBubbleZ({
   step,
   onOpenOutput,
-  onCardAction,
-  onOpenProject,
 }: {
   step: DisplayStep;
   /** #32：工具行点击 → 打开完整输出 LightSheet（sheet 在 ChatPanelZ 尾部渲染，保层叠正确） */
   onOpenOutput?: (tool: ToolStep) => void;
-  /** #30：卡片行内动作（Revoke/Retry/Run now/Skip）上抛 ChatPanelZ 调 API + 刷新卡 */
-  onCardAction?: (action: DutyAction, row: DutyRow) => void;
-  /** #30：Projects 卡 Open › → 跳 chatcode 工作台 */
-  onOpenProject?: (path: string) => void;
 }) {
   // #32 信息层：thinking 块（think-card）+ 工具折叠组（tech-card，含 diff 代码卡）
   if (step.kind === "reasoning") {
@@ -127,20 +118,14 @@ export const MessageBubbleZ = React.memo(function MessageBubbleZ({
     return <ToolGroupCard tools={step.kind === "toolGroup" ? step.tools : [step]} onOpenOutput={onOpenOutput} />;
   }
 
-  // #30 气泡内白卡：斜杠命令触发的本地卡。白卡必须嵌在灰色 AI 气泡壳内（mock .bubble.wide
-  // 底色 --bubble-ai）——白卡直接放白色聊天面板上会完全失去对比（首版审图 FAIL 教训）
-  if (step.kind === "dutiesCard" || step.kind === "projectsCard") {
+  // #59 命令族回执 chip：一行轻量留痕（✓ + 单行文本），取代原 showAlert 弹窗。
+  // 落在消息流尾部（ChatPanelZ 的 localSteps），无需用户动手关。
+  if (step.kind === "receipt") {
     return (
-      <View style={s.rowAi}>
-        <View style={s.orbSlot}>
-          <AiChatOrb />
-        </View>
-        <View style={[s.bubble, s.cardBubble, s.cardCol]}>
-          {step.kind === "dutiesCard" ? (
-            <DutiesCard rows={step.rows} caption={step.caption} onAction={onCardAction} />
-          ) : (
-            <ProjectsCard rows={step.rows} onOpen={onOpenProject} />
-          )}
+      <View style={s.receiptChip} testID="command-receipt">
+        <Check color={lightChatColors.greenCheck} size={12} strokeWidth={2} />
+        <View style={s.receiptTextWrap}>
+          <Text variant="lightCaption" color="lightChipText" numberOfLines={1}>{step.text}</Text>
         </View>
       </View>
     );
@@ -206,14 +191,19 @@ const s = StyleSheet.create({
     flexShrink: 1,
   },
   orbSlot: { justifyContent: "flex-end", paddingBottom: 2 },
-  // #30 卡片列（mock .bubble.wide max-width 82%）：灰色 AI 气泡壳装白卡
-  cardCol: { maxWidth: "88%", minWidth: 0, flexShrink: 1 },
-  cardBubble: {
-    backgroundColor: lightChatColors.bubbleAi,
-    borderRadius: lightChatSizes.bubbleRadius,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+  // #59 命令族回执 chip：暖杏底 + 全圆（mock .sugg-chip 语言），贴消息流左缘
+  receiptChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: spacing.xs,
+    maxWidth: "92%",
+    backgroundColor: lightChatColors.chipWarmBg,
+    borderRadius: lightRadius.pill,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
   },
+  receiptTextWrap: { flexShrink: 1, minWidth: 0 },
   badge: {
     backgroundColor: lightChatColors.badge,
     alignItems: "center",

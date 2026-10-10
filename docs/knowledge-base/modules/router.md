@@ -42,9 +42,9 @@ Settings / Memory / Knowledge 检索以 contextual sheet 呈现（不再是 tab 
                      ├─ "chat"     → ProjectChatZ（伴侣页）  标题 "Pulse — Chat"
                      │                 · 有 Layers 会话选择器
                      │                 · cream 底 + 白面板 + 双气泡 + peach 主行动作
-                     │                 · Duties / Projects 斜杠内白卡
+                     │                 · 命令族回执 chip（#59；Duties/Projects 内白卡已退役）
                      └─ "chatcode" → ProjectChatZ（工作台壳）标题 "Pulse — Code Chat"
-                                       · **无会话选择器**（绑项目最新 session = resume-most-recent）
+                                       · **默认绑项目最新 session**（resume-most-recent）；#59 起也有 Layers 入口
                                        · 工具折叠组 / thinking / diff 卡 / composer 两态 / 排队 chip
 ```
 
@@ -75,8 +75,8 @@ Settings / Memory / Knowledge 检索以 contextual sheet 呈现（不再是 tab 
 
 ### 边界与已知限制
 
-- chatcode 侧**不渲染 Layers 按钮**；若日后要做 sessions 抽屉（epic #35 #34，仍待讨论），会与"绑最新 session"机制冲突，须先拍板。
-- 内白卡（Duties/Projects）是 chat 侧能力，但 `/assignments`、`/projects` 的**客户端拦截在 `ChatPanelZ` 内**，两壳共用（chatcode 里发同样斜杠命令也会出卡）。
+- chatcode 侧 **#59 起渲染 Layers 按钮**（入口与"绑最新 session"默认并存，用户 2026-10-10 拍板解禁）；**边缘手势仍未挂**（`edgeGesture={kind !== "chatcode"}` 未动，待用户确认）。
+- ~~内白卡（Duties/Projects）~~ 已退役（#59）；Assignment 命令的反馈回执 chip 与命令路由同在 `ChatPanelZ` 内，两壳共用。
 - 两壳共享 `ChatPanelZ` / `MessageBubbleZ` 全部数据逻辑；分流只影响 header 形态与呈现。
 
 细节（token / 卡片 / composer / 队列）见 [chat.md](chat.md)。
