@@ -70,7 +70,7 @@
 - **模型**：暂用与 chatcode 同款；**模型可配置 → backlog**；**系统 prompt 可配置 → backlog**（未来对接 opencode-memx 与 llm-wiki）。
   - **→ 2026-10-11 用户拍板：companion agent 的 model = `opencode/space-bunny-free`**（不再沿用 chatcode 同款 mimo）。依据（2026-10-10/11 本机 19 组对照实验，详见 issue #53 三条评论）：mimo-v2.6-flash-free 的免费网关校验"请求是否真 OpenCode 客户端"（工具列表=指纹），**permissions deny 一改工具列表即 403**；space-bunny-free 对自定义工具集放行，companion 完整模板（deny-all + allow read/grep/glob/websearch）已端到端实跑通过（read 工具真实调用返回文件内容）。**「配置层真护栏」（§3.2 deny bash/edit）+ 免费档由此两全**。chatcode 侧模型不受影响（agent 配置的 model 与 App 侧模型选择相互独立）。
   - **伴生要求（用户拍板）：space-bunny-free 不可用（下线/改名/网关政策变化）时必须显性 alert 报错给用户，严禁自动降级换模型**——停下来由用户再决定。E1 方案需含"模型不可用显性报错"设计（杜绝 ProviderModelNotFoundError 无 error 气泡的静默失败形态）。
-  - **E1 连带核对项**：客户端 prompt 请求目前仍随消息传 `model`（PR #67 现状，chat 侧传 DEFAULT_MODEL/偏好）——若 v2 下显式 model 会**覆盖** agent 配置的 model，则 chat 侧需停传 model（让 companion 配置的 space-bunny 生效）或改传 space-bunny；以 E1 契约实测为准。
+  - **→ 2026-10-11 用户拍板（跟进）：客户端 chat 侧 `model` 同样写死 `opencode/space-bunny-free`、不可修改**（已并入 PR #67 提交 `e010b1a`：三处发送 model 参数 chat 侧取常量，model ma-btn 变只读标签无选择入口；chatcode 侧选择器/Me 偏好不动）。**E1 连带核对项相应变化**：服务端 companion 配置的 model 也须为 space-bunny-free（两侧一致）；E1 契约实测时确认 v2 对显式 model 参数与 agent 配置 model 的优先级（现客户端显式传 model，若 v2 忽略显式值则 agent 配置兜底，两者同值无冲突）。
 - **设计约束（为换底座留路）**：**插件写薄**——只做工具注册 + system prompt 注入，逻辑全在 BFF/personal-context；未来底座（用户候选：pi / dsh）只重写薄壳，BFF 契约不动。
 - 待核实：opencode 有没有 websearch 工具（本机 v2 已走某 MCP，名字待查——E1 第一项；v1 若无则先缺着）。
 
