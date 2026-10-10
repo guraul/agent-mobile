@@ -510,6 +510,10 @@ E0（只读探针，必须第一）
     - **对 BFF/App 的改造含义（可直接施工）**：订阅 `/global/event`→`/api/event`；解析 `{id, created?, type, location?, data}`；**事件名 `message.part.delta`→`session.text.delta`**；字段 `properties.text`→`data.delta`；用 `data.assistantMessageID` + `data.ordinal` 定位与排序；打字机 `revealChars` 的 key 由 partID 改为 `assistantMessageID`(+ordinal)。
     - 本机两次探针未抓到该事件（一次限流未生成、一次 10-15s 窗口内只见生命周期事件）→ 印证其 **ephemeral + 只在生成瞬间推送**；**事件名与载荷以源码为准，不依赖抓包**。
 - **✅ 结论 3**：`POST /api/session` 返回 `{data:{id, projectID, agent, model:{id,providerID,variant}, location:{directory}, subpath}}` → **`agent`/`model` 确在建会话时生效**（§3.2 强制机制换实现的路径已验证可用）。
+- **✅ 结论 4（补查，强化 E3-a）**：v2 **同时提供运行中切换**——
+  - `POST /api/session/:id/agent` body `{agent}` → **204**（"Switch the agent used by subsequent provider turns"）
+  - `POST /api/session/:id/model` body `{model}` → 204（同语义）
+  - **含义**：§3.2 的"强制 companion"有**两条实现路径**：① **建会话时定**（主路径，chat 侧会话本就按 kind 新建）；② **对升级前已存在的旧 chat 会话**用 `switchAgent` 兜底（否则那些会话会继续用 `build`）。**两条都要，不可只做①**（存量会话是真实存在的）。
 
 **⚠️ 执行面阻塞记录（2026-10-10；已由用户换模型解决）**：`opencode/space-bunny-free` 免费额度限流（429 `FreeUsageLimitError`）→ #58/#59 两批子代理共 10 次尝试**全部失败**，**未改任何文件**（worktree 均干净），且**未降级/未换模型/未绕道**（遵守规定 13）。**用户当日拍板换 `opencode/step-5-preview-free`**（已实测可用），两任务重派。
 
