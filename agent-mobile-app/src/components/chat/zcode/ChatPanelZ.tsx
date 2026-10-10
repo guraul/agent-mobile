@@ -89,6 +89,12 @@ const FALLBACK_AGENTS = [
 // 客户端写死（行为一致）。服务端上线依赖 E1（生产 opencode v2 + companion 配置）。
 const CHAT_AGENT_ID = "companion";
 
+// 2026-10-11 用户拍板：chat 伴侣页 model 同样写死 space-bunny-free，不可修改（无选择入口）。
+// 依据（issue #53 实测链）：mimo-v2.6-flash-free 的免费网关校验请求工具列表，permissions
+// deny 一改即 403 FreeTierError；space-bunny-free 放行自定义工具集，companion 真护栏 +
+// 免费档两全。chatcode 侧不受影响（仍走 model 选择器 / Me 偏好）。
+const CHAT_MODEL = { providerID: "opencode", modelID: "space-bunny-free" };
+
 interface ChatPanelProps {
   sessionID: string;
   /** #29 双页分流判据（talk.tsx 运行时判定）：chat=伴侣页（强制 companion + 无 agent 选择器 + 思考卡收敛），其余=chatcode 工作台（现状不动） */
@@ -611,7 +617,7 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
       .sendMessageAsync(sessionID, {
         parts: [{ type: "text", text: ctx.messageText }],
         agent: isChat ? CHAT_AGENT_ID : agents[agentIdx].id,
-        model,
+        model: isChat ? CHAT_MODEL : model,
       })
       .then(() => stickToBottom.current = true)
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
@@ -629,7 +635,7 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
       .sendMessageAsync(sessionID, {
         parts: [{ type: "text", text: autoContextText }],
         agent: isChat ? CHAT_AGENT_ID : agents[agentIdx].id,
-        model,
+        model: isChat ? CHAT_MODEL : model,
       })
       .then(() => { stickToBottom.current = true; })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
@@ -703,7 +709,7 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
         parts: [{ type: "text", text }],
         // #57：chat 伴侣页固定 companion，不随 session.agent / 用户选择变化；chatcode 侧照旧
         agent: isChat ? CHAT_AGENT_ID : agents[agentIdx].id,
-        model,
+        model: isChat ? CHAT_MODEL : model,
       });
       stickToBottom.current = true;
       return true;
@@ -1110,18 +1116,26 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
               ) : null}
             </View>
             <View style={styles.pillSub}>
-              <Pressable
-                onPress={() => {
-                  loadModels();
-                  setModelMenuOpen(true);
-                }}
-                accessibilityLabel="Select model"
-                accessibilityRole="button"
-                style={styles.maBtn}
-              >
-                <View style={styles.maDot} />
-                <RNText style={styles.maText} numberOfLines={1}>{model.modelID}</RNText>
-              </Pressable>
+              {/* #57：chat 伴侣页 model 写死 space-bunny-free（不可修改）→ 只读标签，无选择入口；chatcode 侧保留选择器 */}
+              {isChat ? (
+                <View style={styles.maBtn}>
+                  <View style={styles.maDot} />
+                  <RNText style={styles.maText} numberOfLines={1}>{CHAT_MODEL.modelID}</RNText>
+                </View>
+              ) : (
+                <Pressable
+                  onPress={() => {
+                    loadModels();
+                    setModelMenuOpen(true);
+                  }}
+                  accessibilityLabel="Select model"
+                  accessibilityRole="button"
+                  style={styles.maBtn}
+                >
+                  <View style={styles.maDot} />
+                  <RNText style={styles.maText} numberOfLines={1}>{model.modelID}</RNText>
+                </Pressable>
+              )}
               <View style={styles.flexSpacer} />
               {/* #57：chat 伴侣页无 agent 选择器（固定 companion）——agent pill 循环 + 长按面板仅 chatcode 侧渲染 */}
               {!isChat && (
