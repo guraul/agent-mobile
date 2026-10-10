@@ -118,7 +118,7 @@ companion 的"这个记一下" = v2 插件注册的 **memory_write 工具**（�
   - **契约事实（已核实）**：`POST /api/product/assignment-proposals` → `201 {proposal, confirmation, assignment, duplicateOf}`；`POST /api/product/assignment-proposals/{id}/confirm` → `200 {ok, proposal, assignment}`，内部 `assignmentService.confirm(id, {confirmedBy:"user"})`。
 - **新增失败模式（必须处理）**：用户在卡上点了确认，但随后 **confirm 调用失败**（网络/500）→ **不得静默**。处置：卡转为**错误态 + 重试按钮**（这就是单元 1"结果留痕"原则的延伸：约束用户的结果必须可见）。
 - **实现要点**：把 `propose` 与 `confirm` 收进**一个 BFF 路由**（如 `POST /api/product/assignments/from-card`：内部 propose→（`confirmation.required` 时）confirm→返回 `{assignmentId, responsibility}`），**减少 companion 调两个端点两次失败的机会**；`confirmedBy` 语义建议记为 **`"card"`** 而非 `"user"`，保留"授权来自确认卡"的审计痕迹（若不想动 schema，退回 `"user"` 也可接受）。
-- **待拍**：`confirmedBy` 用 `"card"` 还是维持 `"user"`；以及是否需要"卡上直接改文案再建"（当前设计是改完再确认，等同）。
+- **✅ 已拍板（用户 2026-10-10）**：`confirmedBy` 记 **`"card"`**（保留"授权来自确认卡"的审计痕迹）。"卡上直接改文案再建"按当前设计（改完再确认）即可，无需额外机制。
 
 ### 3.6 清单③ 出口三：切 chatcode ✅
 
@@ -420,6 +420,22 @@ E0（只读探针，必须第一）
   - **新范围见 §6 E1**（E1-a 升级 / E1-b model 修正 / E1-c 配 exa）。
   - **保留的硬约束**：**测试只在本机能做的部分在本机做；生产变更需用户批准后执行；受阻即停下告知，不绕道不降级**。⚠️ **本机无 v1 环境**（已 v2）→ v1→v2 升级路径**无法在本机预演**，这是本次升级链的最大未知，须先在服务器只读勘察。
 - **E2 · homebase 改名迁移** → ✅ **在队列**（§6）。名字已定 = `homebase`；服务器路径 = `/root/project/homebase`（已确认）；清单见 §3.11 ⑤。
+
+**Backlog 调研结论：memx 能否同时被 DSH 使用（2026-10-10 用户要求调查，结论记此不施工）**：
+
+- **结论：可以复用，但"两边各自以插件方式跑"是错解；正确形态是"单写者 + 统一服务层"**（与单元 3 已定的 `personal-context` 方向一致）。
+- **事实（`~/workspace/opencode-memx` 源码）**：
+  1. **存储层天然可共享**：全在 `~/.opencode/`（`USER.md`、`MEMORY.md`、`projects/<slug>/.mem/*.md`）+ 配置 `~/.opencode/memx.config.json`——**纯 markdown，与运行框架无关**。任何 agent（含 DSH）都能直接读。
+  2. **耦合只在两处**：① 触发/上下文来自 **opencode 插件 hook**（`event` 监听 `session.idle`/`session.deleted`，`index.ts:194`）；② 提炼用 **opencode 的 client**（`createSessionLLMClient(client,…)` → `client.session.create` + `session.prompt`，`session-llm.ts`）。
+  3. **关键发现（降低难度）**：提炼引擎的 LLM 是**可注入接口**（`LLMClient`，`refinement.ts`）——`createSessionLLMClient` 只是其中一个实现。→ **换一个 LLM 适配器即可脱离 opencode**（DSH 侧可直接调模型，不必借道 opencode server）。
+  4. 手动入口已有：`reflect` / `forget` 工具 + `memory-health` 报告。
+  5. ⚠️ `refinementModel` 默认值 = `opencode/deepseek-v4-flash-free`（**已下线**）→ 任何复用方案都必须**显式配置模型**。
+- **三种可行路径（按推荐排序）**：
+  - **A（推荐，= 单元 3 既定方向）**：memx 的存储/检索抽到 `personal-context`，**提炼管道保持单一写者**（留在 memx 仓、跟底座走）；DSH 与 opencode 都**经统一 CRUD API 读写**，不各自写盘。→ 天然避免并发写。
+  - **B**：把 `LLMClient` 换成"直调模型"适配器，让提炼不依赖 opencode server；但**并发写问题仍在**（两个写者）。
+  - **C**：DSH 只**读**（注入 `MEMORY.md` 索引进上下文）、不写——最省事，但"记"的能力留空。
+- **真实风险（必须写进将来的 issue）**：① **并发写同一批 markdown**（两个 session 同时 `session.idle` 触发提炼 → 索引/文件损坏）→ 需**锁或单写者**；② 两个系统对"什么值得记"的语义会分叉；③ refine 会话会往会话库写数据（与 DSH 的会话数据混在一起，需可辨识）；④ 默认模型已下线。
+- **与 E4 的关系**：本结论**不改变 E4 范围**（E4 做 opencode v2 插件 + 出口①）；DSH 侧复用的落地**另立 issue**，等到单元 3 的 `personal-context` 有实体之后再谈（否则三个写者更乱）。
 
 **Backlog（立项时落 issue，不逐条讨论）**：LangSmith 式可见性（dev trace 读 opencode session 数据）· 模型可配置 · 系统 prompt 可配置（对接 personal-context）· 记忆树挂 vault（实现另议）· #44 chat 排队（**前置 = E3-b busy 信号修复，该地基已由本次拍板铺定**）· **常驻"切 chatcode"按钮**（等真实使用证明需要，§3.6 点 2）· **移交的后台静默总结**（隔天回来移交旧对话；先给卡上"重新总结"按钮兜住，§3.6）· **`#34` workspace 抽屉**（#46 已交付 sessions 抽屉，workspace 另排）· **chatcode 边缘手势**（§3.10：抽屉入口已开，手势留待实测需要）。
 
