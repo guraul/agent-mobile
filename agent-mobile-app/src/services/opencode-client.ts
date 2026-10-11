@@ -142,12 +142,16 @@ interface V2Message {
   }[];
   // prompt 响应里的用户消息用 payload 携带文本（无 content 数组）
   payload?: { text?: string };
+  // #69 跟进：持久化的用户消息文本在顶层 text 字段（v2 实测——content/payload 都不是）
+  text?: string;
   error?: unknown;
 }
 
 function mapV2Message(m: V2Message): OpenCodeMessage {
   const role: "user" | "assistant" = m.type === "user" ? "user" : "assistant";
-  const content = m.content ?? (m.payload?.text ? [{ type: "text", text: m.payload.text }] : []);
+  // 用户消息文本三个可能的落点（实测）：content 数组 / payload.text（prompt 响应）/ 顶层 text（持久化形态）
+  const content =
+    m.content ?? (m.payload?.text ? [{ type: "text", text: m.payload.text }] : m.text ? [{ type: "text", text: m.text }] : []);
   const parts = (content as NonNullable<V2Message["content"]>).map((c, i): OpenCodePart => {
     const id = c.id ?? `${m.id}:c${i}`;
     if (c.type === "tool") {
