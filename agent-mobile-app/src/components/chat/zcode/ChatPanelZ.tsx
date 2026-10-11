@@ -441,6 +441,7 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
               revealTargets.current[partID] = Math.max(revealTargets.current[partID] ?? 0, (d.text ?? "").length);
             }
             recomputeDisplay(next);
+            requestAnimationFrame(autoScroll);
             return next;
           });
         }
@@ -483,6 +484,7 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
             revealTargets.current[d.partID] = ((part as { text?: string } | undefined)?.text ?? "").length;
             ensureTypingTimer();
             recomputeDisplay(next);
+            requestAnimationFrame(autoScroll);
             return next.length > MAX_MESSAGES ? next.slice(next.length - MAX_MESSAGES) : next;
           });
         }
@@ -920,11 +922,19 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
     stickToBottom.current = distanceFromBottom < 80;
   };
 
+  // #80：程序滚动后短窗忽略自身 scroll 回波——v2 突发 delta 让内容高度大步增长，
+  // scrollToEnd 落定过程中的中间 onScroll（距底 >80px）会把 stickToBottom 翻 false，
+  // 自动跟随从此停止（实测距底一路涨到 1300px+）。
+  const autoScroll = useCallback(() => {
+    if (!stickToBottom.current) return;
+    ignoreScrollUntil.current = Date.now() + 250;
+    listRef.current?.scrollToEnd({ animated: false });
+  }, []);
   const handleContentSizeChange = () => {
     // while a reply is actively typing, always chase the latest text so the
     // newest characters are never stranded behind the agent/model row.
     if (stickToBottom.current) {
-      listRef.current?.scrollToEnd({ animated: false });
+      autoScroll();
     }
   };
 
