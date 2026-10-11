@@ -6,7 +6,7 @@
 // MARKET_TALK_DIRECTORY 原声明在 attention/talk.ts（market 会话统一挂该目录），
 // 为保持本文件零依赖可单测，常量收编到这里，attention/talk.ts 转为 re-export。
 
-export const MARKET_TALK_DIRECTORY = "/root/project/family-finance";
+export const MARKET_TALK_DIRECTORY = "/root/project/homebase";
 
 // #57/#53：chat 伴侣页的 agent/model 在建会话时写死（v2 契约：agent/model 建会话定，
 // 逐消息指定已废除）。model 选型依据见 issue #53（mimo 免费网关校验 vs space-bunny 放行）。

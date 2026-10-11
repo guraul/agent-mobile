@@ -41,8 +41,8 @@ function loadDevCreds() {
   const envPaths = [
     // 本地凭据（用户 home，不入库）：{"user":"...","pass":"..."}
     process.env.HOME ? `${process.env.HOME}/.pulse-e2e-creds` : null,
-    '/root/project/family-finance/packages/web/.env.local',
-    '/root/project/family-finance/.env.local',
+    '/root/project/homebase/packages/web/.env.local',
+    '/root/project/homebase/.env.local',
   ].filter(Boolean);
   for (const p of envPaths) {
     if (!existsSync(p)) continue;
@@ -338,7 +338,7 @@ async function main() {
     const el = btns[btns.length - 1];
     return el ? el.getBoundingClientRect().x : -1;
   });
-  const chatPage = await page.goto(`${E2E_URL}/talk?projectPath=${encodeURIComponent('/root/project/family-finance')}`, { waitUntil: 'load', timeout: 120000 }).then(() => true).catch(() => false);
+  const chatPage = await page.goto(`${E2E_URL}/talk?projectPath=${encodeURIComponent('/root/project/homebase')}`, { waitUntil: 'load', timeout: 120000 }).then(() => true).catch(() => false);
   let drawerOpened = false;
   let drawerClosed = false;
   let drawerEdge = false;

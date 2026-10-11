@@ -51,6 +51,7 @@
 | E1 · 生产升级 v2 + exa + model 修正 | 🔜 **在队列首位**（2026-10-10 从 backlog 拉回） |
 | E2 · homebase 改名迁移 | ✅ **在队列内**（名字已定；服务器路径已确认） |
 | E3-a 客户端半边（#57） | 🚧 **已开工**（2026-10-10：chat 侧强制 companion + 去选择器 + 思考卡不渲染，PR 待 review；服务端 companion 随 E1 上线） |
+| E2 · homebase 改名迁移 | 🚧 **执行中**（2026-10-11 三点拍板：服务器目录随改/scope 一起改 @homebase\*/历史会话走 DB 迁移；BFF PR + agent-mobile PR 备好，窗口执行 mv+unit+DB directory 迁移后合并） |
 
 （讨论进度：**七项全部收尾，本文件已定稿**。）
 

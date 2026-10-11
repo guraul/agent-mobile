@@ -196,7 +196,7 @@ View root（#0B0A12 + companion backgroundGradient + 顶部紫光 topGlow）
 ## 基金事件流（2026-08-27 新增）
 
 ```
-family-finance BFF /api/product/l1 + /api/product/l1/stream（L1 presentation，SSE + snapshot，JWT）
+homebase BFF /api/product/l1 + /api/product/l1/stream（L1 presentation，SSE + snapshot，JWT）
   └── L1 statement（market-estimate 每 5s：未归档基金实时估算）
         └── useL1 → funds[] → Supporting「MARKET」行 + FundSheet
 ```
