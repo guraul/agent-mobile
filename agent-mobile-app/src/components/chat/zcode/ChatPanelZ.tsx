@@ -780,12 +780,21 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
     setAbortedAt(null);
     setError(null);
     try {
-      await opencodeClient.sendMessageAsync(sessionID, {
+      // #69：v2 无 message.updated 回传——用 prompt 响应里的用户消息立即渲染右侧气泡
+      const userMessage = await opencodeClient.sendMessageAsync(sessionID, {
         parts: [{ type: "text", text }],
         // #57：chat 伴侣页固定 companion，不随 session.agent / 用户选择变化；chatcode 侧照旧
         agent: isChat ? CHAT_AGENT_ID : agents[agentIdx].id,
         model: isChat ? CHAT_MODEL : model,
       });
+      if (userMessage?.info) {
+        setMessages((prev) => {
+          if (prev.some((m) => m.info.id === userMessage.info.id)) return prev;
+          const next = [...prev, userMessage];
+          recomputeDisplay(next);
+          return next.length > MAX_MESSAGES ? next.slice(next.length - MAX_MESSAGES) : next;
+        });
+      }
       stickToBottom.current = true;
       return true;
     } catch (e) {

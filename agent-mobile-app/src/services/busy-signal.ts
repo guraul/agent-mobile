@@ -48,6 +48,13 @@ const ACTIVITY_TYPES = new Set([
   "message.removed",
   "session.updated",
   // —— #53（E1 v2）实测事件名 ——
+  // #69：回合启动链路（inbox→execution.started→text/reasoning.started）必须算活动，
+  // 否则 prompt 返回到首个 delta 之间 busy 熄灭、「运行中」碎片化
+  "session.inbox.enqueued",
+  "session.inbox.delivered",
+  "session.execution.started",
+  "session.text.started",
+  "session.reasoning.started",
   "session.text.delta",
   "session.reasoning.delta",
   "session.tool.called",

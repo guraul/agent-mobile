@@ -60,6 +60,18 @@ describe("classifyBusyEvent", () => {
   // 反转自"未知类型算 activity"：显式白名单语义下未列举的类型一律 ignored。
   // 漏判一个未知活动事件的代价只是「运行中…」晚 BUSY_SILENCE_MS(20s) 才消失，
   // 而把周期性心跳当 activity 的代价是 busy 永久为真（#58 回归）——后者更糟。
+  it("#69 v2 回合启动链路 → activity（inbox/execution.started/text.started/reasoning.started）", () => {
+    for (const type of [
+      "session.inbox.enqueued",
+      "session.inbox.delivered",
+      "session.execution.started",
+      "session.text.started",
+      "session.reasoning.started",
+    ]) {
+      expect(classifyBusyEvent({ type, sessionID: "s" }, "s")).toBe("activity");
+    }
+  });
+
   it("未知新事件类型 → ignored（未进白名单就不刷新时间戳，交给静默超时兜底）", () => {
     expect(classifyBusyEvent({ type: "message.part.added", sessionID: "s1" }, "s1")).toBe("ignored");
     expect(classifyBusyEvent({ type: "storage.write", sessionID: "s1" }, "s1")).toBe("ignored");
