@@ -182,8 +182,10 @@ export const opencodeClient = {
     return request(`/agent`);
   },
 
-  getProject(): Promise<OpenCodeProject[]> {
-    return request<OpenCodeProject[]>("/project");
+  // #53（E1 v2）：project 形状 {id, canonical} → App 的 {id, worktree=projectPath 语义}
+  async getProject(): Promise<OpenCodeProject[]> {
+    const list = await request<{ id: string; canonical?: string; worktree?: string }[]>("/project");
+    return (list ?? []).map((p) => ({ id: p.id, worktree: p.worktree ?? p.canonical ?? "" }));
   },
 
   listSessions(directory?: string): Promise<OpenCodeSession[]> {
