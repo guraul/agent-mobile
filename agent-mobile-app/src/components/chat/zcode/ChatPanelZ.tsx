@@ -53,7 +53,7 @@ import {
   type QueuedMessage,
 } from "../../../services/message-queue";
 import type { EngagedAttentionRef } from "../../../services/attention/store";
-import type { ConversationKind } from "../../../services/conversation-kind";
+import { CHAT_AGENT_ID, CHAT_MODEL, type ConversationKind } from "../../../services/conversation-kind";
 import { MessageBubbleZ } from "./MessageBubbleZ";
 import { BusyDots } from "./BusyDots";
 import { showAlert } from "../../../services/alert";
@@ -83,17 +83,6 @@ const FALLBACK_AGENTS = [
   { id: "design", model: DEFAULT_MODEL },
 ] as const;
 
-// #57（E3-a）：chat 伴侣页发出的每条消息固定 agent=companion（只读 + 产品动作，
-// 服务端禁 bash/edit 全家）——不随 session.agent / 用户选择变化。chatcode 侧维持
-// build/plan/design 选择器。双保险语义：agent 配置断工具（真护栏，随 E1 上线）+
-// 客户端写死（行为一致）。服务端上线依赖 E1（生产 opencode v2 + companion 配置）。
-const CHAT_AGENT_ID = "companion";
-
-// 2026-10-11 用户拍板：chat 伴侣页 model 同样写死 space-bunny-free，不可修改（无选择入口）。
-// 依据（issue #53 实测链）：mimo-v2.6-flash-free 的免费网关校验请求工具列表，permissions
-// deny 一改即 403 FreeTierError；space-bunny-free 放行自定义工具集，companion 真护栏 +
-// 免费档两全。chatcode 侧不受影响（仍走 model 选择器 / Me 偏好）。
-const CHAT_MODEL = { providerID: "opencode", modelID: "space-bunny-free" };
 
 // #53（E1 v2）：回合结束事件 → 静默 refetch 消息列表（tool/step 中途事件不触发，防打字机弹出）
 const REFETCH_EVENT_TYPES = new Set([
