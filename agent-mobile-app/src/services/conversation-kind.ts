@@ -9,9 +9,12 @@
 export const MARKET_TALK_DIRECTORY = "/root/project/homebase";
 
 // #57/#53：chat 伴侣页的 agent/model 在建会话时写死（v2 契约：agent/model 建会话定，
-// 逐消息指定已废除）。model 选型依据见 issue #53（mimo 免费网关校验 vs space-bunny 放行）。
+// 逐消息指定已废除）。
+// #74（2026-10-11 护栏降级拍板）：免费档网关对工具列表指纹的校验波动收紧（issue #53
+// 修正评论）——companion 的 permissions 白名单撤除（软护栏=system prompt+客户端写死），
+// model 回归与 chatcode 同款 mimo（过网关确定性）。真护栏恢复见 #74 backlog 段。
 export const CHAT_AGENT_ID = "companion";
-export const CHAT_MODEL = { providerID: "opencode", modelID: "space-bunny-free" } as const;
+export const CHAT_MODEL = { providerID: "opencode", modelID: "mimo-v2.6-flash-free" } as const;
 
 export type ConversationKind = "chat" | "chatcode";
 
