@@ -28,7 +28,7 @@ export const BUSY_SILENCE_MS = 20_000;
 /** 组件侧心跳间隔（只负责唤醒纯函数重算，不参与判定语义） */
 export const BUSY_TICK_MS = 1_000;
 
-export type BusyEventKind = "activity" | "ended" | "ignored";
+export type BusyEventKind = "activity" | "ended" | "ignored" | "turnStart";
 
 export interface BusyEventInput {
   /** OpenCodeEvent.type */
@@ -50,9 +50,6 @@ const ACTIVITY_TYPES = new Set([
   // —— #53（E1 v2）实测事件名 ——
   // #69：回合启动链路（inbox→execution.started→text/reasoning.started）必须算活动，
   // 否则 prompt 返回到首个 delta 之间 busy 熄灭、「运行中」碎片化
-  "session.inbox.enqueued",
-  "session.inbox.delivered",
-  "session.execution.started",
   "session.text.started",
   "session.reasoning.started",
   "session.text.delta",
@@ -89,6 +86,8 @@ export function classifyBusyEvent(
   if (type === "session.status") {
     return status === "busy" || status === "retry" ? "activity" : "ended";
   }
+  // #77：回合启动链（v2）——解除回合结束闩锁并点亮 busy
+  if (type === "session.inbox.enqueued" || type === "session.inbox.delivered" || type === "session.execution.started") return "turnStart";
   // 服务端明确结束信号（v2：execution.* 为回合终态；v1 的 session.idle/error 兼容保留）
   if (type === "session.idle" || type === "session.error") return "ended";
   if (type === "session.execution.succeeded" || type === "session.execution.failed" || type === "session.execution.interrupted") return "ended";
@@ -103,9 +102,15 @@ export interface BusyState {
   busy: boolean;
   /** 最近一次活动事件的时间戳（ms）；null = 本轮 busy 还没见过任何活动事件 */
   lastEventAt: number | null;
+  /**
+   * #77 回合结束闩锁：execution.* 结束后置 true，期间一切 activity 事件按 ignored
+   * 处理（隐藏 title agent 生成会话标题的 delta 与用户回合同 sessionID，会重燃 busy）。
+   * 下一回合启动链（inbox.* / execution.started，kind=turnStart）解除。
+   */
+  suppressed: boolean;
 }
 
-export const IDLE_BUSY_STATE: BusyState = { busy: false, lastEventAt: null };
+export const IDLE_BUSY_STATE: BusyState = { busy: false, lastEventAt: null, suppressed: false };
 
 /**
  * Fold one classified event into the busy state.
@@ -120,8 +125,11 @@ export function reduceBusyEvent(
   at: number,
 ): BusyState {
   if (kind === "ignored") return state;
-  if (kind === "ended") return state.lastEventAt === null ? state : IDLE_BUSY_STATE;
-  return { busy: true, lastEventAt: at };
+  if (kind === "ended") return state.lastEventAt === null ? state : { ...IDLE_BUSY_STATE, suppressed: true };
+  if (kind === "turnStart") return { busy: true, lastEventAt: at, suppressed: false };
+  // #77：闩锁期间 activity 按 ignored 处理（title agent 的 delta 重燃 busy 的根因）
+  if (state.suppressed) return state;
+  return { busy: true, lastEventAt: at, suppressed: false };
 }
 
 /** 静默超时判定：距最近一次活动事件已超过 silenceMs → 结束；否则原样返回 */
@@ -148,5 +156,5 @@ export function seedBusy(
   at: number,
 ): BusyState {
   if (status !== "busy" && status !== "retry") return state;
-  return { busy: true, lastEventAt: at };
+  return { busy: true, lastEventAt: at, suppressed: false };
 }
