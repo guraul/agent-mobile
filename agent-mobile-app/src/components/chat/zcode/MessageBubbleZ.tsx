@@ -7,6 +7,7 @@ import { Text } from "../../index";
 import { lightColors, lightChatColors, lightChatTypography, lightChatSizes, lightRadius, spacing } from "../../../theme";
 import type { DisplayStep, ToolStep } from "../../../services/message-merging";
 import { ThinkCard } from "./ThinkCard";
+import { stripHtmlComments } from "../../../services/text-sanitize";
 import { ToolGroupCard } from "./ToolGroupCard";
 import { AiChatOrb } from "./AiChatOrb";
 
@@ -112,7 +113,7 @@ export const MessageBubbleZ = React.memo(function MessageBubbleZ({
 }) {
   // #32 信息层：thinking 块（think-card）+ 工具折叠组（tech-card，含 diff 代码卡）
   if (step.kind === "reasoning") {
-    return <ThinkCard text={step.text} />;
+    return <ThinkCard text={stripHtmlComments(step.text ?? "")} />;
   }
   if (step.kind === "toolGroup" || step.kind === "tool") {
     return <ToolGroupCard tools={step.kind === "toolGroup" ? step.tools : [step]} onOpenOutput={onOpenOutput} />;
@@ -169,7 +170,7 @@ export const MessageBubbleZ = React.memo(function MessageBubbleZ({
       <View style={[s.bubble, bubbleBox, { backgroundColor: lightChatColors.bubbleAi }]}>
         {/* No fixed-height scroll container here: the typewriter reveals the
             text character by character, so the block must grow with the text. */}
-        <Markdown style={aiMarkdown}>{step.text}</Markdown>
+        <Markdown style={aiMarkdown}>{stripHtmlComments(step.text)}</Markdown>
       </View>
     </View>
   );
