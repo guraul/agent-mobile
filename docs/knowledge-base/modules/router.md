@@ -53,7 +53,7 @@ Settings / Memory / Knowledge 检索以 contextual sheet 呈现（不再是 tab 
 | 会话 `directory` | kind | 壳 |
 |---|---|---|
 | 空 / 未设置 / `/`（裸进入、Direct Talk 默认） | `chat` | 伴侣页 |
-| `MARKET_TALK_DIRECTORY` = `/root/project/family-finance`（market 工作区：Attention market 域 / Suggested 会话） | `chat` | 伴侣页 |
+| `MARKET_TALK_DIRECTORY` = `/root/project/homebase`（market 工作区：Attention market 域 / Suggested 会话） | `chat` | 伴侣页 |
 | 其余任意真实代码仓库目录 | `chatcode` | 工作台 |
 
 判据一句话：**对话的 subject 是不是需要真实操作的代码仓库？**

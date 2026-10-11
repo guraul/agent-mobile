@@ -61,7 +61,7 @@ scripts/pipeline/status.sh
 |---|---|
 | systemd 单元 | `serve-9928.service`（静态站）/ `bff-19234.service`（BFF）/ `opencode-4096.service`（opencode），全部 enabled |
 | 静态站目录 | `/root/project/agent-mobile/agent-mobile-app/dist`（当前为覆盖式部署；Phase 2 改 `releases/<id>` + `current` 软链） |
-| 仓库 checkout | `/root/project/agent-mobile`、`/root/project/family-finance` |
+| 仓库 checkout | `/root/project/agent-mobile`、`/root/project/homebase` |
 | node | v24.21.0（nodesource apt） |
 | 已知问题 | BFF 生产跑的是 `next dev`（Phase 3 修）；19235 阶段2 BFF 未运行 |
 

@@ -180,7 +180,7 @@ opencode server (127.0.0.1:4096, Basic auth)
   │     └── → ChatPanelZ → message-reducer（增量 patch）→ message-merging → MessageBubbleZ
   └── 发送消息：ChatPanelZ → sendMessageAsync (prompt_async) → SSE 回流
 
-family-finance BFF (106.13.181.13:19234)，JWT，全部为 projection（canonical 在 BFF SQLite / memx / vault）：
+homebase BFF (106.13.181.13:19234)，JWT，全部为 projection（canonical 在 BFF SQLite / memx / vault）：
   ├── /api/product/attention（snapshot）+ /api/product/stream（SSE：attention.* + proposal.*）→ services/attention → useAttentions → Featured + Supporting(NEEDS YOU)
   ├── /api/product/assignment-proposals（snapshot ?status=proposed，SSE proposal.*）→ services/proposal → useSuggestions → Supporting(SUGGESTED)
   ├── /api/product/l1 + /api/product/l1/stream（SSE 全帧）→ services/l1 → useL1 → Supporting(MARKET) + Noticed

@@ -35,7 +35,7 @@ describe("resolveConversationKind", () => {
 
 describe("MARKET_TALK_DIRECTORY", () => {
   it("与 attention/talk.ts 的既有值一致（re-export 收编，调用方无感）", () => {
-    expect(MARKET_TALK_DIRECTORY).toBe("/root/project/family-finance");
+    expect(MARKET_TALK_DIRECTORY).toBe("/root/project/homebase");
   });
 });
 
@@ -45,7 +45,7 @@ describe("pickBareEntrySession（#50 Dock/裸进入伴侣语义）", () => {
   it("跳过 coding 会话，选最近的 chat 侧会话（market/根目录）", () => {
     const picked = pickBareEntrySession([
       s("coding", "/root/project/agent-mobile", 300),
-      s("market", "/root/project/family-finance", 200),
+      s("market", "/root/project/homebase", 200),
       s("root", "/", 100),
     ]);
     expect(picked?.id).toBe("market");
