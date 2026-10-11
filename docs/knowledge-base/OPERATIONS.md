@@ -1,5 +1,15 @@
 # OPERATIONS.md —— 构建与运维
 
+> 最后更新：2026-10-11 · E1 生产 opencode 升级 v2.0.26（issue #53）
+> ⚠️ **opencode v2 要点（2026-10-11 生产窗口实测）**：
+> - **v2 没有任何 npm/GitHub 发布产物**（npm `opencode-ai@latest`=1.19.0 仍是 v1 线）——装机只能走官方 v2 脚本：`curl -fsSL https://opencode.ai/v2/install | bash -s -- --version 2.0.26`，落位 `~/.opencode/bin/opencode`（本机与生产同此）
+> - **v2 serve 强制 Basic 密码鉴权**：`Environment=OPENCODE_PASSWORD=…`（systemd 单元内必须在 [Service] 段）+ BFF `.env.local` 同步同值；生产密码在服务器 `/root/backups/opencode-4096-password.txt`
+> - 生产 `opencode-4096.service` ExecStart 已改为 `/root/.opencode/bin/opencode serve --port 4096 --hostname 127.0.0.1 --print-logs`（不再走 npm 全局路径）
+> - 生产全局配置 `~/.config/opencode/opencode.json` 已是 v2 形状（agents 含 companion/companion=space-bunny-free+deny-all 白名单/其余 agent model=mimo；exa MCP connected）；v1 旧配置存 `/root/backups/opencode.v1.bak/`
+> - **回滚物料**：`/root/backups/`（v1 二进制 tgz 116M + DB 三件套快照 1.8G + 旧配置 + 密码）；回滚 = 二进制+DB+BFF/App 版本三件一起
+> - v2 升级前必须先摘 v1 插件（生产已摘 memx+superpowers；`opencode.jsonc` 已归档）；以后升级用 `opencode upgrade`
+> - 历史：2026-09-27 服务器整备（9928/BFF/opencode 收编 systemd、node 24.21.0）
+
 > 最后更新：2026-09-27 · commit：服务器整备——9928/BFF/opencode 全部收编 systemd（serve-9928 / bff-19234 / opencode-4096），showcase2-9928 退役，node 升至 24.21.0，磁盘 81%→77%
 
 ## 环境变量清单

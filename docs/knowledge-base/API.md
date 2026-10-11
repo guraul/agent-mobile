@@ -1,6 +1,15 @@
 # API.md —— 接口清单
 
-> 最后更新：2026-08-30 · commit：`d255c48`（补 /api/auth/logout 端点）
+> 最后更新：2026-10-11 · E1 opencode v2 契约（issue #53）
+> 上一版：2026-08-30 · commit：`d255c48`（补 /api/auth/logout 端点）
+
+> ⚠️ **2026-10-11 E1：opencode v2 契约（权威实测，详见 issue #53 评论与 PR #15/#68）**——BFF 对外契约不变（`/api/opencode/rest/*`、`/api/opencode/stream`），BFF 内部完成 v1→v2 翻译：
+> - **路径映射**（lib/opencode.ts mapUpstreamPath）：abort→interrupt、prompt_async→prompt、permissions/{pid}→permission/{pid}/reply、session/status→session/active、config/providers→provider、permission→permission/request，其余 `/api` 前缀；未命中走 v2 真 404（**v1 裸路径全不存在，SPA 兜底会返回假 200 HTML**）
+> - **REST 全带 `{data:…}` 信封**（App client 统一解包）；消息列表仅元数据，content 在单条端点（`/api/session/{id}/message/{messageID}`），App 逐条拉取映射回 `{info,parts}`
+> - **agent/model 建会话定**（`POST /api/session {location:{directory}, agent, model:{providerID,id}}`，prompt body 仅 `{text}`）；运行中切换 `POST /api/session/{id}/agent|model`
+> - **事件流 `/api/event`**：帧 `{id,created?,type,location,data}`；**无 message.updated**（消息流=text.started 占位→delta→text.ended 落定→execution.*/resync 节流 refetch）；**delta 是 live-only、重连零重放**；question 机制改 form（form.created/replied/cancelled + session.form.*）；permission 字段 action/resources
+> - **busy 白名单（App busy-signal.ts）**：activity=text/reasoning delta、tool.*、step.*、inbox.*、execution.started、text/reasoning.started、form.created；ended=execution.succeeded/failed/interrupted（+v1 兼容名）
+
 
 ## 结论
 
