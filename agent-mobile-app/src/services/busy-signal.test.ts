@@ -12,7 +12,7 @@ import {
 // #58 busy 真实信号纯函数单测。
 // 红线：判定只依赖"事件类型 + 时间戳"，绝不覆盖 messages / part（打字机冲突教训）。
 
-const ACTIVITY: BusyState = { busy: true, lastEventAt: 10_000 };
+const ACTIVITY: BusyState = { busy: true, lastEventAt: 10_000, suppressed: false };
 
 describe("classifyBusyEvent", () => {
   it("本 session 的产出/增量事件 → activity", () => {
@@ -62,9 +62,6 @@ describe("classifyBusyEvent", () => {
   // 而把周期性心跳当 activity 的代价是 busy 永久为真（#58 回归）——后者更糟。
   it("#69 v2 回合启动链路 → activity（inbox/execution.started/text.started/reasoning.started）", () => {
     for (const type of [
-      "session.inbox.enqueued",
-      "session.inbox.delivered",
-      "session.execution.started",
       "session.text.started",
       "session.reasoning.started",
     ]) {
@@ -82,7 +79,7 @@ describe("classifyBusyEvent", () => {
 
 describe("reduceBusyEvent", () => {
   it("activity → busy=true 并记录时间戳", () => {
-    expect(reduceBusyEvent(IDLE_BUSY_STATE, "activity", 1_000)).toEqual({ busy: true, lastEventAt: 1_000 });
+    expect(reduceBusyEvent(IDLE_BUSY_STATE, "activity", 1_000)).toEqual({ busy: true, lastEventAt: 1_000, suppressed: false });
   });
 
   it("ignored → 原样返回（不翻 busy、不推进时间戳）", () => {
@@ -90,15 +87,15 @@ describe("reduceBusyEvent", () => {
     expect(reduceBusyEvent(IDLE_BUSY_STATE, "ignored", 1_000)).toBe(IDLE_BUSY_STATE);
   });
 
-  it("已见过活动事件后 ended → 立即结束", () => {
-    expect(reduceBusyEvent(ACTIVITY, "ended", 20_000)).toEqual(IDLE_BUSY_STATE);
+  it("已见过活动事件后 ended → 立即结束并置闩锁（#77）", () => {
+    expect(reduceBusyEvent(ACTIVITY, "ended", 20_000)).toEqual({ ...IDLE_BUSY_STATE, suppressed: true });
   });
 
   it("还没见过活动事件时 ended 不可信 → 保持 busy（防 #44 提前判结束）", () => {
     const seeded = seedBusy(IDLE_BUSY_STATE, "busy", 5_000);
-    expect(seeded).toEqual({ busy: true, lastEventAt: 5_000 });
+    expect(seeded).toEqual({ busy: true, lastEventAt: 5_000, suppressed: false });
     // 播种本身带时间戳，所以这里构造"无活动记录"的 busy 态更贴近受理期空窗：
-    const inflight: BusyState = { busy: true, lastEventAt: null };
+    const inflight: BusyState = { busy: true, lastEventAt: null, suppressed: false };
     expect(reduceBusyEvent(inflight, "ended", 6_000)).toBe(inflight);
   });
 
@@ -106,7 +103,7 @@ describe("reduceBusyEvent", () => {
     let s = reduceBusyEvent(IDLE_BUSY_STATE, "activity", 1_000);
     s = reduceBusyEvent(s, "activity", 1_400);
     s = reduceBusyEvent(s, "activity", 1_800);
-    expect(s).toEqual({ busy: true, lastEventAt: 1_800 });
+    expect(s).toEqual({ busy: true, lastEventAt: 1_800, suppressed: false });
   });
 });
 
@@ -130,15 +127,40 @@ describe("reduceBusyTick", () => {
   });
 
   it("busy 但无活动记录（受理期空窗）→ 不误判结束", () => {
-    const inflight: BusyState = { busy: true, lastEventAt: null };
+    const inflight: BusyState = { busy: true, lastEventAt: null, suppressed: false };
     expect(reduceBusyTick(inflight, 10_000_000)).toBe(inflight);
+  });
+});
+
+describe("#77 回合结束闩锁", () => {
+  it("execution.succeeded → ended 且置 suppressed；随后的 activity（title delta）被吞", () => {
+    const afterEnd = reduceBusyEvent(ACTIVITY, "ended", 11_000);
+    expect(afterEnd.busy).toBe(false);
+    expect(afterEnd.suppressed).toBe(true);
+    const afterTitleDelta = reduceBusyEvent(afterEnd, "activity", 12_000);
+    expect(afterTitleDelta).toBe(afterEnd); // 被吞，状态原样
+  });
+
+  it("下一回合启动链（inbox/execution.started）解除闩锁并点亮 busy", () => {
+    const afterEnd = reduceBusyEvent(ACTIVITY, "ended", 11_000);
+    const rearm = reduceBusyEvent(afterEnd, "turnStart", 60_000);
+    expect(rearm.busy).toBe(true);
+    expect(rearm.suppressed).toBe(false);
+    const delta = reduceBusyEvent(rearm, "activity", 61_000);
+    expect(delta.busy).toBe(true);
+  });
+
+  it("classify：inbox.*/execution.started → turnStart", () => {
+    for (const type of ["session.inbox.enqueued", "session.inbox.delivered", "session.execution.started"]) {
+      expect(classifyBusyEvent({ type, sessionID: "s" }, "s")).toBe("turnStart");
+    }
   });
 });
 
 describe("seedBusy", () => {
   it("读数为 busy / retry → 置 busy", () => {
-    expect(seedBusy(IDLE_BUSY_STATE, "busy", 7_000)).toEqual({ busy: true, lastEventAt: 7_000 });
-    expect(seedBusy(IDLE_BUSY_STATE, "retry", 7_000)).toEqual({ busy: true, lastEventAt: 7_000 });
+    expect(seedBusy(IDLE_BUSY_STATE, "busy", 7_000)).toEqual({ busy: true, lastEventAt: 7_000, suppressed: false });
+    expect(seedBusy(IDLE_BUSY_STATE, "retry", 7_000)).toEqual({ busy: true, lastEventAt: 7_000, suppressed: false });
   });
 
   it("读数不是 busy → 原样返回（只播种、绝不清洗已在跑的 busy）", () => {
