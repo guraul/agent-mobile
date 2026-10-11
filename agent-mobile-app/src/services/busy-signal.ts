@@ -41,13 +41,25 @@ export interface BusyEventInput {
 
 /** 显式活动事件（精确类型）：只有这些才刷新 busy 时间戳 */
 const ACTIVITY_TYPES = new Set([
+  // —— v1（BFF 兼容期保留）——
   "delta",
   "message.part.updated",
   "message.updated",
   "message.removed",
   "session.updated",
+  // —— #53（E1 v2）实测事件名 ——
+  "session.text.delta",
+  "session.reasoning.delta",
+  "session.tool.called",
+  "session.tool.success",
+  "session.tool.failed",
+  "session.tool.progress",
+  "session.step.started",
+  "session.step.streamed",
+  "session.step.ended",
   // 会话生命周期上"本轮开始"的一次性事件，判 activity 合理且无害
   "session.created",
+  "form.created",
 ]);
 
 /** 显式活动事件前缀（question.* / permission.* 的问法会随版本变，只匹配前缀） */
@@ -70,8 +82,9 @@ export function classifyBusyEvent(
   if (type === "session.status") {
     return status === "busy" || status === "retry" ? "activity" : "ended";
   }
-  // 服务端明确结束信号
+  // 服务端明确结束信号（v2：execution.* 为回合终态；v1 的 session.idle/error 兼容保留）
   if (type === "session.idle" || type === "session.error") return "ended";
+  if (type === "session.execution.succeeded" || type === "session.execution.failed" || type === "session.execution.interrupted") return "ended";
   // 活动事件白名单（session.status 的 activity 分支已在上面判过，这里不再重复）
   if (ACTIVITY_TYPES.has(type)) return "activity";
   if (ACTIVITY_PREFIXES.some((prefix) => type.startsWith(prefix))) return "activity";

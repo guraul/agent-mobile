@@ -8,6 +8,11 @@
 
 export const MARKET_TALK_DIRECTORY = "/root/project/family-finance";
 
+// #57/#53：chat 伴侣页的 agent/model 在建会话时写死（v2 契约：agent/model 建会话定，
+// 逐消息指定已废除）。model 选型依据见 issue #53（mimo 免费网关校验 vs space-bunny 放行）。
+export const CHAT_AGENT_ID = "companion";
+export const CHAT_MODEL = { providerID: "opencode", modelID: "space-bunny-free" } as const;
+
 export type ConversationKind = "chat" | "chatcode";
 
 export function resolveConversationKind(directory?: string | null): ConversationKind {

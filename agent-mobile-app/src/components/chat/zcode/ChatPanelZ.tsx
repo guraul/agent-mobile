@@ -18,7 +18,7 @@ import {
   opencodeClient,
   type OpenCodeMessage,
   type OpenCodePart,
-  type QuestionInfo,
+  type FormRequest,
   type PermissionRequest,
 } from "../../../services/opencode-client";
 import { subscribeToOpenCodeEvents, type OpenCodeEvent } from "../../../services/opencode-events";
@@ -53,6 +53,7 @@ import {
   type QueuedMessage,
 } from "../../../services/message-queue";
 import type { EngagedAttentionRef } from "../../../services/attention/store";
+import type { ConversationKind } from "../../../services/conversation-kind";
 import { MessageBubbleZ } from "./MessageBubbleZ";
 import { BusyDots } from "./BusyDots";
 import { showAlert } from "../../../services/alert";
@@ -82,8 +83,29 @@ const FALLBACK_AGENTS = [
   { id: "design", model: DEFAULT_MODEL },
 ] as const;
 
+// #57（E3-a）：chat 伴侣页发出的每条消息固定 agent=companion（只读 + 产品动作，
+// 服务端禁 bash/edit 全家）——不随 session.agent / 用户选择变化。chatcode 侧维持
+// build/plan/design 选择器。双保险语义：agent 配置断工具（真护栏，随 E1 上线）+
+// 客户端写死（行为一致）。服务端上线依赖 E1（生产 opencode v2 + companion 配置）。
+const CHAT_AGENT_ID = "companion";
+
+// 2026-10-11 用户拍板：chat 伴侣页 model 同样写死 space-bunny-free，不可修改（无选择入口）。
+// 依据（issue #53 实测链）：mimo-v2.6-flash-free 的免费网关校验请求工具列表，permissions
+// deny 一改即 403 FreeTierError；space-bunny-free 放行自定义工具集，companion 真护栏 +
+// 免费档两全。chatcode 侧不受影响（仍走 model 选择器 / Me 偏好）。
+const CHAT_MODEL = { providerID: "opencode", modelID: "space-bunny-free" };
+
+// #53（E1 v2）：回合结束事件 → 静默 refetch 消息列表（tool/step 中途事件不触发，防打字机弹出）
+const REFETCH_EVENT_TYPES = new Set([
+  "session.execution.succeeded",
+  "session.execution.failed",
+  "session.execution.interrupted",
+]);
+
 interface ChatPanelProps {
   sessionID: string;
+  /** #29 双页分流判据（talk.tsx 运行时判定）：chat=伴侣页（强制 companion + 无 agent 选择器 + 思考卡收敛），其余=chatcode 工作台（现状不动） */
+  kind?: ConversationKind;
   /** Phase 4：从 Attention 进入时携带——上下文卡 + 显式 Mark handled 入口 */
   attention?: EngagedAttentionRef;
   /** market 类 Create 流程：挂载后自动发送一条 Attention 上下文消息（用户显式 engage 的结果） */
@@ -92,7 +114,9 @@ interface ChatPanelProps {
   autoContextText?: string;
 }
 
-export function ChatPanelZ({ sessionID, attention, autoSendContext = false, autoContextText }: ChatPanelProps) {
+export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false, autoContextText }: ChatPanelProps) {
+  // #57 chat 伴侣页判据（kind 缺省按 chatcode 处理，行为与改造前一致）
+  const isChat = kind === "chat";
   const [messages, setMessages] = useState<OpenCodeMessage[]>([]);
   const [display, setDisplay] = useState<DisplayStep[]>([]);
   const [input, setInput] = useState("");
@@ -132,23 +156,47 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
   // question tool: agent asks a clarifying question and blocks until answered.
   // We queue the request and show one question at a time in a BottomSheet, then
   // POST the reply so the agent can continue.
+  // #53（E1 v2）：question 机制改 form——一个 form 的每个 field 映射为既有 sheet 的
+  // 一个"问题"（复用 options/custom/多步流程），提交时按 key 组装 form Answer 记录。
   const [pendingQuestion, setPendingQuestion] = useState<{
-    requestID: string;
-    questions: QuestionInfo[];
+    formID: string;
+    fieldKeys: string[];
+    fieldTypes: string[];
+    questions: { header?: string; question?: string; options?: { label: string; description?: string }[]; multiple?: boolean; custom?: boolean }[];
     index: number;
   } | null>(null);
   const [questionSelections, setQuestionSelections] = useState<string[]>([]);
   const [questionCustom, setQuestionCustom] = useState("");
   // accumulated answers for questions already stepped past (answer[0..index-1])
   const questionAnswersRef = useRef<string[][]>([]);
+
+  const formToPending = (
+    form: FormRequest,
+  ): { formID: string; fieldKeys: string[]; fieldTypes: string[]; questions: { header?: string; question?: string; options?: { label: string; description?: string }[]; multiple?: boolean; custom?: boolean }[]; index: number } | null => {
+    const fields = (form.fields ?? []).filter((f) => !f.hidden);
+    if (!fields.length) return null;
+    return {
+      formID: form.id,
+      fieldKeys: fields.map((f) => f.key),
+      fieldTypes: fields.map((f) => f.type ?? "string"),
+      questions: fields.map((f) => ({
+        header: f.title ?? f.key,
+        question: f.description,
+        options: f.options?.map((o) => (typeof o === "string" ? { label: o } : { label: o.label ?? String(o) })),
+        multiple: f.type === "multiselect",
+        custom: f.type === "string",
+      })),
+      index: 0,
+    };
+  };
   // permission request: agent wants to run a tool / access a file and blocks
   // until the user allows or rejects.
   const [pendingPermission, setPendingPermission] = useState<{
     id: string;
-    permission: string;
+    sessionID: string;
+    permission?: string;
     patterns?: string[];
     metadata?: Record<string, unknown>;
-    always?: string[];
   } | null>(null);
   const listRef = useRef<FlatList<DisplayStep>>(null);
   // stick to bottom when user is near the bottom; pause when they scroll up
@@ -205,12 +253,16 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
   // listMessages returns chronological (oldest first); sort by creation time so
   // streaming updates land in the right spot regardless of API ordering, then
   // merge assistant steps into single turns (#32：连续 tool step 合并为折叠组——纯函数，语义同 mergeMessages）。
+  // #57：chat 伴侣页不渲染 reasoning step（BRIEF §3.7 追加拍板——思考卡是过程类 UI，
+  // 多步推理会密集刷出多张 {> 思考} 卡）。「她在动」的等待信号由 #58 的 busy 状态行
+  // 承载，故选「直接不渲染」而非折叠状态行（零新增过程 UI）。chatcode 侧维持 ThinkCard。
   const recomputeDisplay = useCallback((raw: OpenCodeMessage[]) => {
     const chronological = [...raw].sort(
       (a, b) => (a.info.time?.created ?? 0) - (b.info.time?.created ?? 0),
     );
-    setDisplay(groupToolSteps(mergeMessages(chronological)));
-  }, []);
+    const steps = groupToolSteps(mergeMessages(chronological));
+    setDisplay(isChat ? steps.filter((s) => s.kind !== "reasoning") : steps);
+  }, [isChat]);
 
   const loadMessages = useCallback(async () => {
     try {
@@ -225,13 +277,16 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
       // Recover it from the pending-question list so the user can answer instead
       // of the agent hanging forever.
       try {
-        const pending = await opencodeClient.listQuestions();
-        const mine = pending.find((q) => q.sessionID === sessionID && q.questions.length > 0);
+        const pending = await opencodeClient.listForms(sessionID);
+        const mine = (pending ?? []).find((f) => f.sessionID === sessionID);
         if (mine) {
-          questionAnswersRef.current = [];
-          setPendingQuestion({ requestID: mine.id, questions: mine.questions, index: 0 });
-          setQuestionSelections([]);
-          setQuestionCustom("");
+          const pendingForm = formToPending(mine);
+          if (pendingForm) {
+            questionAnswersRef.current = [];
+            setPendingQuestion(pendingForm);
+            setQuestionSelections([]);
+            setQuestionCustom("");
+          }
         }
       } catch {
         // transient — the live SSE stream will surface new questions anyway
@@ -243,10 +298,10 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
         if (mine) {
           setPendingPermission({
             id: mine.id,
-            permission: mine.permission,
-            patterns: mine.patterns,
+            permission: (mine as PermissionRequest).action ?? mine.permission,
+            patterns: (mine as PermissionRequest).resources ?? mine.patterns,
             metadata: mine.metadata,
-            always: mine.always,
+            sessionID: mine.sessionID,
           });
         }
       } catch {
@@ -280,6 +335,35 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
       setRefreshing(false);
     }
   }, [sessionID, recomputeDisplay]);
+
+  // #53（E1 v2）：回合结束（execution.*）或重连（stream.resync）时静默 refetch 消息列表。
+  // 不挂在 tool.*/step.* 上：中途 refetch 会用真 parts 换掉流式占位（合成 partID），
+  // 打字机 reveal 目标失配导致整块弹出。工具卡由此在回合结束才出现（chatcode 侧可接受）。
+  const silentReload = useCallback(async () => {
+    try {
+      const list = await opencodeClient.listMessages(sessionID, { limit: PAGE_SIZE });
+      setMessages(list);
+      recomputeDisplay(list);
+    } catch {
+      // 下一次事件/重连会再试
+    }
+  }, [sessionID, recomputeDisplay]);
+  const lastReloadRef = useRef(0);
+  const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleSilentReload = useCallback(() => {
+    const now = Date.now();
+    if (now - lastReloadRef.current < 2000) {
+      if (!reloadTimerRef.current) {
+        reloadTimerRef.current = setTimeout(() => {
+          reloadTimerRef.current = null;
+          void silentReload();
+        }, 2000);
+      }
+      return;
+    }
+    lastReloadRef.current = now;
+    void silentReload();
+  }, [silentReload]);
 
   // #58 busy 真实信号：把每条流事件折进纯函数状态机（事件流入 = busy）。
   // 只判定 busy，绝不碰 messages / part——与打字机（revealChars）零耦合。
@@ -336,19 +420,46 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
       // #58 busy 真实信号：任何本 session 的事件流入都算 agent 在跑（先于下面的
       // 分支处理，未知事件类型也不会漏掉）。
       feedBusy(event);
-      if (event.type === "message.updated") {
-        const props = event.properties as {
-          sessionID?: string;
-          info?: { id: string; role: "user" | "assistant"; time?: { created?: number }; sessionID?: string; error?: unknown };
-        };
-        if (props.sessionID === sessionID && props.info) {
-          const info = props.info;
+      // #53（E1 v2）：事件流无 message.updated（实测）——占位由 text.started 建、
+      // delta 追加（下方原打字机分支不动）、text.ended 用完整 text 落定；
+      // 结构变化（tool.*/step.ended/execution.*/synthetic）与 stream.resync → 节流 refetch。
+      if (event.type === "session.text.started") {
+        const d = event.properties as { sessionID?: string; assistantMessageID?: string; ordinal?: number };
+        if (d.sessionID === sessionID && d.assistantMessageID) {
+          const assistantMessageID = d.assistantMessageID;
+          const partID = `t${d.ordinal ?? 0}`;
           setMessages((prev) => {
-            const next = applyMessageUpdated(prev, info);
+            if (prev.some((m) => m.info.id === assistantMessageID)) return prev;
+            const next: OpenCodeMessage[] = [
+              ...prev,
+              {
+                info: { id: assistantMessageID, role: "assistant", sessionID, time: { created: Date.now() } },
+                parts: [{ id: partID, type: "text", text: "" } as OpenCodePart],
+              },
+            ];
             recomputeDisplay(next);
             return next.length > MAX_MESSAGES ? next.slice(next.length - MAX_MESSAGES) : next;
           });
         }
+      } else if (event.type === "session.text.ended") {
+        const d = event.properties as { sessionID?: string; assistantMessageID?: string; ordinal?: number; text?: string };
+        if (d.sessionID === sessionID && d.assistantMessageID && typeof d.text === "string") {
+          const partID = `t${d.ordinal ?? 0}`;
+          setMessages((prev) => {
+            const next = applyPartUpdated(prev, { id: partID, type: "text", text: d.text } as unknown as OpenCodePart);
+            // 完整 text 到达：扩展打字机 target 收尾（不整块弹出）
+            if (typingPartsRef.current.has(partID)) {
+              revealTargets.current[partID] = Math.max(revealTargets.current[partID] ?? 0, (d.text ?? "").length);
+            }
+            recomputeDisplay(next);
+            return next;
+          });
+        }
+      } else if (REFETCH_EVENT_TYPES.has(event.type)) {
+        scheduleSilentReload();
+      } else if (event.type === "stream.resync") {
+        // v2 重连不重放（实测）——上游每次连接建立都发 resync，下游 refetch 自愈
+        scheduleSilentReload();
       } else if (event.type === "message.part.updated") {
         const props = event.properties as { sessionID?: string; part?: OpenCodePart };
         if (props.sessionID === sessionID && props.part) {
@@ -386,35 +497,20 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
             return next.length > MAX_MESSAGES ? next.slice(next.length - MAX_MESSAGES) : next;
           });
         }
-      } else if (event.type === "message.removed") {
-        const props = event.properties as { sessionID?: string; messageID?: string };
-        if (props.sessionID === sessionID && props.messageID) {
-          const messageID = props.messageID;
-          setMessages((prev) => {
-            const next = applyMessageRemoved(prev, messageID);
-            recomputeDisplay(next);
-            return next;
-          });
+      } else if (event.type === "form.created") {
+        const props = event.properties as { form?: FormRequest };
+        const form = props.form;
+        if (form?.sessionID === sessionID) {
+          const pendingForm = formToPending(form);
+          if (pendingForm) {
+            questionAnswersRef.current = [];
+            setPendingQuestion(pendingForm);
+            setQuestionSelections([]);
+            setQuestionCustom("");
+          }
         }
-      } else if (event.type === "question.asked" || event.type === "question.v2.asked") {
-        const req = event.properties as {
-          id: string;
-          sessionID: string;
-          questions: QuestionInfo[];
-        };
-        if (req.sessionID === sessionID && req.questions.length > 0) {
-          questionAnswersRef.current = [];
-          setPendingQuestion({ requestID: req.id, questions: req.questions, index: 0 });
-          setQuestionSelections([]);
-          setQuestionCustom("");
-        }
-      } else if (
-        event.type === "question.replied" ||
-        event.type === "question.rejected" ||
-        event.type === "question.v2.replied" ||
-        event.type === "question.v2.rejected"
-      ) {
-        const props = event.properties as { sessionID?: string; requestID?: string };
+      } else if (event.type === "form.replied" || event.type === "form.cancelled") {
+        const props = event.properties as { sessionID?: string; id?: string };
         if (props.sessionID === sessionID) {
           setPendingQuestion(null);
           setQuestionSelections([]);
@@ -426,10 +522,10 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
         if (req.sessionID === sessionID) {
           setPendingPermission({
             id: req.id,
-            permission: req.permission,
-            patterns: req.patterns,
+            sessionID: req.sessionID,
+            permission: req.action ?? req.permission,
+            patterns: req.resources ?? req.patterns,
             metadata: req.metadata,
-            always: req.always,
           });
         }
       } else if (event.type === "permission.replied") {
@@ -595,8 +691,8 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
     opencodeClient
       .sendMessageAsync(sessionID, {
         parts: [{ type: "text", text: ctx.messageText }],
-        agent: agents[agentIdx].id,
-        model,
+        agent: isChat ? CHAT_AGENT_ID : agents[agentIdx].id,
+        model: isChat ? CHAT_MODEL : model,
       })
       .then(() => stickToBottom.current = true)
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
@@ -613,8 +709,8 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
     opencodeClient
       .sendMessageAsync(sessionID, {
         parts: [{ type: "text", text: autoContextText }],
-        agent: agents[agentIdx].id,
-        model,
+        agent: isChat ? CHAT_AGENT_ID : agents[agentIdx].id,
+        model: isChat ? CHAT_MODEL : model,
       })
       .then(() => { stickToBottom.current = true; })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
@@ -686,8 +782,9 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
     try {
       await opencodeClient.sendMessageAsync(sessionID, {
         parts: [{ type: "text", text }],
-        agent: agents[agentIdx].id,
-        model,
+        // #57：chat 伴侣页固定 companion，不随 session.agent / 用户选择变化；chatcode 侧照旧
+        agent: isChat ? CHAT_AGENT_ID : agents[agentIdx].id,
+        model: isChat ? CHAT_MODEL : model,
       });
       stickToBottom.current = true;
       return true;
@@ -697,7 +794,7 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
     } finally {
       setSending(false);
     }
-  }, [sessionID, agents, agentIdx, model]);
+  }, [sessionID, isChat, agents, agentIdx, model]);
 
   // #33 排队队列操作统一入口：任何 chip 动作（删除/上移/回填）都解除发送阻塞
   const mutateQueue = useCallback((next: QueuedMessage[]) => {
@@ -774,7 +871,14 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
     const q = pendingQuestion;
     if (!q) return;
     try {
-      await opencodeClient.replyQuestion(q.requestID, allAnswers);
+      // #53（E1 v2）：form Answer = {fieldKey: value}；multiselect → string[]，其余 string
+      const answer: Record<string, string | string[]> = {};
+      q.fieldKeys.forEach((key, i) => {
+        const val = allAnswers[i] ?? [];
+        if (q.fieldTypes[i] === "multiselect") answer[key] = val;
+        else if (val.length) answer[key] = val[0];
+      });
+      await opencodeClient.replyForm(sessionID, q.formID, answer);
       setPendingQuestion(null);
       setQuestionSelections([]);
       setQuestionCustom("");
@@ -788,7 +892,7 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
     const q = pendingQuestion;
     if (!q) return;
     try {
-      await opencodeClient.rejectQuestion(q.requestID);
+      await opencodeClient.cancelForm(sessionID, q.formID);
       setPendingQuestion(null);
       setQuestionSelections([]);
       setQuestionCustom("");
@@ -802,7 +906,7 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
     const p = pendingPermission;
     if (!p) return;
     try {
-      await opencodeClient.replyPermission(p.id, reply);
+      await opencodeClient.replyPermission(p.sessionID, p.id, reply);
       setPendingPermission(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -1094,33 +1198,44 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
               ) : null}
             </View>
             <View style={styles.pillSub}>
-              <Pressable
-                onPress={() => {
-                  loadModels();
-                  setModelMenuOpen(true);
-                }}
-                accessibilityLabel="Select model"
-                accessibilityRole="button"
-                style={styles.maBtn}
-              >
-                <View style={styles.maDot} />
-                <RNText style={styles.maText} numberOfLines={1}>{model.modelID}</RNText>
-              </Pressable>
+              {/* #57：chat 伴侣页 model 写死 space-bunny-free（不可修改）→ 只读标签，无选择入口；chatcode 侧保留选择器 */}
+              {isChat ? (
+                <View style={styles.maBtn}>
+                  <View style={styles.maDot} />
+                  <RNText style={styles.maText} numberOfLines={1}>{CHAT_MODEL.modelID}</RNText>
+                </View>
+              ) : (
+                <Pressable
+                  onPress={() => {
+                    loadModels();
+                    setModelMenuOpen(true);
+                  }}
+                  accessibilityLabel="Select model"
+                  accessibilityRole="button"
+                  style={styles.maBtn}
+                >
+                  <View style={styles.maDot} />
+                  <RNText style={styles.maText} numberOfLines={1}>{model.modelID}</RNText>
+                </Pressable>
+              )}
               <View style={styles.flexSpacer} />
-              <Pressable
-                onPress={() => {
-                  setAgentIdx((idx) => (idx + 1) % agents.length);
-                  setModel(agents[(agentIdx + 1) % agents.length].model);
-                }}
-                onLongPress={() => setAgentMenuOpen(true)}
-                delayLongPress={400}
-                accessibilityLabel="Switch agent"
-                accessibilityRole="button"
-                style={styles.maBtn}
-              >
-                <View style={styles.maDot} />
-                <RNText style={styles.maText}>{agents[agentIdx].id}</RNText>
-              </Pressable>
+              {/* #57：chat 伴侣页无 agent 选择器（固定 companion）——agent pill 循环 + 长按面板仅 chatcode 侧渲染 */}
+              {!isChat && (
+                <Pressable
+                  onPress={() => {
+                    setAgentIdx((idx) => (idx + 1) % agents.length);
+                    setModel(agents[(agentIdx + 1) % agents.length].model);
+                  }}
+                  onLongPress={() => setAgentMenuOpen(true)}
+                  delayLongPress={400}
+                  accessibilityLabel="Switch agent"
+                  accessibilityRole="button"
+                  style={styles.maBtn}
+                >
+                  <View style={styles.maDot} />
+                  <RNText style={styles.maText}>{agents[agentIdx].id}</RNText>
+                </Pressable>
+              )}
             </View>
           </View>
         </View>
@@ -1139,6 +1254,7 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
                 onPress={() => {
                   setModel(m);
                   setModelMenuOpen(false);
+                  void opencodeClient.switchModel(sessionID, m).catch(() => {});
                 }}
                 style={[styles.sheetItem, active && styles.sheetItemActive]}
               >
@@ -1151,8 +1267,10 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
         </ScrollView>
       </LightSheet>
 
-      {/* #33 agent 面板（agent ma-btn 长按唤起；轻点仍是循环切换）：LightSheet 载体 */}
-      <LightSheet visible={agentMenuOpen} onClose={() => setAgentMenuOpen(false)} testID="agent-sheet">
+      {/* #33 agent 面板（agent ma-btn 长按唤起；轻点仍是循环切换）：LightSheet 载体。
+          #57：chat 伴侣页固定 companion、无选择器 → 面板仅 chatcode 侧渲染 */}
+      {!isChat && (
+        <LightSheet visible={agentMenuOpen} onClose={() => setAgentMenuOpen(false)} testID="agent-sheet">
         <View style={styles.sheetHeader}>
           <Text variant="lightBodyStrong" color="lightInk">选择 Agent</Text>
         </View>
@@ -1166,6 +1284,7 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
                   setAgentIdx(i);
                   setModel(agents[i].model);
                   setAgentMenuOpen(false);
+                  void opencodeClient.switchAgent(sessionID, agents[i].id).catch(() => {});
                 }}
                 style={[styles.sheetItem, styles.sheetItemRow, active && styles.sheetItemActive]}
               >
@@ -1180,7 +1299,8 @@ export function ChatPanelZ({ sessionID, attention, autoSendContext = false, auto
             );
           })}
         </ScrollView>
-      </LightSheet>
+        </LightSheet>
+      )}
 
       {pendingQuestion ? (
         <LightSheet visible onClose={rejectQuestion} testID="question-sheet">

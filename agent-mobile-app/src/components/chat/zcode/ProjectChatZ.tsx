@@ -11,7 +11,7 @@ import { SessionsDrawer } from "./SessionsDrawer";
 import { iconStroke, lightColors, lightChatColors, lightChatSizes } from "../../../theme";
 import { opencodeClient, type OpenCodeSession } from "../../../services/opencode-client";
 import { ChatPanelZ } from "./ChatPanelZ";
-import type { ConversationKind } from "../../../services/conversation-kind";
+import { CHAT_AGENT_ID, CHAT_MODEL, type ConversationKind } from "../../../services/conversation-kind";
 import type { EngagedAttentionRef } from "../../../services/attention/store";
 
 interface ProjectChatProps {
@@ -92,7 +92,12 @@ export function ProjectChatZ({ projectPath, onBack, kind, attention, initialSess
   const createAndOpen = async () => {
     try {
       setPickerError(null);
-      const created = await opencodeClient.createSession({ directory: projectPath });
+      // #53（E1 v2）：agent/model 建会话即定——chat 伴侣页 companion+space-bunny，chatcode 侧 build（model 走 agent 配置默认）
+      const created = await opencodeClient.createSession(
+        kind === "chatcode"
+          ? { directory: projectPath, agent: "build" }
+          : { directory: projectPath, agent: CHAT_AGENT_ID, model: { ...CHAT_MODEL } },
+      );
       await refreshSessions();
       setSession(created);
       setDrawerOpen(false);
@@ -172,7 +177,7 @@ export function ProjectChatZ({ projectPath, onBack, kind, attention, initialSess
         </Box>
       ) : session ? (
         <View style={styles.flex}>
-          <ChatPanelZ key={session.id} sessionID={session.id} attention={attention} autoSendContext={autoSendContext} autoContextText={autoContextText} />
+          <ChatPanelZ key={session.id} sessionID={session.id} kind={kind} attention={attention} autoSendContext={autoSendContext} autoContextText={autoContextText} />
         </View>
       ) : (
         <Box padding="lg" style={styles.center}>

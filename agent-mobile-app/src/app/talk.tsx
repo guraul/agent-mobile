@@ -10,7 +10,7 @@ import { spacing } from "@/theme";
 import { opencodeClient, type OpenCodeSession } from "@/services/opencode-client";
 import { loadToken } from "@/services/auth";
 import { classifyRuntimeFailure, runtimeFailureMessage } from "@/services/runtime-presence";
-import { pickBareEntrySession, resolveConversationKind } from "@/services/conversation-kind";
+import { CHAT_AGENT_ID, CHAT_MODEL, pickBareEntrySession, resolveConversationKind } from "@/services/conversation-kind";
 import { ProjectChatZ } from "@/components/chat/zcode/ProjectChatZ";
 import type { EngagedAttentionRef } from "@/services/attention/store";
 import { showAlert } from "../services/alert";
@@ -93,7 +93,7 @@ export default function TalkScreen() {
       if (bare) {
         setActive({ sessionId: bare.id, projectPath: bare.directory || "/", autoContextText: params.autoContextText });
       } else {
-        const created = await opencodeClient.createSession({ directory: "/" });
+        const created = await opencodeClient.createSession({ directory: "/", agent: CHAT_AGENT_ID, model: { ...CHAT_MODEL } });
         setActive({ sessionId: created.id, projectPath: created.directory || "/", autoContextText: params.autoContextText });
       }
       setFailureKind(null);

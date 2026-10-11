@@ -8,7 +8,6 @@ import {
   opencodeClient,
   type OpenCodeMessage,
   type OpenCodePart,
-  type QuestionInfo,
   type PermissionRequest,
 } from "../../services/opencode-client";
 import { subscribeToOpenCodeEvents } from "../../services/opencode-events";
@@ -76,8 +75,10 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
   // We queue the request and show one question at a time in a BottomSheet, then
   // POST the reply so the agent can continue.
   const [pendingQuestion, setPendingQuestion] = useState<{
-    requestID: string;
-    questions: QuestionInfo[];
+    formID: string;
+    fieldKeys: string[];
+    fieldTypes: string[];
+    questions: { header?: string; question?: string; options?: { label: string; description?: string }[]; multiple?: boolean; custom?: boolean }[];
     index: number;
   } | null>(null);
   const [questionSelections, setQuestionSelections] = useState<string[]>([]);
@@ -88,10 +89,10 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
   // until the user allows or rejects.
   const [pendingPermission, setPendingPermission] = useState<{
     id: string;
-    permission: string;
+    sessionID: string;
+    permission?: string;
     patterns?: string[];
     metadata?: Record<string, unknown>;
-    always?: string[];
   } | null>(null);
   const listRef = useRef<FlatList<DisplayStep>>(null);
   // stick to bottom when user is near the bottom; pause when they scroll up
@@ -168,13 +169,28 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
       // Recover it from the pending-question list so the user can answer instead
       // of the agent hanging forever.
       try {
-        const pending = await opencodeClient.listQuestions();
-        const mine = pending.find((q) => q.sessionID === sessionID && q.questions.length > 0);
+        const pending = await opencodeClient.listForms(sessionID);
+        const mine = (pending ?? []).find((f) => f.sessionID === sessionID);
         if (mine) {
-          questionAnswersRef.current = [];
-          setPendingQuestion({ requestID: mine.id, questions: mine.questions, index: 0 });
-          setQuestionSelections([]);
-          setQuestionCustom("");
+          const fields = (mine.fields ?? []).filter((f) => !f.hidden);
+          if (fields.length) {
+            questionAnswersRef.current = [];
+            setPendingQuestion({
+              formID: mine.id,
+              fieldKeys: fields.map((f) => f.key),
+              fieldTypes: fields.map((f) => f.type ?? "string"),
+              questions: fields.map((f) => ({
+                header: f.title ?? f.key,
+                question: f.description,
+                options: f.options?.map((o) => (typeof o === "string" ? { label: o } : { label: o.label ?? String(o) })),
+                multiple: f.type === "multiselect",
+                custom: f.type === "string",
+              })),
+              index: 0,
+            });
+            setQuestionSelections([]);
+            setQuestionCustom("");
+          }
         }
       } catch {
         // transient — the live SSE stream will surface new questions anyway
@@ -186,10 +202,10 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
         if (mine) {
           setPendingPermission({
             id: mine.id,
-            permission: mine.permission,
-            patterns: mine.patterns,
+            sessionID: mine.sessionID,
+            permission: mine.action ?? mine.permission,
+            patterns: mine.resources ?? mine.patterns,
             metadata: mine.metadata,
-            always: mine.always,
           });
         }
       } catch {
@@ -287,17 +303,37 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
             return next;
           });
         }
-      } else if (event.type === "question.asked" || event.type === "question.v2.asked") {
-        const req = event.properties as {
-          id: string;
-          sessionID: string;
-          questions: QuestionInfo[];
-        };
-        if (req.sessionID === sessionID && req.questions.length > 0) {
-          questionAnswersRef.current = [];
-          setPendingQuestion({ requestID: req.id, questions: req.questions, index: 0 });
+      } else if (event.type === "form.created") {
+        const props = event.properties as { form?: import("../../services/opencode-client").FormRequest };
+        const form = props.form;
+        if (form?.sessionID === sessionID) {
+          const fields = (form.fields ?? []).filter((f) => !f.hidden);
+          if (fields.length) {
+            questionAnswersRef.current = [];
+            setPendingQuestion({
+              formID: form.id,
+              fieldKeys: fields.map((f) => f.key),
+              fieldTypes: fields.map((f) => f.type ?? "string"),
+              questions: fields.map((f) => ({
+                header: f.title ?? f.key,
+                question: f.description,
+                options: f.options?.map((o) => (typeof o === "string" ? { label: o } : { label: o.label ?? String(o) })),
+                multiple: f.type === "multiselect",
+                custom: f.type === "string",
+              })),
+              index: 0,
+            });
+            setQuestionSelections([]);
+            setQuestionCustom("");
+          }
+        }
+      } else if (event.type === "form.replied" || event.type === "form.cancelled") {
+        const props = event.properties as { sessionID?: string };
+        if (props.sessionID === sessionID) {
+          setPendingQuestion(null);
           setQuestionSelections([]);
           setQuestionCustom("");
+          questionAnswersRef.current = [];
         }
       } else if (
         event.type === "question.replied" ||
@@ -317,10 +353,10 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
         if (req.sessionID === sessionID) {
           setPendingPermission({
             id: req.id,
-            permission: req.permission,
-            patterns: req.patterns,
+            sessionID: req.sessionID,
+            permission: req.action ?? req.permission,
+            patterns: req.resources ?? req.patterns,
             metadata: req.metadata,
-            always: req.always,
           });
         }
       } else if (event.type === "permission.replied") {
@@ -538,7 +574,13 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
     const q = pendingQuestion;
     if (!q) return;
     try {
-      await opencodeClient.replyQuestion(q.requestID, allAnswers);
+      const answer: Record<string, string | string[]> = {};
+      q.fieldKeys.forEach((key, i) => {
+        const val = allAnswers[i] ?? [];
+        if (q.fieldTypes[i] === "multiselect") answer[key] = val;
+        else if (val.length) answer[key] = val[0];
+      });
+      await opencodeClient.replyForm(sessionID, q.formID, answer);
       setPendingQuestion(null);
       setQuestionSelections([]);
       setQuestionCustom("");
@@ -552,7 +594,7 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
     const q = pendingQuestion;
     if (!q) return;
     try {
-      await opencodeClient.rejectQuestion(q.requestID);
+      await opencodeClient.cancelForm(sessionID, q.formID);
       setPendingQuestion(null);
       setQuestionSelections([]);
       setQuestionCustom("");
@@ -566,7 +608,7 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
     const p = pendingPermission;
     if (!p) return;
     try {
-      await opencodeClient.replyPermission(p.id, reply);
+      await opencodeClient.replyPermission(p.sessionID, p.id, reply);
       setPendingPermission(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
