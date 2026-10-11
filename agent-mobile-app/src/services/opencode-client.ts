@@ -140,12 +140,15 @@ interface V2Message {
     name?: string;
     state?: { status?: string; input?: unknown; output?: unknown; title?: string; metadata?: Record<string, unknown> };
   }[];
+  // prompt 响应里的用户消息用 payload 携带文本（无 content 数组）
+  payload?: { text?: string };
   error?: unknown;
 }
 
 function mapV2Message(m: V2Message): OpenCodeMessage {
   const role: "user" | "assistant" = m.type === "user" ? "user" : "assistant";
-  const parts = (m.content ?? []).map((c, i): OpenCodePart => {
+  const content = m.content ?? (m.payload?.text ? [{ type: "text", text: m.payload.text }] : []);
+  const parts = (content as NonNullable<V2Message["content"]>).map((c, i): OpenCodePart => {
     const id = c.id ?? `${m.id}:c${i}`;
     if (c.type === "tool") {
       return { id, type: "tool", tool: c.name, state: c.state } as OpenCodePart;
@@ -311,18 +314,21 @@ export const opencodeClient = {
     });
   },
 
-  sendMessageAsync(
+  // #69：v2 prompt 响应即用户消息（v1 靠 message.updated 回传，v2 无此事件）——
+  // 返回映射后的 OpenCodeMessage 供调用方立即渲染用户气泡
+  async sendMessageAsync(
     id: string,
     body: {
       parts?: { type: "text"; text: string }[];
       agent?: string;
       model?: { providerID: string; modelID: string };
     },
-  ): Promise<void> {
-    return request<void>(`/session/${id}/prompt_async`, {
+  ): Promise<OpenCodeMessage | undefined> {
+    const raw = await request<V2Message | undefined>(`/session/${id}/prompt_async`, {
       method: "POST",
       body: JSON.stringify(body),
     });
+    return raw ? mapV2Message(raw) : undefined;
   },
 
   abort(id: string): Promise<boolean> {
