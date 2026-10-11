@@ -457,6 +457,8 @@ E0（只读探针，必须第一）
 
 ## 8. 事实备忘（已摸清，勿重复调查）
 
+> ✅ **E1 已完成（2026-10-11 生产窗口，详见 issue #53 六条评论）**：生产 opencode **v2.0.26**（官方 v2 脚本装机；npm/GitHub 均无 v2 发布产物）+ Basic 密码鉴权（systemd+BFF env 同步）+ v2 全局配置（companion=space-bunny-free+deny-all 白名单；其余 agent model=mimo；exa MCP connected）+ BFF#15/App#68/#70/#72 契约改造全部上线，DoD 链路实测通过（companion 会话+回复「收到」）。**v2 契约事实**（施工依据）：REST `{data}` 信封；无 message.updated；delta live-only、重连零重放；agent/model 建会话定；question→form；v1 裸路径全不存在（SPA 兜底假 200）。**回滚物料**：/root/backups/（v1 二进制+DB 快照 1.8G+旧配置+密码）。遗留小项：App 端 question sheet 真机体验、memx 适配（E4）。
+
 **仓库 / 环境**：
 
 - family-finance：已是 pnpm workspace（`packages/shared` + `packages/web` = BFF），根 package.json 名 `family-finance-monorepo`；BFF 由 `bff-19234.service` 托管；CORS 只放行 9928 三个 origin。
