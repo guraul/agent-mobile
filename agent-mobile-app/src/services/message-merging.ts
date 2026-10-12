@@ -1,5 +1,9 @@
 import type { OpenCodeMessage, OpenCodePart } from "./opencode-client";
 import { extractDiffText } from "./tool-diff";
+import { stripLeadingCheck } from "./command-receipt";
+
+/** 出口①（#82 §B）显式记忆写入的工具名（memx 插件注册；命名与 memx 工具契约一致，勿改） */
+export const MEMORY_WRITE_TOOL = "memory_write";
 
 export type ToolStep = {
   kind: "tool";
@@ -111,10 +115,18 @@ export function mergeMessages(
         out.push({ kind: "text", id: partId, text, createdAt });
       } else if (isToolPart(part)) {
         const output = typeof part.state?.output === "string" ? part.state.output : undefined;
+        const toolName = part.tool ?? "tool";
+        // 出口①（#82 §B）：显式记忆写入用"一行回执"呈现，**不进工具折叠组**——
+        // "约束用户的结果必须可见"是单元 1 的留痕原则，塞进可折叠的工具组等于没留痕。
+        // 仍在执行（无输出）时保持 tool step，用户能看到进行中的状态。
+        if (toolName === MEMORY_WRITE_TOOL && output && output.trim()) {
+          out.push({ kind: "receipt", id: partId, text: stripLeadingCheck(output), createdAt });
+          continue;
+        }
         out.push({
           kind: "tool",
           id: partId,
-          tool: part.tool ?? "tool",
+          tool: toolName,
           status: part.state?.status,
           inputSummary: summarizeInput(part.input),
           title: typeof part.state?.title === "string" ? part.state.title : undefined,

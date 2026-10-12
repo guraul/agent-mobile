@@ -145,3 +145,45 @@ describe("groupToolSteps（#32 工具折叠组）", () => {
     expect(out[0]).toMatchObject({ title: undefined, output: undefined, diffText: undefined });
   });
 });
+
+describe("memory_write 回执 chip（出口① #82 §B）", () => {
+  const writePart = (output?: string, id = "p1") => ({
+    type: "tool",
+    tool: "memory_write",
+    input: { text: "端口是 9928" },
+    state: output === undefined ? { status: "running" } : { status: "completed", output },
+    id,
+  });
+
+  it("有输出 → 单条 receipt 步（不是 tool 步），前导 ✅ 被剥掉、路径与换行不截断", () => {
+    const output = "✅ 已记住（project · 新增）：端口映射\n   → /Users/x/.opencode/projects/foo/.mem/project_x.md";
+    const out = mergeMessages([msg("a1", "assistant", [writePart(output)])]);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ kind: "receipt", id: "p1" });
+    const text = (out[0] as { text: string }).text;
+    expect(text.startsWith("已记住")).toBe(true);
+    expect(text).toContain("\n   → /Users/x/.opencode/projects/foo/.mem/project_x.md");
+  });
+
+  it("执行中（无输出）保持 tool 步，用户能看到进行态", () => {
+    const out = mergeMessages([msg("a1", "assistant", [writePart(undefined)])]);
+    expect(out[0]).toMatchObject({ kind: "tool", tool: "memory_write" });
+  });
+
+  it("空输出也保持 tool 步（不产出空 chip）", () => {
+    const out = mergeMessages([msg("a1", "assistant", [writePart("   ")])]);
+    expect(out[0]).toMatchObject({ kind: "tool", tool: "memory_write" });
+  });
+
+  it("回执不进工具折叠组：夹在两个 bash 之间时把分组打断（留痕必须可见）", () => {
+    const steps = mergeMessages([
+      msg("a1", "assistant", [
+        { type: "tool", tool: "bash", input: "ls", state: { status: "completed" }, id: "p1" },
+        writePart("✅ 已记住：x", "p2"),
+        { type: "tool", tool: "bash", input: "pwd", state: { status: "completed" }, id: "p3" },
+      ]),
+    ]);
+    const grouped = groupToolSteps(steps);
+    expect(grouped.map((s) => s.kind)).toEqual(["toolGroup", "receipt", "toolGroup"]);
+  });
+});

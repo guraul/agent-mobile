@@ -89,7 +89,9 @@
 - **存储不做合并**（物理两库维持）；**服务层合并**：统一 CRUD API + 共享基建（markdown 解析 / frontmatter / 备份 / 检索）+ App 统一视图（/memory 页、chat 的 Memory/Knowledge 卡读同一族 API）。原则一句话：**BFF 存哑的（存储/检索/CRUD），agent 干聪明的（提炼/编译）**。
 - "记忆树挂进 vault（`vault/memory/`）" → **backlog**，具体实现到时候单独讨论。
 - **仓库拓扑：homebase 真 monorepo**。family-finance 改名 **homebase**（整个 app 目的已完全不同；它保持真 monorepo 架构，未来新后端仓库以 package 进场）。包布局（已认）：`packages/{shared, web, personal-context, opencode-plugin}`。
-- **归所**：memx 的服务端部分（存储/检索）→ `personal-context`，**提炼管道留在 memx 仓**（它必须是 opencode 插件，跟底座走）；llm-wiki 的检索服务 → `personal-context`（`llm-wiki-mcp` 退役），**SKILL.md + 编译管道留在 llm-wiki 仓**（skill 不是后端代码）；跨仓契约 = BFF REST API。
+- **归所（2026-10-12 按多宿主定性修订）**：**存储的唯一实现留在 memx `src/core/`**——所有宿主壳（今天的 `hosts/opencode`、未来的 `hosts/dsh`）共享同一套格式 / 单遍应用 / 文件锁，新增宿主 = 加一个薄壳，而不是去适配某个中心服务；**`personal-context` = 服务端能力**（App 统一视图投影、检索、A4 的同步中枢），**不是"存储的拥有者"**；llm-wiki 的检索服务 → `personal-context`（`llm-wiki-mcp` 退役），**SKILL.md + 编译管道留在 llm-wiki 仓**（skill 不是后端代码）；跨仓契约 = BFF REST API（方向是**产品读/服务侧**，不是"谁都能写库"）。
+  - ⚠️ 本条的旧措辞"memx 的服务端部分（存储/检索）→ personal-context"**已被上面取代**（用户 2026-10-12 拍板）。理由：BFF 若也写同一批 markdown，就变成第二个格式实现 + 第二个写者（要复制锁协议），与多宿主目标直接冲突。
+  - **未定（到时单独拍）**：若将来出现**无宿主**的写客户端（例如 App 内手动"记住这条"），正确做法是"同一实现的第二种调用方式"——要么 homebase 依赖 memx core 的包，要么反过来让 core 用 personal-context 的实现；**绝不允许两份格式实现并存**。
 - **改名前打针**：服务器路径 `/root/project/family-finance` 被多处硬引用——`conversation-kind.ts` 的 `MARKET_TALK_DIRECTORY`、systemd 单元 WorkingDirectory（bff-19234 等）、opencode 配置、部署脚本、e2e 断言。**顺序：改名 + 目录迁移 + 引用清单更新 = 独立任务先行**（先定名安家，再往里搬东西，路径只动一轮）。**→ 已落实为 E2，名字定为 `homebase`（§3.11 ⑤ 含清单；唯一未定项 = 服务器目录是否随改）。**
 - **v1 先无记忆上线**（用户提出，ZCode 同意）：若生产 opencode 已装 memx，companion v0 靠 `instructions` 白得被动注入（USER.md + MEMORY.md 索引）；主动写入（出口①）随 E4 插件批次。**→ E0 已答：生产已装 memx 且 USER.md/MEMORY.md 在注入（§8 E0 第 1 条），本条成立。**
   - ⚠️ **2026-10-10 更新**：用户已拍板**生产升级 v2**（§6 E1）→ **"v1 先无记忆上线"降级为过渡方案语义**：若 E1 先于 E3 完成，则生产直接以 v2（+ memx 适配后的插件）形态上线，本条的"v1 兜底"只在 E1 未完成的窗口期适用。**E3 实现时以"生产最终形态"为准，勿把 v1 当长期形态写死。**
@@ -112,6 +114,19 @@
 ### 3.4 清单① 出口一：记录 ✅
 
 companion 的"这个记一下" = v2 插件注册的 **memory_write 工具**（写进 personal-context 记忆库，按 memx 四类型 schema：project/reference/feedback/user），chat 里给一行回执 chip（单元 1 的留痕原则）。v1 无记忆上线，本出口随 E4 插件批次。
+
+**实施状态（2026-10-12，方案 A = runtime 单写者）**：
+
+| 环节 | 落点 | 状态 |
+|---|---|---|
+| 写工具 | memx `src/core/memory-write.ts`（`writeProjectMemory`）+ `hosts/opencode` 注册 `memory_write`；与后台提炼**同一条写路**（`applyMemoryProposals` 单遍 + `withFileLock` 锁内重读索引） | ✅ 已推（memx `d272df0`） |
+| 回执 chip | App `services/message-merging.ts`：`memory_write` 有输出时产出 `kind:"receipt"` 步（**不进工具折叠组**，留痕必须可见），`command-receipt.ts` 剥前导 `✅` | ✅ 本机绿（28 文件 / 245 测试） |
+| 软约束 prompt | `agents.companion.system` v0.2（真源见 [COMPANION_PROMPT_V0.md](COMPANION_PROMPT_V0.md)）："记一下必须真调 memory_write、不许空说已记下、不炫耀记忆、除记忆外不写文件" | ✅ 本机已应用；**生产待上线窗口** |
+| 读取/投影 | homebase BFF `GET /api/product/memory`（Phase 6 已有，读 canonical 记忆库） | ✅ 无需改动（`POST` 保持 405，语义不变） |
+| personal-context | 本期**不动**（库层抽取留到出口① 联调通过后，见 §3.3 修订） | ⏸️ 后置 |
+| 权限 | #74 已撤生产白名单 → `memory_write` 随插件注册即可见；**本机仍留白名单**，仅追加一条 `memory_write allow`（最小授权，不开 bash/edit） | ✅ 本机已应用 |
+
+⚠️ **端到端未验（外部条件）**：2026-10-12 免费档网关同时 403（`can only be used from within OpenCode` 指纹校验）+ 429，`opencode run` 两档模型都被挡；单元测试（memx 19 文件 / 277、App 28 文件 / 245）已覆盖写路与 chip 映射，**网关恢复后按 §7 手册跑一次真机闭环**（含"她说记一下 → 真调工具 → chip → /memory 出现条目"）。
 
 ### 3.5 清单② 出口二：定时任务 ✅
 

@@ -24,8 +24,18 @@ export function makeReceiptId(now: number = Date.now()): string {
  * 构造回执步：剥离反馈文本前导的可读勾（✓）——chip 自带 ✓ 图标，
  * 不剥会渲染成 "✓ ✓"。**除该前缀外不改任何字符**（\n、asg_/prp_ id 全保留）。
  */
+/**
+ * 剥掉反馈文本前导的可读勾（chip 自带 ✓ 图标，不剥会渲染成 "✓ ✓"）。
+ * 覆盖两类来源：命令族反馈的 `✓`，以及 memory_write 工具回执的 `✅`（出口①）。
+ * **除该前缀外不改任何字符**（\n、asg_/prp_ id 全保留）。
+ */
+export function stripLeadingCheck(text: string): string {
+  return text.replace(/^[✓✅]\s*/, "");
+}
+
+/** 构造回执步（剥离前导勾，其余原样） */
 export function makeReceiptStep(text: string, now: number = Date.now()): ReceiptStep {
-  return { kind: "receipt", id: makeReceiptId(now), createdAt: now, text: text.replace(/^✓\s*/, "") };
+  return { kind: "receipt", id: makeReceiptId(now), createdAt: now, text: stripLeadingCheck(text) };
 }
 
 /**

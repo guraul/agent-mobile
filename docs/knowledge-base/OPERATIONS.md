@@ -250,6 +250,21 @@ cat ~/.opencode/USER.md
 - ⚠️ **禁止在 `context` hook 里 `event.tools = {}`**：会让子会话请求被免费档网关 403（`FreeTierError`），表现为回复为空、`failures` 不涨、`lastError` 为空——极具误导性。
 - ⚠️ **提炼在客户端断开时中断不落盘**：用 `reflect` 工具在会话内完成，或走 `session.deleted` 强制路径。
 
+### 出口① 显式写入 `memory_write`（2026-10-12）
+
+用户说"这个记一下"时的写路（**方案 A：runtime 是唯一写者**，用户 2026-10-12 拍板）：
+
+| 环节 | 事实 |
+|---|---|
+| 工具 | memx 插件注册的 `memory_write`（core `src/core/memory-write.ts` → `writeProjectMemory`）；四类型 + `text` ≤500 字；**同名同类型 = 修订**；纯中文名走确定性哈希文件名 |
+| 写盘 | 与后台提炼**同一条路**：`applyMemoryProposals`（单遍）+ `withFileLock`（锁内重读索引）——不存在两份格式实现 |
+| 回执 chip | App `services/message-merging.ts` 把它渲染成 `kind:"receipt"` 步（**不进工具折叠组**，留痕可见）；`command-receipt.ts` 剥前导 `✅`；文字**不截断**（红线：路径/多行一字不改） |
+| 读取 | 不新增端点：BFF `GET /api/product/memory`（Phase 6 投影）直接读 canonical 记忆库；`POST /api/product/memory` 保持 **405**（PM §6/§29：记忆不由 API 创建） |
+| 权限 | 生产的 companion 白名单已按 #74 撤除 → 工具随插件注册即可见；**本机仍留白名单**，只追加 `{"action":"memory_write","resource":"*","effect":"allow"}`（白名单是 deny-all，不加这条工具会被 `tool.ts:292 whollyDisabled` 从快照摘掉） |
+| 软约束 prompt | `agents.companion.system` v0.2，真源 `docs/pipeline/COMPANION_PROMPT_V0.md`（v0.2 = 补"必须真调 memory_write / 不许空说已记下 / 除记忆外不写文件"）；**生产待上线窗口应用** |
+
+⚠️ 端到端未验：2026-10-12 免费档网关同时 403（指纹校验）+ 429，`opencode run` 被挡；网关恢复后按 §7 手册跑真机闭环。
+
 ### 注入范围与泄漏风险（部署前必读）
 
 注入默认对**所有 agent** 生效（含 agent-mobile 面向用户的 `companion`）。范围由消费方在

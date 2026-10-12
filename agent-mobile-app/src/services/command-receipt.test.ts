@@ -3,6 +3,7 @@ import {
   appendReceipt,
   makeReceiptId,
   makeReceiptStep,
+  stripLeadingCheck,
   RECEIPT_KEEP,
 } from "./command-receipt";
 import type { ReceiptStep } from "./message-merging";
@@ -37,6 +38,12 @@ describe("makeReceiptStep", () => {
   it("无 ✓ 前缀时文本原样返回", () => {
     const s = makeReceiptStep(LIST_FEEDBACK, 1);
     expect(s.text).toBe(LIST_FEEDBACK);
+  });
+
+  it("也剥 memory_write 工具回执的 ✅ 前缀（出口① #82 §B）", () => {
+    expect(stripLeadingCheck("✅ 已记住（project · 新增）：端口映射")).toBe("已记住（project · 新增）：端口映射");
+    expect(makeReceiptStep("✅ 已记住：x\n   → /Users/x/.opencode/y.md", 1).text)
+      .toBe("已记住：x\n   → /Users/x/.opencode/y.md"); // 多行 + 路径一字不改
   });
 
   it("⛔ 回归保护：多行反馈一字不改（曾因 numberOfLines={1} 丢条目行与 confirm id）", () => {
