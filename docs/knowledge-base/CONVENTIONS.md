@@ -75,7 +75,7 @@
 - **勿改消息数组的 chronological 语义** —— reducer 插入、ChatPanel 排序、step 展开顺序全部基于 `time.created`；任何"反向"假设都会重现消息错乱。
 - **勿把仓库根 `src/`（设计期源码）与 `agent-mobile-app/src/` 混为一谈** —— 两个独立代码库，改错位置 = 改到不运行的东西。
 - **`EXPO_TOKEN` / `EXPO_PUBLIC_OPENCODE_PASSWORD` 为敏感凭据** —— 不写入代码/文档/提交。
-- **expo 依赖版本必须匹配 SDK 57** —— 用 `npx expo install`，勿手工改版本号。
+- **expo 依赖版本必须匹配 SDK 57** —— 用 `pnpm exec expo install`（**不用 `npx` / `npm`，见 AGENTS.md 规则 14**），勿手工改版本号。
 - 写代码前遵守 `agent-mobile-app/AGENTS.md`：先读 https://docs.expo.dev/versions/v57.0.0/ 版本化文档。
 
 ## 知识库维护约定
