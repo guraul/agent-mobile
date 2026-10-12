@@ -57,6 +57,7 @@ Settings（连接/账号/BFF 地址/model 偏好）/ Memory / Knowledge / Fund �
 | model 偏好（按 agent，key `pulse_model_pref_<agent>`） | services | `agent-mobile-app/src/services/model-prefs.ts` + `filter-models.ts` |
 | Attention store（Pulse actionable 唯一来源，Phase 3） | services | `agent-mobile-app/src/services/attention/` + `hooks/useAttentions.ts` |
 | Memory sheet（REMEMBERS 记忆 + forget） | pulse-stream | `agent-mobile-app/src/components/pulse/MemorySheet.tsx` + `services/memory/` |
+| memx 记忆插件部署/诊断（注入通道、USER.md 落盘、kv 诊断查法） | opencode 侧 | `docs/knowledge-base/OPERATIONS.md` §memx v2 记忆插件 |
 | Knowledge sheet（KB 检索 → `/kb/doc`） | pulse-stream | `agent-mobile-app/src/components/pulse/KnowledgeSheet.tsx` |
 | KB 文档阅读屏（`/kb/doc`） | services | `agent-mobile-app/src/app/kb/doc.tsx` |
 | Runtime presence（opencode 离线识别与诚实呈现） | services | `agent-mobile-app/src/services/runtime-presence.ts` |

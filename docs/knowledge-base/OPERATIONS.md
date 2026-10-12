@@ -43,7 +43,7 @@ pnpm install               # 包管理器统一用 pnpm
 pnpm start                 # expo start（交互式，可选 --tunnel 供手机 Expo Go 扫码）
 ```
 
-依赖版本约束：Node 24.21.0（仓库根 `.nvmrc` 已锁定，`nvm use` 即可；两个 package.json 的 `engines` 均要求 `>=24.21.0`）、Expo SDK 57（`npx expo install` 安装依赖保证版本匹配）。
+依赖版本约束：Node 24.21.0（仓库根 `.nvmrc` 已锁定，`nvm use` 即可；两个 package.json 的 `engines` 均要求 `>=24.21.0`）、Expo SDK 57（`pnpm exec expo install` 安装依赖保证版本匹配，**勿用 `npx`**）。
 
 ### BFF（family-finance）
 
@@ -194,6 +194,81 @@ curl -u opencode:<密码> http://127.0.0.1:4096/global/health
 - **不再需要 `--cors`**：跨域由 BFF 处理（`lib/cors.ts`）。
 - 密码通过环境变量传入，不在命令行暴露。
 - 验证收窄：`curl http://<公网IP>:4096/global/health` 应超时/不可达。
+
+## memx v2 记忆插件（opencode 侧）
+
+> 仓库：`guraul/memx`（本机 `/Users/gubin/workspace/opencode-memx`）。功能：AI 发言时自发
+> 发出 `<!-- STYLE_SIGNAL -->` / `<!-- MEMORY_SIGNAL -->` 注释 → 插件捕获 → 子会话 LLM
+> 提炼 → 写入 USER.md / MEMORY.md → 下一轮注入回模型。**截至 2026-10-12 尚未部署生产**
+> （生产 config 无 plugins 键），本节为部署前的操作依据。
+
+### 记忆数据落在哪
+
+| 层 | 位置 | 谁维护 |
+|---|---|---|
+| 信号协议 | `~/.opencode/memx-protocol.md` | `install.sh` / `scripts/sync-protocol.ts` 从 `src/core/protocol-template.ts` 生成（枚举从 Zod schema 渲染，不手改） |
+| 长期偏好 Track 1 | `~/.opencode/USER.md` | memx 提炼写盘；**保留用户手写的非受管内容** |
+| 项目记忆 Track 2 | `~/.opencode/MEMORY.md`（索引）+ `~/.opencode/projects/<slug>/.mem/*.md` | 同上 |
+
+### ⚠️ opencode v2 的 prompt 注入通道（别再依赖 instructions）
+
+**`opencode.json` 的 `instructions` 数组在 v2.0.26 是死字段**：schema 里还在
+（`packages/schema/src/config.ts:90`），但全仓无消费方——唯一的指令装配插件
+`config/plugin/instruction.ts` 只加载 `AGENTS.md`（全局 `~/.config/opencode/AGENTS.md`
++ 各级祖先目录）。运行时佐证：`instruction_state` 的 `core/instructions` blob 解码后只有
+AGENTS.md，且补建缺失的 MEMORY.md 后 blob 哈希不变。
+
+| 通道 | 插件能用？ | 成熟度 |
+|---|---|---|
+| `AGENTS.md` | 间接（读文件） | 稳定，唯一运行时验证过的 |
+| agent 的 `system` 字段（`schema/agent.ts:28`） | 否 | 稳定 |
+| **`ctx.session.hook("context")` 改 `event.system`** | **是** | 公开插件 API —— **memx 走这条** |
+| `session.instructions.entry.put`（`api/<key>` 命名空间，256KB 上限） | 否（只有 HTTP API，插件 ctx 未暴露） | 实验性 |
+
+`context` hook 触发时 `event.system` 已含 `agent.system` + AGENTS.md 合并正文
+（`model-request.ts:110-116`），所以**追加**是安全的，替换会抹掉宿主内容。hook 每个 step
+触发一次；文件读走 `stat(mtimeMs+size)` 缓存。
+
+### 安装与验证
+
+```bash
+# 安装（写入插件入口 + 生成协议文件 + 幂等注册 instructions 转发项）
+sh /Users/gubin/workspace/opencode-memx/install.sh
+
+# 判断插件真实状态：查 kv 表，**不要信 memx_status**（格式化器只打固定字段）
+sqlite3 ~/.local/share/opencode/opencode.db \
+  "SELECT value FROM kv WHERE key LIKE 'plugin:%diag:Users-gubin-workspace-agent-mobile-test-companion-agent-config%'"
+
+# 看 USER.md 是否真的落盘
+cat ~/.opencode/USER.md
+```
+
+- **src 改动必须重启 opencode**（插件启动时加载一次）；`memx.config.json` 改 30s TTL 热加载。
+- 诊断键按目录隔离（`diag:<slug>`）；同目录多实例仍会互相覆盖，`opencode run --server` 客户端也会实例化插件——排查以 USER.md 实际落盘为准。
+- 提炼模型走子会话，**默认 `opencode/mimo-v2.6-flash-free`**，靠 `~/.opencode/memx.config.json` 的 `refinementModel`（`provider/model` 字符串格式）覆盖。
+- ⚠️ **禁止在 `context` hook 里 `event.tools = {}`**：会让子会话请求被免费档网关 403（`FreeTierError`），表现为回复为空、`failures` 不涨、`lastError` 为空——极具误导性。
+- ⚠️ **提炼在客户端断开时中断不落盘**：用 `reflect` 工具在会话内完成，或走 `session.deleted` 强制路径。
+
+### 注入范围与泄漏风险（部署前必读）
+
+注入默认对**所有 agent** 生效（含 agent-mobile 面向用户的 `companion`）。范围由消费方在
+`~/.opencode/memx.config.json` 决定，插件不硬编码任何 agent 名：
+
+```json
+{ "inject": { "enabled": true, "includeAgents": "all", "excludeAgents": ["companion"] } }
+```
+
+**chat 侧必须先确认注释剥离**：目前只有 `MessageBubbleZ`（经 `/talk` → `ProjectChatZ` →
+`ChatPanelZ`）做了 HTML 注释剥离；`MessageBubble.tsx:72` 是**无剥离的死路径**
+（`ProjectChat.tsx` 无 importer），一旦重新接线就会泄漏；BFF 服务端是否剥离**未核实**
+（family-finance 仓只在生产机）。
+
+### 已知未决
+
+- **所有权规则缺失**：协议只约束「不要重复上报」，没约束「不要改 AGENTS.md」。实测模型会把
+  偏好直接写进全局 `~/.config/opencode/AGENTS.md`（2026-10-12 e2e 副作用，已回滚）。在补上
+  该约束前，system 前缀存在被模型自行改掉的风险。
+- 生产上线窗口未开；生产 config 无 plugins 键，也无 instructions（当前即"无记忆注入"状态）。
 
 ## 端口占用速查
 
