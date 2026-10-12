@@ -9,16 +9,21 @@
 // 决策（用户 2026-09-29）：全量切 `opencode/mimo-v2.6-flash-free`（实测可跑通）；
 // DeepSeek Pro 一律不用，且从模型选择器中排除。
 //
+// 2026-10-12 用户拍板（更新）：**全站换 Go 端点模型 `opencode-go/longcat-2.5-preview-free`**
+// ——免费档 `opencode/*-free` 会被网关指纹校验 403 / 限流 429。**唯一档：出问题不降级不换模型**。
+//
 // 纯函数 + 零 RN 依赖，可单测。红线：勿把已下线模型写回本文件。
 
 /** agent 默认模型（覆盖 server 端 agent.model） */
 export const DEFAULT_MODEL = {
-  providerID: "opencode",
-  modelID: "mimo-v2.6-flash-free",
+  providerID: "opencode-go",
+  modelID: "longcat-2.5-preview-free",
 } as const;
 
-/** 参与模型选择器的 modelID 关键字（小写比较） */
-const ALLOWED_KEYWORDS = ["mimo"];
+/** 参与模型选择器的 modelID 关键字（小写比较）。
+ *  保留 `mimo`：服务端仍列着免费档 mimo，选择器不该假装它不存在；
+ *  新增 `longcat`：新默认模型必须在选择器里选得回来，否则用户一旦切走就回不去。 */
+const ALLOWED_KEYWORDS = ["mimo", "longcat"];
 
 /** 整 provider 排除（第三方中转，模型列表噪音大） */
 const EXCLUDED_PROVIDERS = ["siliconflow-cn"];

@@ -26,10 +26,10 @@ const providers = [
 ];
 
 describe("DEFAULT_MODEL", () => {
-  it("是 opencode/mimo-v2.6-flash-free（实测可跑通）", () => {
+  it("是 opencode-go/longcat-2.5-preview-free（2026-10-12 用户指定，唯一档）", () => {
     expect(DEFAULT_MODEL).toEqual({
-      providerID: "opencode",
-      modelID: "mimo-v2.6-flash-free",
+      providerID: "opencode-go",
+      modelID: "longcat-2.5-preview-free",
     });
   });
 
@@ -85,6 +85,17 @@ describe("selectModels", () => {
     expect(ids).not.toContain("space-bunny-free");
     expect(ids).not.toContain("big-pickle");
     expect(ids).not.toContain("kimi-k3");
+  });
+
+  it("新默认模型（opencode-go/longcat-2.5-preview-free）必须在选择器里选得回来", () => {
+    const r = selectModels([
+      { id: "opencode-go", models: { "longcat-2.5-preview-free": {}, "kimi-k3": {} } },
+      { id: "opencode", models: { "mimo-v2.6-flash-free": {} } },
+    ]);
+    expect(r).toEqual([
+      { providerID: "opencode-go", modelID: "longcat-2.5-preview-free" },
+      { providerID: "opencode", modelID: "mimo-v2.6-flash-free" },
+    ]);
   });
 
   it("providers 为空或无 models 时返回空数组", () => {
