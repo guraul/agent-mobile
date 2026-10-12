@@ -147,15 +147,18 @@ describe("groupToolSteps（#32 工具折叠组）", () => {
 });
 
 describe("memory_write 回执 chip（出口① #82 §B）", () => {
+  /** v2 真机形状：工具结果在 state.content[]，没有 state.output（2026-10-12 实测） */
   const writePart = (output?: string, id = "p1") => ({
     type: "tool",
     tool: "memory_write",
     input: { text: "端口是 9928" },
-    state: output === undefined ? { status: "running" } : { status: "completed", output },
+    state: output === undefined
+      ? { status: "running" }
+      : { status: "completed", content: [{ type: "text", text: output }] },
     id,
   });
 
-  it("有输出 → 单条 receipt 步（不是 tool 步），前导 ✅ 被剥掉、路径与换行不截断", () => {
+  it("有输出（state.content）→ 单条 receipt 步，前导 ✅ 被剥掉、路径与换行不截断", () => {
     const output = "✅ 已记住（project · 新增）：端口映射\n   → /Users/x/.opencode/projects/foo/.mem/project_x.md";
     const out = mergeMessages([msg("a1", "assistant", [writePart(output)])]);
     expect(out).toHaveLength(1);
@@ -163,6 +166,16 @@ describe("memory_write 回执 chip（出口① #82 §B）", () => {
     const text = (out[0] as { text: string }).text;
     expect(text.startsWith("已记住")).toBe(true);
     expect(text).toContain("\n   → /Users/x/.opencode/projects/foo/.mem/project_x.md");
+  });
+
+  it("兼容旧形状：state.output 是字符串时同样出 chip", () => {
+    const out = mergeMessages([
+      msg("a1", "assistant", [
+        { type: "tool", tool: "memory_write", state: { status: "completed", output: "✅ 已记住：x" }, id: "p1" },
+      ]),
+    ]);
+    expect(out[0]).toMatchObject({ kind: "receipt", id: "p1" });
+    expect((out[0] as { text: string }).text).toBe("已记住：x");
   });
 
   it("执行中（无输出）保持 tool 步，用户能看到进行态", () => {
@@ -173,6 +186,21 @@ describe("memory_write 回执 chip（出口① #82 §B）", () => {
   it("空输出也保持 tool 步（不产出空 chip）", () => {
     const out = mergeMessages([msg("a1", "assistant", [writePart("   ")])]);
     expect(out[0]).toMatchObject({ kind: "tool", tool: "memory_write" });
+  });
+
+  it("codemode 包装（tool=execute）不冒充记忆 chip", () => {
+    const out = mergeMessages([
+      msg("a1", "assistant", [
+        {
+          type: "tool",
+          tool: "execute",
+          input: { code: 'const r = await tools.memory_write({ text: "x" }); return r;' },
+          state: { status: "completed", content: [{ type: "text", text: "✅ 已记住：x" }] },
+          id: "p1",
+        },
+      ]),
+    ]);
+    expect(out[0]).toMatchObject({ kind: "tool", tool: "execute" });
   });
 
   it("回执不进工具折叠组：夹在两个 bash 之间时把分组打断（留痕必须可见）", () => {

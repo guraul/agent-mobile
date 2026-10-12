@@ -126,7 +126,16 @@ companion 的"这个记一下" = v2 插件注册的 **memory_write 工具**（�
 | personal-context | 本期**不动**（库层抽取留到出口① 联调通过后，见 §3.3 修订） | ⏸️ 后置 |
 | 权限 | #74 已撤生产白名单 → `memory_write` 随插件注册即可见；**本机仍留白名单**，仅追加一条 `memory_write allow`（最小授权，不开 bash/edit） | ✅ 本机已应用 |
 
-⚠️ **端到端未验（外部条件）**：2026-10-12 免费档网关同时 403（`can only be used from within OpenCode` 指纹校验）+ 429，`opencode run` 两档模型都被挡；单元测试（memx 19 文件 / 277、App 28 文件 / 245）已覆盖写路与 chip 映射，**网关恢复后按 §7 手册跑一次真机闭环**（含"她说记一下 → 真调工具 → chip → /memory 出现条目"）。
+✅ **真机验证已完成（2026-10-12，`opencode-go/longcat-2.5-preview-free` + 本机 serve；隔离测试项目，事后还原 `USER.md`/`MEMORY.md`）**：
+
+- **P0-1 增量游标**：第一轮 `cursor:"fresh" newTurns:1`；第二轮 `cursor:"resumed" newTurns:1`（`msgCount:9` 但只扫新增轮次），游标行落 `ctx.storage` 的 `cursor:<sessionID>`
+- **P0-2 三态**：`captured:1 refinements:1 failures:0 invalidStreak:0`；与既有条目重复的偏好被 LLM 裁决丢弃（adjudicated-empty）→ **未重复写盘**
+- **P0-3 / P0-4**：写盘成功、`USER.md`/`MEMORY.md` 无污染、无锁文件残留
+- **出口① 全链**：`memory_write` 被真调 → `.mem/reference_bff_cors_9928.md`（含 frontmatter + Why/How to apply）+ `MEMORY.md` 索引条目 + diag `toolWrites:1 / lastWrite` 全对
+- **两个真机发现（已修）**：① v2 工具结果在 **`state.content[]`**，不是 `state.output`；② 默认 **codemode** 会把插件工具包成 `execute`（`part.tool="execute"`）→ memx 给 `memory_write` 声明 `options:{codemode:false}`，part 名才是 `memory_write`
+- ⏳ **仍未验**：App 里 chip 的**视觉**呈现（映射有单测 + 真实 part 形状已核对，但没跑浏览器/真机）；以及**其余工具步的 output/diff 面板在 v2 下普遍为空**（`state.content` 没被消费，属 E1 遗留，已记 backlog）
+
+⚠️ 免费档 `opencode/*-free` 网关（403 指纹校验 + 429）本次未用；端到端改走 Go 端点模型（用户 2026-10-12 指定，见 AGENTS.md 规则 11/12）。
 
 ### 3.5 清单② 出口二：定时任务 ✅
 

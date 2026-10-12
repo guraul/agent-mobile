@@ -138,7 +138,11 @@ interface V2Message {
     text?: string;
     id?: string;
     name?: string;
-    state?: { status?: string; input?: unknown; output?: unknown; title?: string; metadata?: Record<string, unknown> };
+    state?: {
+      status?: string; input?: unknown; output?: unknown; title?: string; metadata?: Record<string, unknown>;
+      /** v2 真机：工具结果在 content[] 的 text part（不是 output） */
+      content?: Array<{ type?: string; text?: string }>;
+    };
   }[];
   // prompt 响应里的用户消息用 payload 携带文本（无 content 数组）
   payload?: { text?: string };

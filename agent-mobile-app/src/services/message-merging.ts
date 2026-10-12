@@ -38,13 +38,35 @@ function isTextPart(part: OpenCodePart): part is OpenCodePart & { type: "text"; 
 }
 function isToolPart(part: OpenCodePart): part is OpenCodePart & {
   type: "tool"; tool?: string;
-  state?: { status?: string; title?: string; output?: string; metadata?: unknown; input?: unknown };
+  state?: {
+    status?: string; title?: string; output?: string; metadata?: unknown; input?: unknown;
+    /** v2 真机形状（2026-10-12 实测）：工具结果在 state.content[] 的 text part 里，不是 state.output */
+    content?: Array<{ type?: string; text?: string }>;
+  };
   input?: unknown;
 } {
   return part.type === "tool";
 }
 function isReasoningPart(part: OpenCodePart): part is OpenCodePart & { type: "reasoning"; text?: string } {
   return part.type === "reasoning";
+}
+
+/**
+ * 工具结果文本。v2 真机的 part 形状是 `state.content: [{type:"text",text}]`，**没有** `state.output`。
+ * memory_write 的回执必须走这里，否则 chip 拿不到内容。
+ * ⚠️ 范围注记：其余工具步仍只读 `state.output`——v2 下普遍为空（工具结果面板/ diff 面板可能看不到输出），
+ * 那是既有的 E1 遗留问题，已记入报告，未在此顺手扩大改动面。
+ */
+function toolResultText(state?: { output?: string; content?: Array<{ type?: string; text?: string }> }): string | undefined {
+  if (typeof state?.output === "string" && state.output.trim()) return state.output;
+  const parts = state?.content;
+  if (!Array.isArray(parts)) return undefined;
+  const text = parts
+    .filter((p) => p?.type === "text" || p?.type === undefined)
+    .map((p) => p?.text ?? "")
+    .join("\n")
+    .trim();
+  return text || undefined;
 }
 
 // tool.input is unknown (a command string or an args object); collapse it to a
@@ -119,8 +141,10 @@ export function mergeMessages(
         // 出口①（#82 §B）：显式记忆写入用"一行回执"呈现，**不进工具折叠组**——
         // "约束用户的结果必须可见"是单元 1 的留痕原则，塞进可折叠的工具组等于没留痕。
         // 仍在执行（无输出）时保持 tool step，用户能看到进行中的状态。
-        if (toolName === MEMORY_WRITE_TOOL && output && output.trim()) {
-          out.push({ kind: "receipt", id: partId, text: stripLeadingCheck(output), createdAt });
+        // 文本取 toolResultText：v2 真机把结果放在 state.content，不是 state.output。
+        const receiptText = toolName === MEMORY_WRITE_TOOL ? toolResultText(part.state) : undefined;
+        if (receiptText) {
+          out.push({ kind: "receipt", id: partId, text: stripLeadingCheck(receiptText), createdAt });
           continue;
         }
         out.push({

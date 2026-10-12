@@ -259,6 +259,8 @@ cat ~/.opencode/USER.md
 | 工具 | memx 插件注册的 `memory_write`（core `src/core/memory-write.ts` → `writeProjectMemory`）；四类型 + `text` ≤500 字；**同名同类型 = 修订**；纯中文名走确定性哈希文件名 |
 | 写盘 | 与后台提炼**同一条路**：`applyMemoryProposals`（单遍）+ `withFileLock`（锁内重读索引）——不存在两份格式实现 |
 | 回执 chip | App `services/message-merging.ts` 把它渲染成 `kind:"receipt"` 步（**不进工具折叠组**，留痕可见）；`command-receipt.ts` 剥前导 `✅`；文字**不截断**（红线：路径/多行一字不改） |
+| ⚠️ v2 part 形状（2026-10-12 真机实测） | 工具结果在 **`state.content[]`**（`[{type:"text",text}]`），**不是 `state.output`**；且默认 **codemode** 会把插件工具包成 `execute`（`part.tool="execute"`，参数在 `state.input.code`）→ memx 已给 `memory_write` 声明 `options:{codemode:false}`，part 名才是 `memory_write`。App 侧 `toolResultText()` 兼容 `state.output`/`state.content` 两种形状 |
+| ⚠️ 既有遗留（未改，记 backlog） | 其余工具步仍只读 `state.output` → **v2 下工具输出/diff 面板普遍为空**（`state.content` 没被消费）；这属 E1 遗留，不在出口① 范围内 |
 | 读取 | 不新增端点：BFF `GET /api/product/memory`（Phase 6 投影）直接读 canonical 记忆库；`POST /api/product/memory` 保持 **405**（PM §6/§29：记忆不由 API 创建） |
 | 权限 | 生产的 companion 白名单已按 #74 撤除 → 工具随插件注册即可见；**本机仍留白名单**，只追加 `{"action":"memory_write","resource":"*","effect":"allow"}`（白名单是 deny-all，不加这条工具会被 `tool.ts:292 whollyDisabled` 从快照摘掉） |
 | 软约束 prompt | `agents.companion.system` v0.2，真源 `docs/pipeline/COMPANION_PROMPT_V0.md`（v0.2 = 补"必须真调 memory_write / 不许空说已记下 / 除记忆外不写文件"）；**生产待上线窗口应用** |
