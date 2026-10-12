@@ -128,7 +128,7 @@ export interface FormRequest {
 // #53（E1 v2）：扁平消息（元数据 + content）→ App 的 {info, parts} 模型。
 // content 项无全局 id 的用 `${messageID}:c${index}` 合成（占位/事件流用块类型+ordinal，
 // 两者不同空间——占位 part 只活在流式期间，refetch 后被真 parts 替换）。
-interface V2Message {
+export interface V2Message {
   id: string;
   type: string;
   sessionID?: string;
@@ -149,7 +149,7 @@ interface V2Message {
   error?: unknown;
 }
 
-function mapV2Message(m: V2Message): OpenCodeMessage {
+export function mapV2Message(m: V2Message): OpenCodeMessage {
   const role: "user" | "assistant" = m.type === "user" ? "user" : "assistant";
   const content = m.content ?? (m.payload?.text ? [{ type: "text", text: m.payload.text }] : []);
   const parts = (content as NonNullable<V2Message["content"]>).map((c, i): OpenCodePart => {
