@@ -33,7 +33,7 @@
 | BFF 仓（独立 git，私有） | `/Users/gubin/workspace/family-finance` |
 | opencode 源码（**tag v2.0.26**，契约依据） | `~/workspace/opencode-src` |
 | 本机 opencode 二进制（v2.0.26） | `~/.opencode/bin/opencode` |
-| memx 插件本机 checkout | `~/workspace/opencode-memx` |
+| memx 插件本机 checkout | `~/workspace/memx`（2026-10-12 由 `opencode-memx` 改名） |
 | 登录凭据（`{"user","pass"}`，**不要打印内容**） | `~/.pulse-e2e-creds` |
 | 浏览器自动化 skill | `~/.agents/skills/playwright-skill`（`cd` 进去 `node run.js <脚本>`） |
 | 本轮探针 / issue 草稿（gitignored，不入库） | 仓库根 `test/` |

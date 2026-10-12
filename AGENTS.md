@@ -41,7 +41,7 @@
 
 以下硬性规则适用于所有任务，完整红线清单见 `CONVENTIONS.md`：
 
-1. **写 agent-mobile-app 代码前先读 Expo 版本化文档**：`https://docs.expo.dev/versions/v57.0.0/`（SDK 57）。依赖版本必须匹配 SDK 57，用 `npx expo install` 装依赖，勿手工改版本号。
+1. **写 agent-mobile-app 代码前先读 Expo 版本化文档**：`https://docs.expo.dev/versions/v57.0.0/`（SDK 57）。依赖版本必须匹配 SDK 57，用 `pnpm exec expo install` 装依赖（勿用 `npx`，见规则 14），勿手工改版本号。
 2. **改完 TS 必须验证**：`cd agent-mobile-app && pnpm exec tsc --noEmit`；纯逻辑改动必须同步 `pnpm test`（vitest，`src/**/*.test.ts`）。
 3. **勿改消息数组 chronological 语义**：listMessages 返回旧在前，插入/排序一律以 `time.created` 为准；任何"反向"假设都会重现消息错乱。
 4. **勿移除打字机限速 / FlatList `extraData`**：`revealChars` 逐字揭示依赖 `extraData={revealChars}`，移除会导致整块弹出；轮询兜底与打字机冲突，勿同时启用。
@@ -58,9 +58,10 @@
       遇到 **429 / `FreeUsageLimitError`** 时，**按此顺序自动降级尝试**；**每一次切换与最终结果都必须向用户明确告知**（用哪个、为什么切、最终成功的是哪个）。
       仅限"免费档限流"这一种原因——**其他任何失败（模型不存在 / 鉴权失败 / 超时 / 报错）一律不得换模型，仍按第 13 条停下报告**。
     - **并发纪律**：**大任务只起一个子代理去做**（不要拆成多个并行）；任务执行**不得由主模型自己做**——**验证可以自己做**。
-    - ⚠️ **明确化（用户 2026-10-10 二次确认）**：**“小改动”不构成自做的理由**——哪怕只是“改个默认值 + 同步文档 + 改测试断言”这类多文件编辑，**也属于实现类工作，一律走委派**。主模型自做的边界只剩两条：**① 单条只读命令能答完的探针；② 交底书 / 知识库 / 规则文件本身的落档**。其他仓库（含 `~/workspace/opencode-memx` 等）的代码改动**同样走委派**。
+    - ⚠️ **明确化（用户 2026-10-10 二次确认）**：**“小改动”不构成自做的理由**——哪怕只是“改个默认值 + 同步文档 + 改测试断言”这类多文件编辑，**也属于实现类工作，一律走委派**。主模型自做的边界只剩两条：**① 单条只读命令能答完的探针；② 交底书 / 知识库 / 规则文件本身的落档**。其他仓库（含 `~/workspace/memx`（原名 `opencode-memx`）等）的代码改动**同样走委派**。
 12. **子代理模型 = 规则 11 的免费档回退链首选**：默认用 **`opencode/space-bunny-free`**（第一优先），遇 429 按链降级（`mimo-v2.6-flash-free` → `step-5-preview-free`），**细节与告知义务见规则 11**。⚠️ **2026-10-10 状态更新**：`space-bunny-free` 已恢复可用（实测 `finish=stop`）→ **当前首选就是它**；`step-5-preview-free` 只是当时限流期的临时替代，**不要再把它当固定值**。⚠️ **角色库不 pin 模型**（`product_roles` 已核实：四角色只有 `provider: "opencode"`，**无 model 字段**；`~/.dsh/product-subagents-registry.json` 也查不到模型）→ **每次委派都要显式传 `model`（取规则 11 回退链的当前一档）**，不能指望"已 pin 自动生效"（传参形式与 `prompt_async` 的逐条 model 一致）。作用域 = **DSH 子代理委派**，与 App 运行时模型（手机端统一 `opencode/mimo-v2.6-flash-free`，见 issue #41/#42）**是两回事，勿互相套用**。三档模型均已在 `opencode models` 列表中确认存在。
 13. **子代理模型因"非限流"原因不可用时：报告，不降级（用户硬约束）**：若模型（回退链任一档）**不可用**（不存在 / 鉴权失败 / 报错 / 无响应），**立即停下并告知用户**，**严禁自行降级、替换模型、改配置、切 provider，或用其他方式绕道兜底**（含"先用别的模型顶一下"）。与第 10 条 vision-reader 的"不得自行降级重试"同源；**宁可失败并如实报告，不可静默降质**。
+14. **包管理器只用 pnpm（2026-10-11 用户偏好，全局约定）**：**禁止 npm / yarn / bun**。装依赖用 `pnpm add` / `pnpm remove`；跑脚本用 `pnpm <script>` / `pnpm exec <bin>`；临时二进制用 `pnpm dlx`，**不用 `npx`**。与规则 1 呼应——装依赖统一走 `npx expo install` 的场景改为 `pnpm exec expo install`（等价且不引 npm）。不提交 `package-lock.json` / `yarn.lock`，只保留 `pnpm-lock.yaml`。全局版本见 `~/.config/opencode/AGENTS.md`（对所有项目生效）。
 
 ## BROWSER AUTOMATION (Playwright)
 

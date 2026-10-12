@@ -79,9 +79,9 @@
 
 **实况（已调查，勿重复摸）**：
 
-- **memx** = `/Users/gubin/workspace/opencode-memx`：opencode 记忆插件（`@opencode-ai/plugin ^1.18.11`，v1 兼容）。双轨：Track 1 全局用户风格 `~/.opencode/USER.md`（四分类、200 行压缩、废弃删除线、STYLE_SIGNAL 标记 + 子 AI 批量提炼）；Track 2 项目记忆 `~/.opencode/projects/<slug>/.mem/*.md` + 索引 `MEMORY.md`（四类型 project/reference/feedback/user，frontmatter 强制 Why / How to apply）。**存储纯 markdown**。被动管道：`session.idle` / `reflect` 触发；注入靠 `~/.config/opencode/opencode.json` 的 `instructions` 字段。
+- **memx** = `/Users/gubin/workspace/memx`：opencode 记忆插件（`@opencode/plugin ^2.0.26`，**v2-only**，2026-10-12 完成 V2 移植）。双轨：Track 1 全局用户风格 `~/.opencode/USER.md`（四分类、200 行压缩、废弃删除线、STYLE_SIGNAL 标记 + 子会话批量提炼）；Track 2 项目记忆 `~/.opencode/projects/<slug>/.mem/*.md` + 索引 `MEMORY.md`（四类型 project/reference/feedback/user，frontmatter 强制 Why / How to apply）。**存储纯 markdown**。被动管道：`session.execution.succeeded` / `reflect` 触发（**v2 不再发 `session.idle`**）；注入靠**插件自己的 `context` hook 追加 SystemPart**（`~/.opencode/memx-protocol.md` + USER.md + MEMORY.md）——⚠️ **`opencode.json` 的 `instructions` 在 v2.0.26 是死字段**，别再指望它注入（详见 `docs/knowledge-base/OPERATIONS.md` §memx v2 记忆插件）。
 - **llm-wiki** = `/Users/gubin/workspace/llm-wiki`：SKILL.md 形态（已兼容 opencode / CodeBuddy / WorkBuddy），知识存 Obsidian vault（vault 根 `AGENTS.md` 配 `LLM_WIKI_VAULT`）；查询有现成 MCP 服务 `llm-wiki-mcp`（本地 stdio）。
-- **关键洞察**：两家**存储层都是纯 markdown**——适配难题不在存储，只在接线方式（memx 现在是 opencode 专用 plugin hook + instructions，这就是"不适配其他 agent"的根源）。
+- **关键洞察**：两家**存储层都是纯 markdown**——适配难题不在存储，只在接线方式（memx 现在是 opencode 专用 plugin hook 注入，这就是"不适配其他 agent"的根源）。
 
 **拍板**：
 
@@ -437,7 +437,7 @@ E0（只读探针，必须第一）
 **Backlog 调研结论：memx 能否同时被 DSH 使用（2026-10-10 用户要求调查，结论记此不施工）**：
 
 - **结论：可以复用，但"两边各自以插件方式跑"是错解；正确形态是"单写者 + 统一服务层"**（与单元 3 已定的 `personal-context` 方向一致）。
-- **事实（`~/workspace/opencode-memx` 源码）**：
+- **事实（`~/workspace/memx` 源码，2026-10-12 由 `opencode-memx` 改名）**：
   1. **存储层天然可共享**：全在 `~/.opencode/`（`USER.md`、`MEMORY.md`、`projects/<slug>/.mem/*.md`）+ 配置 `~/.opencode/memx.config.json`——**纯 markdown，与运行框架无关**。任何 agent（含 DSH）都能直接读。
   2. **耦合只在两处**：① 触发/上下文来自 **opencode 插件 hook**（`event` 监听 `session.idle`/`session.deleted`，`index.ts:194`）；② 提炼用 **opencode 的 client**（`createSessionLLMClient(client,…)` → `client.session.create` + `session.prompt`，`session-llm.ts`）。
   3. **关键发现（降低难度）**：提炼引擎的 LLM 是**可注入接口**（`LLMClient`，`refinement.ts`）——`createSessionLLMClient` 只是其中一个实现。→ **换一个 LLM 适配器即可脱离 opencode**（DSH 侧可直接调模型，不必借道 opencode server）。

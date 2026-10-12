@@ -198,7 +198,7 @@ curl -u opencode:<密码> http://127.0.0.1:4096/global/health
 
 ## memx v2 记忆插件（opencode 侧）
 
-> 仓库：`guraul/memx`（本机 `/Users/gubin/workspace/opencode-memx`）。功能：AI 发言时自发
+> 仓库：`guraul/memx`（本机 `/Users/gubin/workspace/memx`，2026-10-12 由 `opencode-memx` 改名）。功能：AI 发言时自发
 > 发出 `<!-- STYLE_SIGNAL -->` / `<!-- MEMORY_SIGNAL -->` 注释 → 插件捕获 → 子会话 LLM
 > 提炼 → 写入 USER.md / MEMORY.md → 下一轮注入回模型。**截至 2026-10-12 尚未部署生产**
 > （生产 config 无 plugins 键），本节为部署前的操作依据。
@@ -234,7 +234,7 @@ AGENTS.md，且补建缺失的 MEMORY.md 后 blob 哈希不变。
 
 ```bash
 # 安装（写入插件入口 + 生成协议文件 + 幂等注册 instructions 转发项）
-sh /Users/gubin/workspace/opencode-memx/install.sh
+sh /Users/gubin/workspace/memx/install.sh
 
 # 判断插件真实状态：查 kv 表，**不要信 memx_status**（格式化器只打固定字段）
 sqlite3 ~/.local/share/opencode/opencode.db \

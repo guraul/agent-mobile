@@ -48,7 +48,7 @@
 | BFF 仓 | `~/workspace/family-finance` | **私有仓，独立 git**；monorepo，`packages/web` = Next.js BFF，`packages/shared` |
 | 生产服务器 | `root@106.13.181.13` | Ubuntu 24.04；三个 systemd 服务 |
 | 本机 opencode 源码 | `~/workspace/opencode-src` | **tag v2.0.26** 的源码（E1/E4 的契约依据） |
-| memx 插件 | `~/workspace/opencode-memx` | 本机 checkout；**生产用的是 `/root/project/opencode-memx`** |
+| memx 插件 | `~/workspace/memx`（2026-10-12 由 `opencode-memx` 改名） | 本机 checkout；**生产用的是 `/root/project/opencode-memx`** |
 
 ### 2.2 生产服务（全部 systemd、开机自启）
 
