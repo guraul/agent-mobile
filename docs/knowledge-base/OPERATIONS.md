@@ -1,5 +1,6 @@
 # OPERATIONS.md —— 构建与运维
 
+> 最后更新：2026-10-12 · commit 6d432c5 · DSH 接入 OpenCode Go 订阅（`opencode-go` provider）配置 + 404/400 排查结论落档，见 §DSH 接入 OpenCode Go
 > 最后更新：2026-10-11 · E1 生产 opencode 升级 v2.0.26（issue #53）
 > ⚠️ **opencode v2 要点（2026-10-11 生产窗口实测）**：
 > - **v2 没有任何 npm/GitHub 发布产物**（npm `opencode-ai@latest`=1.19.0 仍是 v1 线）——装机只能走官方 v2 脚本：`curl -fsSL https://opencode.ai/v2/install | bash -s -- --version 2.0.26`，落位 `~/.opencode/bin/opencode`（本机与生产同此）
@@ -269,6 +270,57 @@ cat ~/.opencode/USER.md
   偏好直接写进全局 `~/.config/opencode/AGENTS.md`（2026-10-12 e2e 副作用，已回滚）。在补上
   该约束前，system 前缀存在被模型自行改掉的风险。
 - 生产上线窗口未开；生产 config 无 plugins 键，也无 instructions（当前即"无记忆注入"状态）。
+
+## DSH 接入 OpenCode Go（订阅模型，`opencode-go` provider）
+
+> 2026-10-12 实测：opencode v2.0.26 的 Go 端点 + DSH `web` profile。**凭据只放 `~/.dsh/.credentials.yaml`（`OPENCODE_GO_API_KEY`，明文，不入库）**。
+
+**配置位置**：`~/.dsh/profiles/web/cordis.patch.yml` 中 `llm-pi-ai` 层的 `providers.opencode-go`：
+
+```yaml
+- id: llm-pi-ai
+  name: "@deepseek-ai/dsh-llm-pi-ai"
+  config:
+    providers:
+      opencode-go:
+        baseURL: https://opencode.ai/zen/go/v1        # ① 只到 /v1，不含端点
+        headers:
+          x-opencode-session: dsh-opencode-go-local   # ② Go 强制要求，缺则 400
+        models:
+          - id: deepseek-v4.1-flash
+            name: DeepSeek V4.1 Flash
+            contextWindow: 1000000
+            maxTokens: 384000
+            input: [ text ]                           # ③ 视觉走 deepseek-v4-flash-vision-exp
+        apiKeyEnv: OPENCODE_GO_API_KEY
+```
+
+**三个坑（按踩到的顺序）**：
+
+| 现象 | 根因 | 修复 |
+|---|---|---|
+| 本轮运行失败 **404** + 一段 `Not Found \| opencode` 的 **HTML** | `baseURL` 误写成完整端点 `…/zen/go/v1/chat/completions`。该字段语义是**根路径**，插件按协议（默认 `openai-completions`）自己拼 `/chat/completions` → 实际打到 `…/chat/completions/chat/completions`，被 opencode.ai **官网前端**接住返回 404 HTML（不是 API 的 JSON 错误） | `baseURL` 截到 `https://opencode.ai/zen/go/v1` |
+| 400 `{"type":"error","error":{"type":"MissingSessionID"…}}` | Go 端点强制要求 `x-opencode-session` 头（路由 / prompt 缓存）。**DSH 正是 opencode 官方 "Known problematic clients" 点名的客户端**——session 头在部分模型路径上缺失（见 opencode docs `console/go.mdx` §Where can I use it + DSH discussion #5495） | provider 层加 `headers.x-opencode-session`（`dsh-llm-pi-ai` 支持 `headers: z.dict(z.string())`）。当前用**静态值**，全对话共用一个 id；要「每会话一个」需 DSH 侧透传，暂无 |
+| 400 `This Go model requires Global regions. Select Global in your workspace's Privacy settings` | 工作区隐私区域非 Global 时 **DeepSeek 系模型被拦**（`deepseek-v4.1-flash` / `deepseek-v4-flash` / `deepseek-flash`）。同期 `glm-5.3-flash` / `space-bunny` / `kimi-k3` 在同一设置下可正常 200 | 去 Console（https://opencode.ai/console）把该工作区 **Privacy 设为 Global** |
+
+**改完必须重启才生效**：profile 在进程启动时一次性加载（`dsh-app-boot` 无 watch）。DSH web 由 LaunchAgent `com.deepseek.dsh-web.dshdiscussion` 托管（端口 3080）：
+
+```bash
+launchctl kickstart -k gui/$(id -u)/com.deepseek.dsh-web.dshdiscussion
+```
+
+⚠️ 重启会中断当前 GUI 会话（会话本身持久化在 `~/.dsh/sessions`，刷新 3080 可续）；**在会话内执行等于杀掉宿主进程，必须另开终端敲**。启动日志：`~/workspace/dshdiscussion/.dsh-web/web.err.log`。
+
+**排查手法（可复用）**：
+
+```bash
+KEY=$(grep -E '^\s+OPENCODE_GO_API_KEY:' ~/.dsh/.credentials.yaml | awk '{print $2}')
+# 验 key + 列出 Go 可用模型（38 个：deepseek-v4.1-flash / glm-5.3-flash / kimi-k3 / space-bunny / mimo…）
+curl -s -H "Authorization: Bearer $KEY" https://opencode.ai/zen/go/v1/models | head -c 200
+# 判据：返回 JSON = key 与 baseURL 正确；返回 HTML（<title>Not Found | opencode</title>）= 打到官网了，路径错
+```
+
+**端点参考**：Go 走 `https://opencode.ai/zen/go/v1/{chat/completions|responses|messages}`，配置内模型写作 `opencode-go/<model-id>`；直连（非 opencode 客户端）调用同样需带 `x-opencode-session`。本机 opencode v2.0.26 源码 checkout 在 `~/workspace/opencode-src`（版本与装机一致），Go 文档在其 `services/www/src/docs/content/console/go.mdx`。
 
 ## 端口占用速查
 

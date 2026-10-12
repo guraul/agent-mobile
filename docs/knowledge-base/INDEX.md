@@ -1,6 +1,7 @@
 # Agent Mobile 项目知识库 · 索引总览
 
-> 最后更新：2026-09-29 · **双 chat 页（epic #35）五项收官**：`/talk` 单路由 + 运行时 directory 判据分流到
+> 最后更新：2026-10-12 · commit 6d432c5 · 新增「DSH 接入 OpenCode Go 订阅模型」路由行（正文见 OPERATIONS.md §DSH 接入 OpenCode Go）。
+> 上一版：2026-09-29 · **双 chat 页（epic #35）五项收官**：`/talk` 单路由 + 运行时 directory 判据分流到
 > chat（伴侣页）/ chatcode（工作台壳）两形态，含命令族回执 chip（#59 起取代内白卡）、工具折叠组、thinking、
 > diff 卡、composer 两态、排队队列。talk/assignments/kb 已全部浅色化。
 > 上一版：2026-09-28 RN 浅色迁移 epic #7 主体完成（PR #16-#23），基准 `docs/pipeline/RN_MIGRATION_BRIEF.md`，决策 D1-D10。
@@ -22,6 +23,7 @@
 | 查数据在哪 / 数据怎么流动 | DATA.md |
 | 有没有对外接口 | API.md |
 | 构建/部署/预览/测试 | OPERATIONS.md |
+| **DSH 接入 OpenCode Go 订阅模型（provider 配置 / 404·400 排查 / 重启生效）** | OPERATIONS.md §DSH 接入 OpenCode Go |
 | 改代码前的红线与坑 | CONVENTIONS.md |
 | **产品语义（冻结基线）** | `docs/redesign/PRODUCT_MODEL.md` |
 | **Companion UI 迁移锁定决策（D1-D9）** | `docs/redesign/archive/PRODUCTION_UI_MIGRATION_MAPPING.md` |
