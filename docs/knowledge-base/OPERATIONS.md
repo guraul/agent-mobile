@@ -198,10 +198,10 @@ curl -u opencode:<密码> http://127.0.0.1:4096/global/health
 
 ## memx v2 记忆插件（opencode 侧）
 
-> 仓库：`guraul/memx`（本机 `/Users/gubin/workspace/memx`，2026-10-12 由 `opencode-memx` 改名）。功能：AI 发言时自发
+> 仓库：`guraul/memx`（本机 `/Users/gubin/workspace/memx`，2026-10-12 由 `opencode-memx` 改名；**生产 `/root/project/memx`**，remote 用 SSH）。功能：AI 发言时自发
 > 发出 `<!-- STYLE_SIGNAL -->` / `<!-- MEMORY_SIGNAL -->` 注释 → 插件捕获 → 子会话 LLM
 > 提炼 → 写入 USER.md / MEMORY.md → 下一轮注入回模型。**截至 2026-10-12 尚未部署生产**
-> （生产 config 无 plugins 键），本节为部署前的操作依据。
+> （**2026-10-13 已部署**，见「上线窗口（E4）——已执行」节）。
 
 ### 记忆数据落在哪
 
@@ -268,7 +268,9 @@ cat ~/.opencode/USER.md
 
 ✅ **真机端到端已验（2026-10-12，Go 模型 + 本机 serve + 隔离测试项目）**：P0-1 游标 `fresh→resumed`（各 `newTurns:1`）、P0-2 三态（`captured:1 refinements:1 invalidStreak:0`）、出口① `memory_write` 落地（`.mem` 文件 + MEMORY.md 索引 + diag `toolWrites:1`）；测试后 `USER.md`/`MEMORY.md` 已还原。仍未验 = **App 里 chip 的视觉呈现**。
 
-### 上线窗口预检（E4，2026-10-12 只读核实）
+### 上线窗口（E4）—— ✅ 2026-10-13 已执行
+
+> 执行记录见本节末；预检表保留作对照。生产备份：`/root/backups/e4-window-20261013-112731/`（opencode.json + USER.md + MEMORY.md）。
 
 | 项 | 状态 | 窗口动作 |
 |---|---|---|
@@ -281,6 +283,18 @@ cat ~/.opencode/USER.md
 | 生产 v1 为什么还在（2026-10-11 E1 时间线） | 升级本身**已完成**（唯一 systemd 单元 `opencode-4096` 与唯一 opencode 进程都是 v2）——`/usr/bin/opencode` 的 v1.19.0 是 E1 当天 **10:33 的"npm 线是否已发 v2"探针**（npm 全局装 latest 确认仍是 v1 线，`OPERATIONS` v2 装机节有记录），10:55 才走官方脚本装 v2；探针包没人清 + v2 目录没进 PATH = 今天这个坑 | 窗口里一并处理（见上一行） |
 | ⚠️ 微信桥会踩 v1（连带故障） | `/root/project/wechat-opencode-bridge/dist/opencode.js` 用 `which opencode` **动态解析**二进制 → 拿到 `/usr/bin/opencode`(v1)；且它的存活判据是 `GET <url>/api/health`，**v2 该端点返回 401**（要 Basic 鉴权）→ 判为"异常状态码，尝试重启" → 一旦桥启动就会 spawn v1（v1 读 v2 配置直接起不来）。桥当前**没在跑**（无进程/无 systemd 单元） | ① 修 symlink（上一行）让 `which opencode` = v2；② **桥自身还有 bug**：应把 401 视为"已在运行"或带 Basic 头再探测——需改 wechat-opencode-bridge 代码（独立仓库/目录，不在本仓范围） |
 | 生产 memx 提炼模型 | 未装 memx；仓库默认 = `opencode/mimo-v2.6-flash-free`（生产目标） | 装完 memx 后**无需**覆盖；若将来生产支持 Go 档再考虑 |
+
+**执行结果（2026-10-13 11:2x-11:3x，用户授权窗口）**：
+
+| 步骤 | 结果 |
+|---|---|
+| ① 推 main（11 提交）→ 9928 自动部署 | ✅ Actions `run-38341548892-287bbcc` success；`serve-9928` active；release 目录已建 |
+| ② 收敛 `opencode` → v2 | ✅ `/usr/bin/opencode` → `/root/.opencode/bin/opencode`；`opencode --version` = `opencode v2.0.26`；旧 symlink 备份 `/root/backups/opencode-v1-symlink.bak`；微信桥 `which opencode` 也随之指向 v2（其 401 判据 bug 仍在 → wechat-opencode-bridge#1） |
+| ③ 生产装 memx | ✅ 检出 **`/root/project/memx`**（新路径，不是 v1 时代的 `/root/project/opencode-memx`）；remote 切 **SSH**（HTTPS 反复 GnuTLS 抖动）；插件入口 `~/.config/opencode/plugins/memx.ts`；协议 `~/.opencode/memx-protocol.md` v1.1.0；`~/.config/opencode/package.json` 依赖名自愈为 v2 |
+| ④ companion prompt | ✅ `agents.companion.system` = v0.2（真源 `docs/pipeline/COMPANION_PROMPT_V0.md`）；**model 保持 `opencode/mimo-v2.6-flash-free`**；无 permissions（`memory_write` 随插件可见） |
+| ⑤ 重启加载 | ✅ `systemctl restart opencode-4096`；日志 `loading plugin memx.ts`；kv 出现 `diag:root-project` / `diag:root`，`version:"v2-p0-1"` |
+
+**两个现场踩坑（已修进仓库）**：① `install.sh` 第 2 步原用 `npm install`（违反规则 14）→ 改 `pnpm install`（memx `27bcdef`）；② `pnpm-workspace.yaml` 的 `allowBuilds` 是占位文本 → pnpm 11 `strictDepBuilds` 默认开启，`pnpm install` **退出 1** 导致 install.sh 中断在第 2 步、后 4 步全不执行 → 明确表态 `msgpackr-extract: false`（memx `1bb53cc`）。
 
 
 ### 注入范围与泄漏风险（部署前必读）

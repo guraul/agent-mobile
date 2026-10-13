@@ -122,7 +122,7 @@ companion 的"这个记一下" = v2 插件注册的 **memory_write 工具**（�
 |---|---|---|
 | 写工具 | memx `src/core/memory-write.ts`（`writeProjectMemory`）+ `hosts/opencode` 注册 `memory_write`；与后台提炼**同一条写路**（`applyMemoryProposals` 单遍 + `withFileLock` 锁内重读索引） | ✅ 已推（memx `d272df0`） |
 | 回执 chip | App `services/message-merging.ts`：`memory_write` 有输出时产出 `kind:"receipt"` 步（**不进工具折叠组**，留痕必须可见），`command-receipt.ts` 剥前导 `✅` | ✅ 本机绿（28 文件 / 245 测试） |
-| 软约束 prompt | `agents.companion.system` v0.2（真源见 [COMPANION_PROMPT_V0.md](COMPANION_PROMPT_V0.md)）："记一下必须真调 memory_write、不许空说已记下、不炫耀记忆、除记忆外不写文件" | ✅ 本机已应用；**生产待上线窗口** |
+| 软约束 prompt | `agents.companion.system` v0.2（真源见 [COMPANION_PROMPT_V0.md](COMPANION_PROMPT_V0.md)）："记一下必须真调 memory_write、不许空说已记下、不炫耀记忆、除记忆外不写文件" | ✅ 本机 + **生产均已应用**（生产 2026-10-13 窗口） |
 | 读取/投影 | homebase BFF `GET /api/product/memory`（Phase 6 已有，读 canonical 记忆库） | ✅ 无需改动（`POST` 保持 405，语义不变） |
 | personal-context | 本期**不动**（库层抽取留到出口① 联调通过后，见 §3.3 修订） | ⏸️ 后置 |
 | 权限 | #74 已撤生产白名单 → `memory_write` 随插件注册即可见；**本机仍留白名单**，仅追加一条 `memory_write allow`（最小授权，不开 bash/edit） | ✅ 本机已应用 |
@@ -135,7 +135,8 @@ companion 的"这个记一下" = v2 插件注册的 **memory_write 工具**（�
 - **P0-3 / P0-4**：写盘成功、`USER.md`/`MEMORY.md` 无污染、无锁文件残留
 - **出口① 全链**：`memory_write` 被真调 → `.mem/reference_bff_cors_9928.md`（含 frontmatter + Why/How to apply）+ `MEMORY.md` 索引条目 + diag `toolWrites:1 / lastWrite` 全对
 - **两个真机发现（已修）**：① v2 工具结果在 **`state.content[]`**，不是 `state.output`；② 默认 **codemode** 会把插件工具包成 `execute`（`part.tool="execute"`）→ memx 给 `memory_write` 声明 `options:{codemode:false}`，part 名才是 `memory_write`
-- ⏳ **仍未验**：App 里 chip 的**视觉**呈现（映射有单测 + 真实 part 形状已核对，但没跑浏览器/真机）；以及**其余工具步的 output/diff 面板在 v2 下普遍为空**（`state.content` 没被消费，属 E1 遗留，已记 backlog）
+- ✅ **生产已具备验证条件（2026-10-13 窗口）**：9928 已发新 bundle（chip 代码）、生产 memx 已装并加载、companion prompt v0.2 已应用、`opencode` 命令已收敛到 v2。**待用户真机验**：聊一句"记一下 X" → 回执 chip + `/memory` 条目。
+- ⏳ **仍未验**：App 里 chip 的**视觉**呈现（映射有单测 + 真实 part 形状已核对；生产窗口已就绪，等真机那一句）；以及**其余工具步的 output/diff 面板在 v2 下普遍为空**（`state.content` 没被消费，属 E1 遗留 → issue #83）
 
 ⚠️ 免费档 `opencode/*-free` 网关（403 指纹校验 + 429）本次未用；端到端改走 Go 端点模型（用户 2026-10-12 指定，见 AGENTS.md 规则 11/12）。
 
@@ -483,6 +484,8 @@ E0（只读探针，必须第一）
 
 ## 8. 事实备忘（已摸清，勿重复调查）
 
+> ✅ **E4 生产窗口已完成（2026-10-13）**：memx v2 插件装在生产 `/root/project/memx`（插件入口 + 协议 v1.1.0 + config 依赖自愈）+ `agents.companion.system` v0.2 + `opencode` 命令收敛到 v2（E1 探针包残留，issue #84/PR #85）+ 9928 发新 bundle。生产模型**保持 `opencode/mimo-v2.6-flash-free`**（生产模型目录无 `opencode-go`）。详见 `docs/knowledge-base/OPERATIONS.md` §上线窗口（E4）。
+>
 > ✅ **E1 已完成（2026-10-11 生产窗口，详见 issue #53 六条评论）**：生产 opencode **v2.0.26**（官方 v2 脚本装机；npm/GitHub 均无 v2 发布产物）+ Basic 密码鉴权（systemd+BFF env 同步）+ v2 全局配置（companion=space-bunny-free+deny-all 白名单；其余 agent model=mimo；exa MCP connected）+ BFF#15/App#68/#70/#72 契约改造全部上线，DoD 链路实测通过（companion 会话+回复「收到」）。**v2 契约事实**（施工依据）：REST `{data}` 信封；无 message.updated；delta live-only、重连零重放；agent/model 建会话定；question→form；v1 裸路径全不存在（SPA 兜底假 200）。**回滚物料**：/root/backups/（v1 二进制+DB 快照 1.8G+旧配置+密码）。遗留小项：App 端 question sheet 真机体验、memx 适配（E4）。
 
 **仓库 / 环境**：
