@@ -10,12 +10,13 @@ export const MARKET_TALK_DIRECTORY = "/root/project/family-finance";
 
 // #57/#53：chat 伴侣页的 agent/model 在建会话时写死（v2 契约：agent/model 建会话定，
 // 逐消息指定已废除）。
-// 2026-10-12 用户拍板：改用 `opencode-go/longcat-2.5-preview-free`——免费档
-// `opencode/*-free` 会被网关指纹校验 403 / 限流 429。**唯一档：出任何问题都不降级、
-// 不换模型，停下报告**（同 AGENTS.md 规则 11/12）。
+// 2026-10-12 用户拍板（二次）：**App/companion 保持 `opencode/mimo-v2.6-flash-free`**
+// ——App 唯一的真实目标是生产 opencode，而**生产的模型目录里没有 `opencode-go`**
+// （`OPERATIONS.md` 上线窗口预检）；写死 Go 档会让手机端直接 Model unavailable。
+// Go 档只用于 **DSH 子代理 + 本机 memx 提炼**（本机免费档会被网关 403/429）。
 // ⚠️ 本文件是单一事实源；ChatPanelZ.tsx 里还有一处历史遗留的同名常量，两处必须一起改。
 export const CHAT_AGENT_ID = "companion";
-export const CHAT_MODEL = { providerID: "opencode-go", modelID: "longcat-2.5-preview-free" } as const;
+export const CHAT_MODEL = { providerID: "opencode", modelID: "mimo-v2.6-flash-free" } as const;
 
 export type ConversationKind = "chat" | "chatcode";
 

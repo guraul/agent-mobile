@@ -125,7 +125,7 @@ companion 的"这个记一下" = v2 插件注册的 **memory_write 工具**（�
 | 读取/投影 | homebase BFF `GET /api/product/memory`（Phase 6 已有，读 canonical 记忆库） | ✅ 无需改动（`POST` 保持 405，语义不变） |
 | personal-context | 本期**不动**（库层抽取留到出口① 联调通过后，见 §3.3 修订） | ⏸️ 后置 |
 | 权限 | #74 已撤生产白名单 → `memory_write` 随插件注册即可见；**本机仍留白名单**，仅追加一条 `memory_write allow`（最小授权，不开 bash/edit） | ✅ 本机已应用 |
-| 运行时模型 | companion + App 默认统一 `opencode-go/longcat-2.5-preview-free`（App 两处定义点 `conversation-kind.ts` / `model-registry.ts` + 服务端 `agents.companion.model`）；**唯一档，出问题不降级不换模型** | ✅ 本机已改；⚠️ **生产被阻塞**——生产 opencode 模型目录里没有 `opencode-go/*`（`OPERATIONS.md` 上线窗口预检） |
+| 运行时模型 | **生产 / App 保持 `opencode/mimo-v2.6-flash-free`**（2026-10-12 二次拍板：生产模型目录里没有 `opencode-go`，写死 Go 档 = 手机端 Model unavailable）；Go 档只用于本机/DSH 侧 | ✅ 已回退到 mimo |
 
 ✅ **真机验证已完成（2026-10-12，`opencode-go/longcat-2.5-preview-free` + 本机 serve；隔离测试项目，事后还原 `USER.md`/`MEMORY.md`）**：
 

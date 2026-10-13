@@ -89,12 +89,12 @@ const FALLBACK_AGENTS = [
 // 客户端写死（行为一致）。服务端上线依赖 E1（生产 opencode v2 + companion 配置）。
 const CHAT_AGENT_ID = "companion";
 
-// 2026-10-12 用户拍板：chat 伴侣页 model 改用 opencode-go/longcat-2.5-preview-free，
-// 仍写死、不可修改（无选择入口）。免费档 `opencode/*-free` 走网关指纹校验会 403 / 429
-// （issue #53/#74 实测链）→ 全站换 Go 端点模型，**唯一档，出问题不降级不换模型**。
+// 2026-10-12 用户拍板（二次）：chat 伴侣页 model 保持 opencode/mimo-v2.6-flash-free，
+// 仍写死、不可修改（无选择入口）。理由：App 的唯一真实目标是生产 opencode，而生产模型
+// 目录里没有 `opencode-go`（写死 Go 档 = 手机端 Model unavailable）；生产就是跑 mimo。
 // ⚠️ 本文件是第二个定义点（单一事实源在 services/conversation-kind.ts 的 CHAT_MODEL）——
 // #75/#76 漏网教训：改 CHAT_MODEL 必须 grep 全部定义点，两处一起改。
-const CHAT_MODEL = { providerID: "opencode-go", modelID: "longcat-2.5-preview-free" };
+const CHAT_MODEL = { providerID: "opencode", modelID: "mimo-v2.6-flash-free" };
 
 // #53（E1 v2）：回合结束事件 → 静默 refetch 消息列表（tool/step 中途事件不触发，防打字机弹出）
 const REFETCH_EVENT_TYPES = new Set([

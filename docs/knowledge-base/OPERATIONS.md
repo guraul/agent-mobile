@@ -264,7 +264,7 @@ cat ~/.opencode/USER.md
 | 读取 | 不新增端点：BFF `GET /api/product/memory`（Phase 6 投影）直接读 canonical 记忆库；`POST /api/product/memory` 保持 **405**（PM §6/§29：记忆不由 API 创建） |
 | 权限 | 生产的 companion 白名单已按 #74 撤除 → 工具随插件注册即可见；**本机仍留白名单**，只追加 `{"action":"memory_write","resource":"*","effect":"allow"}`（白名单是 deny-all，不加这条工具会被 `tool.ts:292 whollyDisabled` 从快照摘掉） |
 | 软约束 prompt | `agents.companion.system` v0.2，真源 `docs/pipeline/COMPANION_PROMPT_V0.md`（v0.2 = 补"必须真调 memory_write / 不许空说已记下 / 除记忆外不写文件"）；**生产待上线窗口应用** |
-| 运行时模型（2026-10-12 用户指定） | companion + App 默认模型统一 `opencode-go/longcat-2.5-preview-free`（App 两处定义点：`services/conversation-kind.ts` 的 `CHAT_MODEL` + `model-registry.ts` 的 `DEFAULT_MODEL`；服务端 `agents.companion.model` 同步）。**唯一档：出问题不降级不换模型，停下报告**。免费档 `opencode/*-free` 弃用（网关指纹校验 403 / 限流 429） |
+| 运行时模型（2026-10-12 二次拍板） | **生产 / App 保持 `opencode/mimo-v2.6-flash-free`**（App 写死点：`services/conversation-kind.ts` 的 `CHAT_MODEL` + `ChatPanelZ.tsx` 的历史第二定义点 + `model-registry.ts` 的 `DEFAULT_MODEL`）——App 唯一真实目标是生产 opencode，而**生产没有 `opencode-go` provider**。**Go 档 `opencode-go/longcat-2.5-preview-free` 只用于本机/DSH 侧**（DSH 子代理 + 本机 memx 提炼；本机免费档被网关 403/429 挡），本机 `agents.companion.model` 已设 Go 档（与生产**有意差异**） |
 
 ✅ **真机端到端已验（2026-10-12，Go 模型 + 本机 serve + 隔离测试项目）**：P0-1 游标 `fresh→resumed`（各 `newTurns:1`）、P0-2 三态（`captured:1 refinements:1 invalidStreak:0`）、出口① `memory_write` 落地（`.mem` 文件 + MEMORY.md 索引 + diag `toolWrites:1`）；测试后 `USER.md`/`MEMORY.md` 已还原。仍未验 = **App 里 chip 的视觉呈现**。
 
@@ -272,11 +272,13 @@ cat ~/.opencode/USER.md
 
 | 项 | 状态 | 窗口动作 |
 |---|---|---|
-| 生产 opencode 认识 `opencode-go/*`？ | ❌ **不认识**——`opencode models` 只有 agnes / deepseek / opencode / sensenova / siliconflow-cn / stepfun 六个 provider（76 个模型），**无 `opencode-go`** → 生产今天直接报 `Model unavailable` | **窗口第一件事**：让生产模型目录出现 `opencode-go`（刷新 models.dev，或按 DSH 侧 `~/.dsh/profiles/web/cordis.patch.yml` 的写法在 `providers` 里显式声明 baseURL `https://opencode.ai/zen/go/v1`）。**这一步不过，companion/memx 都不要换模型** |
+| 生产 opencode 认识 `opencode-go/*`？ | ❌ **不认识**——`opencode models` 只有 agnes / deepseek / opencode / sensenova / siliconflow-cn / stepfun（76 个模型） | **当前决定不用**（用户 2026-10-12：生产保持 mimo）。若将来要在生产用 Go 档，先解决这一项（刷新 models.dev 或按 DSH 侧 `~/.dsh/profiles/web/cordis.patch.yml` 显式声明 provider） |
 | 生产已装 memx？ | ❌ 无 `~/.config/opencode/plugins/` 目录；config 无 `plugins` 键 | 跑 memx `install.sh` + v2 `plugins` 注册 |
-| 生产 companion model | `opencode/mimo-v2.6-flash-free`（免费档） | 换成 Go 档（依赖上表第一项） |
+| 生产 companion model | `opencode/mimo-v2.6-flash-free` | **保持不动**（用户 2026-10-12 二次拍板） |
 | 生产 companion prompt | v0.1（无 memory_write 条款） | 应用 v0.2（`COMPANION_PROMPT_V0.md`） |
 | 生产 `instructions` | 已摘除（无记忆注入） | 窗口时决定是否恢复注入（memx `inject` 配置） |
+| 生产 `opencode` 命令指向 | ⚠️ `/usr/bin/opencode` = **v1.19.0**（npm 全局残留）；v2 在 `/root/.opencode/bin/opencode`（`opencode2` 是同目录包装），**不在 PATH** → 直接敲 `opencode` 会用 v1 去读 v2 配置，报 `V2 permissions are not supported by OpenCode V1 … or run opencode2`（**配置本身没错**） | 给 `/root/.bashrc` 加 `export PATH="/root/.opencode/bin:$PATH"`（最小、可逆）。**别直接删 npm v1**——先扫依赖（历史 systemd 曾指向它）；systemd `opencode-4096` 现在用的是 v2 路径 ✓ |
+| 生产 memx 提炼模型 | 未装 memx；仓库默认 = `opencode/mimo-v2.6-flash-free`（生产目标） | 装完 memx 后**无需**覆盖；若将来生产支持 Go 档再考虑 |
 
 
 ### 注入范围与泄漏风险（部署前必读）
