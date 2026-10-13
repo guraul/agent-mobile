@@ -399,8 +399,10 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
   }, [sessionID]);
 
   // 发送中（请求在途）同样算 busy：覆盖 prompt_async 204 → 首个事件之间的 ~1.4s 空窗，
-  // 不然点完发送到 agent 开口之间状态行是空的。sending 的其它用途（排队分流 /
-  // 停止键 / 斜杠命令在途）保持原样，只是不再单独充当「agent 是否在跑」的判据。
+  // 不然点完发送到 agent 开口之间状态行是空的。
+  // **#44（2026-10-13 重启）起，busy 是「agent 是否在跑」的唯一判据**：状态行、入队分流、
+  // 队列自动发送、composer 主键（Stop/Send）全部看它。旧版这三处盯的是 sending（HTTP 在途
+  // ~1.4s），导致入队分支与"busy 显示 Stop"永不同时成立 → 排队是死代码（#33 根因）。
   const busy = sending || eventBusy;
 
   useEffect(() => {
@@ -752,9 +754,9 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
       }
       return;
     }
-    // #33 排队分支：busy（sending 沿用现有状态——prompt_async 挂起整个 agent 运行）
-    // 时发送的消息进客户端队列，chip 可删除/上移/回填，busy 结束由 flush effect 依次发出。
-    if (sending) {
+    // #33 排队分支（#44 重启）：真实 busy 时发送的消息进客户端队列，chip 可删除/上移/
+    // 回填，busy 结束由 flush effect 依次发出。入口是 composer 的 Send（busy + 有草稿）。
+    if (busy) {
       setQueue((prev) => enqueueMessage(prev, text, `q-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`));
       setInput("");
       return;
@@ -805,11 +807,12 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
     setQueue(next);
   }, []);
 
-  // #33 队列自动发送：busy（sending）翻转 false 且队列非空 → 取队首发出（agent/model
-  // 取发送时刻的当前值）。发送失败：条目放回队首 + 阻塞自动 flush（防无限重试），
-  // chip 上的删除/上移/回填操作会解除阻塞。不碰 messages 数组（轮询冲突教训）。
+  // #33 队列自动发送：真实 busy 翻转 false 且队列非空 → 取队首发出（agent/model 取发送
+  // 时刻的当前值）。发送失败：条目放回队首 + 阻塞自动 flush（防无限重试），chip 上的
+  // 删除/上移/回填操作会解除阻塞。用户主动 abort 也阻塞（见 abort()）——"停"不应紧接着
+  // 自动发下一条。不碰 messages 数组（轮询冲突教训）。
   useEffect(() => {
-    if (sending || queueBlocked || queue.length === 0) return;
+    if (busy || queueBlocked || queue.length === 0) return;
     const { next } = dequeueFirst(queue);
     if (!next) return;
     setQueue((prev) => prev.slice(1));
@@ -823,9 +826,12 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
     return () => {
       cancelled = true;
     };
-  }, [sending, queueBlocked, queue, doSend]);
+  }, [busy, queueBlocked, queue, doSend]);
 
   const abort = async () => {
+    // #44：用户主动"停"不应紧接着自动发出下一条排队消息 → 阻塞自动 flush，
+    // 队列 chip 仍在（用户可删/移/回填），任何 chip 操作解除阻塞。
+    setQueueBlocked(true);
     try {
       await opencodeClient.abort(sessionID);
       // #58 本地中止是最权威的结束信号：立即结束 busy，状态行交回「已停止」
@@ -1121,7 +1127,7 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
               >
                 <Mic color={lightColors.ink} size={16} strokeWidth={2} />
               </Pressable>
-              {sending ? (
+              {busy && !input.trim() ? (
                 <Pressable
                   onPress={abort}
                   style={[styles.composerSend, styles.composerSendStop]}
@@ -1188,7 +1194,7 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
               >
                 <Mic color={lightColors.ink} size={18} strokeWidth={2} />
               </Pressable>
-              {sending ? (
+              {busy && !input.trim() ? (
                 <Pressable
                   onPress={abort}
                   style={[styles.roundBtn, styles.pillStop]}
