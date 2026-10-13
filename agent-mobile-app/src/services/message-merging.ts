@@ -52,10 +52,9 @@ function isReasoningPart(part: OpenCodePart): part is OpenCodePart & { type: "re
 }
 
 /**
- * 工具结果文本。v2 真机的 part 形状是 `state.content: [{type:"text",text}]`，**没有** `state.output`。
- * memory_write 的回执必须走这里，否则 chip 拿不到内容。
- * ⚠️ 范围注记：其余工具步仍只读 `state.output`——v2 下普遍为空（工具结果面板/ diff 面板可能看不到输出），
- * 那是既有的 E1 遗留问题，已记入报告，未在此顺手扩大改动面。
+ * 工具结果文本。v2 真机的 part 形状是 `state.content: [{type:"text",text}]`，**没有** `state.output`
+ * （2026-10-13 实测）。所有工具步与 memory_write 回执都走这里，否则输出面板/回执恒空（issue #83）。
+ * 旧形状（`state.output` 是字符串）优先，保持 v1 兼容。
  */
 function toolResultText(state?: { output?: string; content?: Array<{ type?: string; text?: string }> }): string | undefined {
   if (typeof state?.output === "string" && state.output.trim()) return state.output;
@@ -136,15 +135,16 @@ export function mergeMessages(
         if (!text) continue;
         out.push({ kind: "text", id: partId, text, createdAt });
       } else if (isToolPart(part)) {
-        const output = typeof part.state?.output === "string" ? part.state.output : undefined;
         const toolName = part.tool ?? "tool";
+        // v2 真机（2026-10-13 实测，issue #83）：工具结果在 state.content[]，state.output 恒空
+        // ——只读 output 会让**所有**工具步的输出面板（LightSheet）恒空，diff 提取也拿不到正文。
+        // toolResultText 兼容两种形状：output 优先，缺失时回退 content 的 text 拼接。
+        const output = toolResultText(part.state);
         // 出口①（#82 §B）：显式记忆写入用"一行回执"呈现，**不进工具折叠组**——
         // "约束用户的结果必须可见"是单元 1 的留痕原则，塞进可折叠的工具组等于没留痕。
         // 仍在执行（无输出）时保持 tool step，用户能看到进行中的状态。
-        // 文本取 toolResultText：v2 真机把结果放在 state.content，不是 state.output。
-        const receiptText = toolName === MEMORY_WRITE_TOOL ? toolResultText(part.state) : undefined;
-        if (receiptText) {
-          out.push({ kind: "receipt", id: partId, text: stripLeadingCheck(receiptText), createdAt });
+        if (toolName === MEMORY_WRITE_TOOL && output) {
+          out.push({ kind: "receipt", id: partId, text: stripLeadingCheck(output), createdAt });
           continue;
         }
         out.push({
