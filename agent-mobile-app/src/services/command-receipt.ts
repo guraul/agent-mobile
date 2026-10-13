@@ -8,8 +8,16 @@
 // 单测负责守住"文本一字不改"。
 
 import type { DisplayStep, ReceiptStep } from "./message-merging";
+import { classifyRuntimeFailure, runtimeFailureMessage } from "./runtime-presence";
 
-/** localSteps 保留条数上界（回执只增不减，长会话必须封顶） */
+/**
+ * localSteps 保留条数上界（回执只增不减，长会话必须封顶）。
+ *
+ * 为什么是 20（#65-③ 拍板：**回执不落盘**）：回执是"我刚做过什么"的**滚动窗口**——命令族
+ * 反馈（/assign /confirm …）的回看场景是短时的（确认 prp_/asg_ id、看激活结果），越过 20 条
+ * 已经超不出任何真实回看需求。需要**长期**留痕的东西走出口① 的记忆（memory_write → /memory
+ * 可查、写盘持久），而不是把 localSteps 做成第二个持久化面（多一处状态要迁移、要清、要防冲突）。
+ */
 export const RECEIPT_KEEP = 20;
 
 /** 回执 id 前缀（本地步与 opencode step id 区分；调试/e2e 可按前缀识别） */
@@ -36,6 +44,25 @@ export function stripLeadingCheck(text: string): string {
 /** 构造回执步（剥离前导勾，其余原样） */
 export function makeReceiptStep(text: string, now: number = Date.now()): ReceiptStep {
   return { kind: "receipt", id: makeReceiptId(now), createdAt: now, text: stripLeadingCheck(text) };
+}
+
+/**
+ * #65-2：命令失败的反馈通道（与成功路径同一原则：**结果必须留痕**）。
+ * - **离线 / 鉴权失败**：用户什么都做不了，必须打断 → `alert`（弹窗，沿用 runtime-presence 的文案）
+ * - **其余失败**：进消息流的 `error` 步（语义色、全文不截断、与成功回执同处一屏）——比
+ *   `showAlert` 好在切会话前一直可见，也消掉"成功走 chip、失败弹窗"的通道分裂（#65-②）
+ */
+export function commandFailureStep(
+  err: unknown,
+  now: number = Date.now(),
+): { kind: "alert"; title: string; body: string } | { kind: "error"; id: string; text: string; createdAt: number } {
+  const kind = classifyRuntimeFailure(err);
+  if (kind === "opencode-offline" || kind === "bff-offline" || kind === "auth") {
+    const { title, body } = runtimeFailureMessage(kind);
+    return { kind: "alert", title, body };
+  }
+  const raw = err instanceof Error ? err.message : String(err);
+  return { kind: "error", id: makeReceiptId(now), text: `命令失败：${raw}`, createdAt: now };
 }
 
 /**

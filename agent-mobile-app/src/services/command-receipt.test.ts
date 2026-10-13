@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   appendReceipt,
+  commandFailureStep,
   makeReceiptId,
   makeReceiptStep,
   stripLeadingCheck,
@@ -17,6 +18,39 @@ const PROPOSAL_FEEDBACK =
 /** 造 n 条回执步（id 可预测，便于断言裁剪后的顺序） */
 const steps = (n: number): ReceiptStep[] =>
   Array.from({ length: n }, (_, i) => makeReceiptStep(`m${i}`, 1000 + i));
+
+describe("commandFailureStep（#65-② 失败通道）", () => {
+  it("离线失败 → alert（必须打断，沿用 runtime-presence 文案）", () => {
+    const r = commandFailureStep(new Error("opencode /api/session failed: 502 Bad Gateway"), 1);
+    expect(r.kind).toBe("alert");
+    if (r.kind === "alert") {
+      expect(r.title).toBe("AI is offline");
+      expect(r.body.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("鉴权失败 → alert（请先登录）", () => {
+    const r = commandFailureStep(new Error("401 Unauthorized"), 1);
+    expect(r.kind).toBe("alert");
+    if (r.kind === "alert") expect(r.title).toBe("请先登录");
+  });
+
+  it("其余失败 → error 步（进消息流留痕，带命令失败前缀）", () => {
+    const r = commandFailureStep(new Error("proposal not found"), 4242);
+    expect(r.kind).toBe("error");
+    if (r.kind === "error") {
+      expect(r.id.startsWith("cmd-")).toBe(true);
+      expect(r.createdAt).toBe(4242);
+      expect(r.text).toBe("命令失败：proposal not found");
+    }
+  });
+
+  it("非 Error 抛出物也能成步（不炸）", () => {
+    const r = commandFailureStep("plain string failure", 1);
+    expect(r.kind).toBe("error");
+    if (r.kind === "error") expect(r.text).toBe("命令失败：plain string failure");
+  });
+});
 
 describe("makeReceiptStep", () => {
   it("kind=receipt，createdAt 取注入的 now", () => {
