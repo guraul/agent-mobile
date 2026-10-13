@@ -53,7 +53,7 @@ import {
   type QueuedMessage,
 } from "../../../services/message-queue";
 import type { EngagedAttentionRef } from "../../../services/attention/store";
-import type { ConversationKind } from "../../../services/conversation-kind";
+import { CHAT_AGENT_ID, CHAT_MODEL, type ConversationKind } from "../../../services/conversation-kind";
 import { MessageBubbleZ } from "./MessageBubbleZ";
 import { BusyDots } from "./BusyDots";
 import { showAlert } from "../../../services/alert";
@@ -83,18 +83,6 @@ const FALLBACK_AGENTS = [
   { id: "design", model: DEFAULT_MODEL },
 ] as const;
 
-// #57（E3-a）：chat 伴侣页发出的每条消息固定 agent=companion（只读 + 产品动作，
-// 服务端禁 bash/edit 全家）——不随 session.agent / 用户选择变化。chatcode 侧维持
-// build/plan/design 选择器。双保险语义：agent 配置断工具（真护栏，随 E1 上线）+
-// 客户端写死（行为一致）。服务端上线依赖 E1（生产 opencode v2 + companion 配置）。
-const CHAT_AGENT_ID = "companion";
-
-// 2026-10-12 用户拍板（二次）：chat 伴侣页 model 保持 opencode/mimo-v2.6-flash-free，
-// 仍写死、不可修改（无选择入口）。理由：App 的唯一真实目标是生产 opencode，而生产模型
-// 目录里没有 `opencode-go`（写死 Go 档 = 手机端 Model unavailable）；生产就是跑 mimo。
-// ⚠️ 本文件是第二个定义点（单一事实源在 services/conversation-kind.ts 的 CHAT_MODEL）——
-// #75/#76 漏网教训：改 CHAT_MODEL 必须 grep 全部定义点，两处一起改。
-const CHAT_MODEL = { providerID: "opencode", modelID: "mimo-v2.6-flash-free" };
 
 // #53（E1 v2）：回合结束事件 → 静默 refetch 消息列表（tool/step 中途事件不触发，防打字机弹出）
 const REFETCH_EVENT_TYPES = new Set([
@@ -453,6 +441,7 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
               revealTargets.current[partID] = Math.max(revealTargets.current[partID] ?? 0, (d.text ?? "").length);
             }
             recomputeDisplay(next);
+            requestAnimationFrame(autoScroll);
             return next;
           });
         }
@@ -495,6 +484,7 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
             revealTargets.current[d.partID] = ((part as { text?: string } | undefined)?.text ?? "").length;
             ensureTypingTimer();
             recomputeDisplay(next);
+            requestAnimationFrame(autoScroll);
             return next.length > MAX_MESSAGES ? next.slice(next.length - MAX_MESSAGES) : next;
           });
         }
@@ -932,11 +922,19 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
     stickToBottom.current = distanceFromBottom < 80;
   };
 
+  // #80：程序滚动后短窗忽略自身 scroll 回波——v2 突发 delta 让内容高度大步增长，
+  // scrollToEnd 落定过程中的中间 onScroll（距底 >80px）会把 stickToBottom 翻 false，
+  // 自动跟随从此停止（实测距底一路涨到 1300px+）。
+  const autoScroll = useCallback(() => {
+    if (!stickToBottom.current) return;
+    ignoreScrollUntil.current = Date.now() + 250;
+    listRef.current?.scrollToEnd({ animated: false });
+  }, []);
   const handleContentSizeChange = () => {
     // while a reply is actively typing, always chase the latest text so the
     // newest characters are never stranded behind the agent/model row.
     if (stickToBottom.current) {
-      listRef.current?.scrollToEnd({ animated: false });
+      autoScroll();
     }
   };
 
@@ -1208,7 +1206,7 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
               ) : null}
             </View>
             <View style={styles.pillSub}>
-              {/* #57：chat 伴侣页 model 写死 longcat-2.5-preview-free（不可修改）→ 只读标签，无选择入口；chatcode 侧保留选择器 */}
+              {/* #57：chat 伴侣页 model 写死 space-bunny-free（不可修改）→ 只读标签，无选择入口；chatcode 侧保留选择器 */}
               {isChat ? (
                 <View style={styles.maBtn}>
                   <View style={styles.maDot} />

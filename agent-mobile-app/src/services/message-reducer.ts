@@ -138,11 +138,14 @@ export function applyPartDelta(
   const pIdx = parts.findIndex((p) => (p as PartWithIds).id === delta.partID);
   const next = [...messages];
   if (pIdx === -1) {
-    next[idx] = { ...next[idx], parts: [...parts, { type: "text", text: delta.text, id: delta.partID } as unknown as OpenCodePart] };
+    // #80：reasoning 流的 delta 落在不存在于占位的 partID 上时，创建 reasoning part
+    //（此前一律 type:"text" → 思考内容漏渲染为正文气泡）
+    const type = delta.field === "reasoning" ? "reasoning" : "text";
+    next[idx] = { ...next[idx], parts: [...parts, { type, text: delta.text, id: delta.partID } as unknown as OpenCodePart] };
     return next;
   }
   const part = parts[pIdx];
-  if (delta.field === "text") {
+  if (delta.field === "text" || delta.field === "reasoning") {
     const text = (part as { text?: string }).text ?? "";
     next[idx] = { ...next[idx], parts: parts.map((p, i) => i === pIdx ? { ...p, text: text + delta.text } : p) };
     return next;

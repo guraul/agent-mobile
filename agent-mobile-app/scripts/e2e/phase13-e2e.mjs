@@ -31,8 +31,8 @@ function loadDevCreds() {
     return { user: process.env.E2E_USER, pass: process.env.E2E_PASS };
   }
   const envPaths = [
-    '/root/project/family-finance/packages/web/.env.local',
-    '/root/project/family-finance/.env.local',
+    '/root/project/homebase/packages/web/.env.local',
+    '/root/project/homebase/.env.local',
   ];
   for (const p of envPaths) {
     if (!existsSync(p)) continue;

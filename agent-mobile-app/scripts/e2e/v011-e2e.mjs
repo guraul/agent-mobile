@@ -28,7 +28,7 @@ const BFF_URL = process.env.E2E_BFF_URL || process.env.EXPO_PUBLIC_OPENCODE_URL 
 
 function loadDevCreds() {
   if (process.env.E2E_USER && process.env.E2E_PASS) return { user: process.env.E2E_USER, pass: process.env.E2E_PASS };
-  for (const p of ['/root/project/family-finance/packages/web/.env.local', '/root/project/family-finance/.env.local']) {
+  for (const p of ['/root/project/homebase/packages/web/.env.local', '/root/project/homebase/.env.local']) {
     if (!existsSync(p)) continue;
     const env = readFileSync(p, 'utf8');
     const user = env.match(/^ADMIN_USERNAME=(.*)$/m)?.[1]?.trim();

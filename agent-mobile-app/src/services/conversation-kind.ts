@@ -6,15 +6,18 @@
 // MARKET_TALK_DIRECTORY 原声明在 attention/talk.ts（market 会话统一挂该目录），
 // 为保持本文件零依赖可单测，常量收编到这里，attention/talk.ts 转为 re-export。
 
-export const MARKET_TALK_DIRECTORY = "/root/project/family-finance";
+export const MARKET_TALK_DIRECTORY = "/root/project/homebase";
 
 // #57/#53：chat 伴侣页的 agent/model 在建会话时写死（v2 契约：agent/model 建会话定，
 // 逐消息指定已废除）。
-// 2026-10-12 用户拍板（二次）：**App/companion 保持 `opencode/mimo-v2.6-flash-free`**
-// ——App 唯一的真实目标是生产 opencode，而**生产的模型目录里没有 `opencode-go`**
-// （`OPERATIONS.md` 上线窗口预检）；写死 Go 档会让手机端直接 Model unavailable。
-// Go 档只用于 **DSH 子代理 + 本机 memx 提炼**（本机免费档会被网关 403/429）。
-// ⚠️ 本文件是单一事实源；ChatPanelZ.tsx 里还有一处历史遗留的同名常量，两处必须一起改。
+// #74（2026-10-11 护栏降级）：免费档网关对请求工具列表的指纹校验波动收紧 → companion
+// permissions 白名单撤除（改软护栏 = system prompt + 客户端写死），model 定为与 chatcode
+// 同款 mimo（过网关确定性）。#75/#76 起 **CHAT_MODEL 只在本文件定义**（ChatPanelZ.tsx 的
+// 历史本地副本已删）——改它只需改这里 + 全仓 grep 确认。
+// 2026-10-12 用户拍板（二次）：**保持 `opencode/mimo-v2.6-flash-free`**——App 唯一的真实目标
+// 是生产 opencode，而生产的模型目录里没有 `opencode-go`（见 OPERATIONS 上线窗口预检）；
+// 写死 Go 档会让手机端直接 Model unavailable。Go 档只用于 **DSH 子代理 + 本机 memx 提炼**
+// （本机免费档被网关 403/429 挡）。
 export const CHAT_AGENT_ID = "companion";
 export const CHAT_MODEL = { providerID: "opencode", modelID: "mimo-v2.6-flash-free" } as const;
 
