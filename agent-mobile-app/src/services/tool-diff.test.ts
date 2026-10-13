@@ -91,6 +91,54 @@ describe("parseDiff", () => {
   });
 });
 
+describe("extractDiffText · v2 约定（metadata.files[].patch，2026-10-13 真机实测）", () => {
+  const V2_PATCH = `Index: /root/x.ts
+========================================
+--- /root/x.ts
++++ /root/x.ts
+@@ -1,3 +1,3 @@
+-const a = 1
++const a = 2
+ const b = 3
+`;
+
+  it("单文件 patch：从 metadata.files[0].patch 取出", () => {
+    expect(
+      extractDiffText({ tool: "edit", metadata: { files: [{ file: "/root/x.ts", patch: V2_PATCH }] } })
+    ).toBe(V2_PATCH);
+  });
+
+  it("多文件 patch 逐条拼接（多文件编辑一次调用）", () => {
+    const second = V2_PATCH.replace(/x\.ts/g, "y.ts");
+    const out = extractDiffText({
+      tool: "edit",
+      metadata: { files: [{ file: "/root/x.ts", patch: V2_PATCH }, { file: "/root/y.ts", patch: second }] },
+    });
+    expect(out).toContain("/root/x.ts");
+    expect(out).toContain("/root/y.ts");
+  });
+
+  it("files 里 patch 全空 / metadata 无 files 时返回 undefined", () => {
+    expect(extractDiffText({ tool: "edit", metadata: { files: [{ file: "/root/x.ts", patch: "" }] } })).toBeUndefined();
+    expect(extractDiffText({ tool: "edit", metadata: { files: [] } })).toBeUndefined();
+    expect(extractDiffText({ tool: "write", metadata: { truncated: false } })).toBeUndefined();
+  });
+
+  it("v1 的 metadata.diff 优先级高于 files[].patch", () => {
+    expect(
+      extractDiffText({ tool: "edit", metadata: { diff: SAMPLE_DIFF, files: [{ file: "a", patch: V2_PATCH }] } })
+    ).toBe(SAMPLE_DIFF);
+  });
+
+  it("parseDiff 能吃 v2 的 Index:/=== 头（file 与增删统计正确）", () => {
+    const parsed = parseDiff(V2_PATCH);
+    expect(parsed).not.toBeNull();
+    expect(parsed!.file).toBe("/root/x.ts");
+    expect(parsed!.additions).toBe(1);
+    expect(parsed!.deletions).toBe(1);
+  });
+});
+
 describe("langFromPath", () => {
   it("从扩展名取语言徽章值", () => {
     expect(langFromPath("/root/x/src/login.tsx")).toBe("tsx");

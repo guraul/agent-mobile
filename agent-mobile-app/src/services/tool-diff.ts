@@ -30,7 +30,9 @@ export function looksLikeDiff(text: string): boolean {
 
 /**
  * 从工具 part 字段提取 diff 原文。
- * 优先级：metadata.diff（opencode edit/write 的约定字段）→ output 本身像 diff。
+ * 优先级：metadata.diff（v1 约定字段）→ metadata.files[].patch（**v2 约定，2026-10-13
+ * 真机实测**：edit/write 的 patch 在 per-file 数组里，格式 `Index: <path>` + `===…` +
+ * `---/+++` + `@@` 头——`parseDiff` 已能吃这个格式）→ output 本身像 diff。
  */
 export function extractDiffText(part: {
   tool?: string;
@@ -38,8 +40,16 @@ export function extractDiffText(part: {
   metadata?: unknown;
 }): string | undefined {
   if (part.metadata && typeof part.metadata === "object") {
-    const diff = (part.metadata as { diff?: unknown }).diff;
-    if (typeof diff === "string" && diff.trim()) return diff;
+    const meta = part.metadata as { diff?: unknown; files?: unknown };
+    if (typeof meta.diff === "string" && meta.diff.trim()) return meta.diff;
+    // v2：{ files: [{ file, patch }] }（多文件编辑逐条 patch，拼起来过 parseDiff）
+    const files = meta.files;
+    if (Array.isArray(files)) {
+      const patches = files
+        .map((f) => (f && typeof f === "object" ? (f as { patch?: unknown }).patch : undefined))
+        .filter((p): p is string => typeof p === "string" && p.trim().length > 0);
+      if (patches.length > 0) return patches.join("\n");
+    }
   }
   if (typeof part.output === "string" && looksLikeDiff(part.output)) return part.output;
   return undefined;

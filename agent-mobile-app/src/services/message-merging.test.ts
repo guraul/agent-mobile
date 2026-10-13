@@ -146,6 +146,65 @@ describe("groupToolSteps（#32 工具折叠组）", () => {
   });
 });
 
+describe("v2 工具结果（#83：state.content → output / diffText）", () => {
+  it("v2 形状：state.content 的文本进 tool.output（输出面板不再恒空）", () => {
+    const out = mergeMessages([
+      msg("a1", "assistant", [
+        {
+          type: "tool",
+          tool: "read",
+          input: { filePath: "/root/x.ts" },
+          state: { status: "completed", content: [{ type: "text", text: "line1\nline2" }] },
+          id: "p1",
+        },
+      ]),
+    ]);
+    expect(out[0]).toMatchObject({ kind: "tool", tool: "read", output: "line1\nline2" });
+  });
+
+  it("v1 形状：state.output 是字符串时仍然直接用", () => {
+    const out = mergeMessages([
+      msg("a1", "assistant", [
+        { type: "tool", tool: "bash", state: { status: "completed", output: "total 0" }, id: "p1" },
+      ]),
+    ]);
+    expect(out[0]).toMatchObject({ kind: "tool", output: "total 0" });
+  });
+
+  it("v2 edit：diff 在 metadata.files[0].patch → diffText 被提取出来", () => {
+    const patch = "Index: /root/x.ts\n========================================\n--- /root/x.ts\n+++ /root/x.ts\n@@ -1,2 +1,2 @@\n-a\n+b\n const c = 3\n";
+    const out = mergeMessages([
+      msg("a1", "assistant", [
+        {
+          type: "tool",
+          tool: "edit",
+          input: { filePath: "/root/x.ts" },
+          state: {
+            status: "completed",
+            content: [{ type: "text", text: "Edited /root/x.ts (1 replacement)" }],
+            metadata: { files: [{ file: "/root/x.ts", patch }] },
+          },
+          id: "p1",
+        },
+      ]),
+    ]);
+    expect(out[0]).toMatchObject({ kind: "tool", tool: "edit", output: "Edited /root/x.ts (1 replacement)" });
+    expect((out[0] as { diffText?: string }).diffText).toContain("@@ -1,2 +1,2 @@");
+  });
+
+  it("toolGroup 里的工具步也带 output（分组只是呈现折叠）", () => {
+    const steps = mergeMessages([
+      msg("a1", "assistant", [
+        { type: "tool", tool: "read", state: { status: "completed", content: [{ type: "text", text: "a" }] }, id: "p1" },
+        { type: "tool", tool: "bash", state: { status: "completed", content: [{ type: "text", text: "b" }] }, id: "p2" },
+      ]),
+    ]);
+    const grouped = groupToolSteps(steps);
+    const g = grouped[0] as Extract<typeof grouped[number], { kind: "toolGroup" }>;
+    expect(g.tools.map((t) => t.output)).toEqual(["a", "b"]);
+  });
+});
+
 describe("memory_write 回执 chip（出口① #82 §B）", () => {
   /** v2 真机形状：工具结果在 state.content[]，没有 state.output（2026-10-12 实测） */
   const writePart = (output?: string, id = "p1") => ({
