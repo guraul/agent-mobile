@@ -44,7 +44,7 @@ import { DEFAULT_MODEL, selectModels } from "../../../services/model-registry";
 import { buildAttentionContext } from "../../../services/attention/context";
 import { handleAttention } from "../../../services/attention/client";
 import { parseAssignmentCommand, executeAssignmentCommand } from "../../../services/assignment/client";
-import { appendReceipt, makeReceiptStep } from "../../../services/command-receipt";
+import { appendReceipt, makeReceiptStep, commandFailureStep } from "../../../services/command-receipt";
 import {
   dequeueFirst,
   enqueueMessage,
@@ -743,7 +743,10 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
         const feedback = await executeAssignmentCommand(assignmentCommand, sessionID);
         pushReceipt(feedback);
       } catch (e) {
-        showAlert("命令失败", e instanceof Error ? e.message : String(e));
+        // #65-2：失败也进消息流留痕（与成功回执同一通道）；只有离线/鉴权必须打断 → 仍弹窗
+        const failure = commandFailureStep(e);
+        if (failure.kind === "alert") showAlert(failure.title, failure.body);
+        else setLocalSteps((prev) => appendReceipt(prev, failure));
       } finally {
         setSending(false);
       }
