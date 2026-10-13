@@ -54,14 +54,21 @@
 11. **DSH 控制 opencode 做事；能用 opencode 就走 opencode（2026-10-10 用户拍板）**：**DSH = 控制面**（编排 / 决策 / 审阅 / 验收），**opencode = 执行面**（改代码 / 跑测试 / 探查 / 实现）。凡属可委派的执行类工作，**优先委派给 opencode 子代理（product 子代理角色库）**，而不是主模型亲自上手，也不走其他 product CLI（claude-code / codex / acp）。DSH 的四个子代理角色（`code-review` / `debug` / `explore` / `general`）**已全部 pin 到 opencode**（用户 2026-10-10 配置并实测可调用）——委派时**无需再逐次指定 provider**。
     - **作用域边界（防歧义）**：本规则适用于**实现 / 执行阶段**。**产品决策讨论、拍板记录、交底书（BRIEF）与知识库落档，仍由 DSH 主模型直接做**——这类工作依赖当前对话上下文，且 subagent 看不到主会话，外包会导致决策链断裂（本仓 `docs/pipeline/CHAT_COMPANION_BRIEF.md` 的逐单元落档即为典型）。
     - **只读小探针**（单条 `grep` / `cat` / `sqlite -readonly` 即可答）由主模型直接跑更快，不算违规。
-    - **子代理模型（用户 2026-10-12 指定，取代原"免费档回退链"）**：**唯一档 `opencode-go/longcat-2.5-preview-free`**（本机实测可用，走 Go 端点；免费档 `opencode/*-free` 已被网关指纹校验 403 / 限流 429 反复打挂）。
-      **它出任何问题（429 / 403 / 报错 / 无响应）都不降级、不换模型**：停下并告知用户（与规则 13 同源；用户 2026-10-12 明确要求"不要降级不要换模型，通知我"）。原回退链 `space-bunny-free` → `mimo-v2.6-flash-free` → `step-5-preview-free` **仅作历史**。
+    - **子代理模型（用户 2026-10-13 修正 2026-10-12 的"永久禁用 free 档"表述）**：**首选档 `opencode-go/longcat-2.5-preview-free`**（本机实测可用，走 Go 端点）→ **每次委派都要显式传 `model`**（角色库不 pin 模型）。
+      **回退链（free 档，仍然可用）**：`space-bunny-free` → `mimo-v2.6-flash-free` → `step-5-preview-free` —— 首选档遇 **429 / 限流 / 偶发不通**时按序尝试；**单档不通换下一档，只有全链都不可用才警告并停下**（与规则 13 同源）。
+      ⚠️ 澄清（用户 2026-10-13）：free 档**不是永久禁用** —— 多数时间可用，只是用的人多、偶发 429；此前 2026-10-12 写成「已被网关打挂 / 仅作历史 / 一律不降级（通知我）」**表述过严，以本条为准**。
+      **非限流故障**（403 鉴权/地区、模型不存在、报错、无响应）→ 规则 13：停下报告，不改配置。
+      **小模型**（`small_model` / `agents.title.model`，标题生成这类轻量旁路）→ 用户 2026-10-13 拍板：**可用 `opencode/mimo-v2.6-flash-free`**（旁路失败只影响标题；opencode 源码 `session/title.ts` 会自动回落到会话主模型）。
     - **并发纪律**：**大任务只起一个子代理去做**（不要拆成多个并行）；任务执行**不得由主模型自己做**——**验证可以自己做**。
     - ⚠️ **执行类工作一律委派（用户 2026-10-13 二次明确：不止 pipeline，也不止"改代码"）**：**改代码 / 跑门禁（tsc、vitest）/ 建 worktree / 提交 / push / 开 PR / `merge-pr.sh` / 生产脚本执行 / gh 与 git 远端操作**——不论仓库（agent-mobile、memx、homebase）与任务大小，全部委派给 opencode 子代理。**"小改动"不构成自做的理由**（改个默认值 + 同步文档 + 改测试断言这类多文件编辑同样属执行类）。
       - 主模型（控制面）只做：**产品决策与拍板**、**审阅 diff**、**"用户 review 完成"的确认（人在环）**、**验收**、**交底书 / 知识库 / 规则文件落档**、**单条只读探针**。
       - `merge-pr.sh` 的命令执行可委派，但**合并前必须由控制面拿到用户确认**再发（手册 §一 review 约定）。
-12. **子代理模型 = 规则 11 的唯一档 `opencode-go/longcat-2.5-preview-free`**（2026-10-12 用户指定，取代原免费档回退链）。⚠️ **角色库不 pin 模型**（`product_roles` 已核实：四角色只有 `provider: "opencode"`，**无 model 字段**；`~/.dsh/product-subagents-registry.json` 也查不到模型）→ **每次委派都要显式传 `model: "opencode-go/longcat-2.5-preview-free"`**，不能指望"已 pin 自动生效"（传参形式与 `prompt_async` 的逐条 model 一致）。**遇 429 也不降级、不换模型**（原三档回退链仅作历史）。作用域 = **DSH 子代理委派**。⚠️ **App/companion 运行时模型保持 `opencode/mimo-v2.6-flash-free`**（2026-10-12 二次拍板）：App 的唯一真实目标是生产 opencode，而**生产的模型目录里没有 `opencode-go`**（见 OPERATIONS 上线窗口预检）——写死 Go 档会让手机端直接 `Model unavailable`。Go 档只用于 **DSH 子代理 + 本机 memx 提炼**（本机免费档被网关 403/429 挡）。
-13. **子代理模型因"非限流"原因不可用时：报告，不降级（用户硬约束）**：若模型（回退链任一档）**不可用**（不存在 / 鉴权失败 / 报错 / 无响应），**立即停下并告知用户**，**严禁自行降级、替换模型、改配置、切 provider，或用其他方式绕道兜底**（含"先用别的模型顶一下"）。与第 10 条 vision-reader 的"不得自行降级重试"同源；**宁可失败并如实报告，不可静默降质**。
+12. **子代理模型 = 首选 `opencode-go/longcat-2.5-preview-free` + free 档回退链**（用户 2026-10-13 修正 2026-10-12 的"遇 429 也不降级"）。⚠️ **角色库不 pin 模型**（`product_roles` 已核实：四角色只有 `provider: "opencode"`，**无 model 字段**；`~/.dsh/product-subagents-registry.json` 也查不到模型）→ **每次委派都要显式传 `model: "opencode-go/longcat-2.5-preview-free"`**，不能指望"已 pin 自动生效"（传参形式与 `prompt_async` 的逐条 model 一致）。
+   - **429 / 限流 / 偶发不通** → 按序回退 `space-bunny-free` → `mimo-v2.6-flash-free` → `step-5-preview-free`；**全链都不可用才警告并停下**，不挑链外模型、不改配置、不静默降质。
+   - **非限流故障**（403 鉴权/地区、模型不存在、报错、无响应）→ 规则 13：**停下报告，不降级**。
+   - 作用域 = **DSH 子代理委派**。
+   - ⚠️ **App/companion 运行时模型保持 `opencode/mimo-v2.6-flash-free`**（2026-10-12 二次拍板；本条与回退链约定无关、继续有效）：App 的唯一真实目标是生产 opencode，而**生产的模型目录里没有 `opencode-go`**（见 OPERATIONS 上线窗口预检）——写死 Go 档会让手机端直接 `Model unavailable`。Go 档仍只用于 **DSH 子代理 + 本机 memx 提炼**（首选档；free 档偶发 429 按上面的回退链处理）。
+13. **子代理模型因"非限流"原因不可用时：报告，不降级（用户硬约束）**：若模型（回退链任一档）**不可用**（不存在 / 鉴权失败 / 报错 / 无响应；**⚠️ 限流 / 429 / 偶发不通不在此列** —— 那属于规则 12 的回退链场景，按链逐档尝试），**立即停下并告知用户**，**严禁自行降级、替换模型、改配置、切 provider，或用其他方式绕道兜底**（含"先用别的模型顶一下"）。与第 10 条 vision-reader 的"不得自行降级重试"同源；**宁可失败并如实报告，不可静默降质**。
 14. **包管理器只用 pnpm（2026-10-11 用户偏好，全局约定）**：**禁止 npm / yarn / bun**。装依赖用 `pnpm add` / `pnpm remove`；跑脚本用 `pnpm <script>` / `pnpm exec <bin>`；临时二进制用 `pnpm dlx`，**不用 `npx`**。与规则 1 呼应——装依赖统一走 `npx expo install` 的场景改为 `pnpm exec expo install`（等价且不引 npm）。不提交 `package-lock.json` / `yarn.lock`，只保留 `pnpm-lock.yaml`。全局版本见 `~/.config/opencode/AGENTS.md`（对所有项目生效）。
 
 ## BROWSER AUTOMATION (Playwright)
