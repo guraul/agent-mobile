@@ -277,7 +277,9 @@ cat ~/.opencode/USER.md
 | 生产 companion model | `opencode/mimo-v2.6-flash-free` | **保持不动**（用户 2026-10-12 二次拍板） |
 | 生产 companion prompt | v0.1（无 memory_write 条款） | 应用 v0.2（`COMPANION_PROMPT_V0.md`） |
 | 生产 `instructions` | 已摘除（无记忆注入） | 窗口时决定是否恢复注入（memx `inject` 配置） |
-| 生产 `opencode` 命令指向 | ⚠️ `/usr/bin/opencode` = **v1.19.0**（npm 全局残留）；v2 在 `/root/.opencode/bin/opencode`（`opencode2` 是同目录包装），**不在 PATH** → 直接敲 `opencode` 会用 v1 去读 v2 配置，报 `V2 permissions are not supported by OpenCode V1 … or run opencode2`（**配置本身没错**） | 给 `/root/.bashrc` 加 `export PATH="/root/.opencode/bin:$PATH"`（最小、可逆）。**别直接删 npm v1**——先扫依赖（历史 systemd 曾指向它）；systemd `opencode-4096` 现在用的是 v2 路径 ✓ |
+| 生产 `opencode` 命令指向 | ⚠️ `/usr/bin/opencode` → `../lib/node_modules/opencode-ai/bin/opencode.exe` = **v1.19.0**；v2 在 `/root/.opencode/bin/opencode`（`opencode2` 是同目录包装），**不在 PATH** → 直接敲 `opencode` 会用 v1 去读 v2 配置，报 `V2 permissions are not supported by OpenCode V1 … or run opencode2`（**配置本身没错**） | 推荐 `ln -sf /root/.opencode/bin/opencode /usr/bin/opencode`（先把旧 symlink 备份成 `.bak-v1`）——一行同时修好交互 shell 与微信桥的 `which opencode`。**别 `npm rm -g opencode-ai`**：它是现成的 v1 CLI 备用，真回滚物料是 `/root/backups/opencode-ai-1.18.34-installed.tgz` |
+| 生产 v1 为什么还在（2026-10-11 E1 时间线） | 升级本身**已完成**（唯一 systemd 单元 `opencode-4096` 与唯一 opencode 进程都是 v2）——`/usr/bin/opencode` 的 v1.19.0 是 E1 当天 **10:33 的"npm 线是否已发 v2"探针**（npm 全局装 latest 确认仍是 v1 线，`OPERATIONS` v2 装机节有记录），10:55 才走官方脚本装 v2；探针包没人清 + v2 目录没进 PATH = 今天这个坑 | 窗口里一并处理（见上一行） |
+| ⚠️ 微信桥会踩 v1（连带故障） | `/root/project/wechat-opencode-bridge/dist/opencode.js` 用 `which opencode` **动态解析**二进制 → 拿到 `/usr/bin/opencode`(v1)；且它的存活判据是 `GET <url>/api/health`，**v2 该端点返回 401**（要 Basic 鉴权）→ 判为"异常状态码，尝试重启" → 一旦桥启动就会 spawn v1（v1 读 v2 配置直接起不来）。桥当前**没在跑**（无进程/无 systemd 单元） | ① 修 symlink（上一行）让 `which opencode` = v2；② **桥自身还有 bug**：应把 401 视为"已在运行"或带 Basic 头再探测——需改 wechat-opencode-bridge 代码（独立仓库/目录，不在本仓范围） |
 | 生产 memx 提炼模型 | 未装 memx；仓库默认 = `opencode/mimo-v2.6-flash-free`（生产目标） | 装完 memx 后**无需**覆盖；若将来生产支持 Go 档再考虑 |
 
 
