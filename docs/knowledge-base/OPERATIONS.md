@@ -316,7 +316,62 @@ cat ~/.opencode/USER.md
 - **所有权规则缺失**：协议只约束「不要重复上报」，没约束「不要改 AGENTS.md」。实测模型会把
   偏好直接写进全局 `~/.config/opencode/AGENTS.md`（2026-10-12 e2e 副作用，已回滚）。在补上
   该约束前，system 前缀存在被模型自行改掉的风险。
-- 生产上线窗口未开；生产 config 无 plugins 键，也无 instructions（当前即"无记忆注入"状态）。
+- 生产 memx 本体：✅ 已装并加载（2026-10-13 窗口，见上表）。仍未做的两件：① 生产是否恢复记忆注入（生产 config 目前无 `instructions` 键，当前即"无记忆注入"状态）；② `memory_write` 回执 chip 的**生产真机**验证（#86）。③ 多机云同步 A4（#87 第二半）已于 2026-10-14 上线，见下节。
+
+### 多机云同步（A4 / #87 第二半）
+
+**定位**：memx 的 `USER.md` / `MEMORY.md` / `projects/<slug>/.mem/*.md` 通过私有仓 `guraul/memx-sync` 在多机间镜像。
+**默认关**（`sync.enabled=false`；`machineName` 为空同样不启动），开启要改 `~/.opencode/memx.config.json` **并重启宿主**。
+**推触发点** = 提炼写盘成功后 + `memory_write` 工具成功后（`void sync.push()`，异步、不阻塞写盘）；**拉** = 启动时一次 + 每 `intervalMinutes`（默认 30）。
+
+| 机器 | machineName | 状态 |
+|---|---|---|
+| mbp（`/Users/gubin/workspace/memx`） | `mbp` | 2026-10-13 开；首推 `6414494`；**自动推拉实测有效**（一天内十余个 `memx@mbp` 提交） |
+| prod（`/root/project/memx`） | `prod` | 2026-10-14 开，同窗口把 `refinementModel` 从 `opencode/mimo-v2.5-free` 换成 **`opencode/mimo-v2.6-flash-free`**；首推 `memx@prod` 补上 9 个 `projects/root-project*/.mem/*.md` |
+
+**关键机制**（全在 memx `src/core/sync.ts`，零宿主依赖）
+
+- 工作目录 `~/.opencode/memx-sync-repo/`（缓存镜像，不存在则 clone）；`remoteUrl()` 支持 `owner/name`→GitHub SSH，也支持完整 URL / 绝对路径
+- **PII 闸门先于任何 git 动作**：8 类规则扫全部待推文件，命中即拒推 + `SYNC_PII_BLOCKED` critical，只报 行号 + 规则名
+- **push 非快进** → fetch + rebase + 重试一次；**pull 冲突** → `rebase --abort` + `SYNC_CONFLICT` critical，绝不强解
+- **串行闸门** `~/.opencode/.memx-sync.lock`：插件是每进程一实例、同一实例两次快速写盘也会并发 `void sync.push()`，进程内与跨进程都靠这把文件锁
+- **pull 是远端优先**：覆盖前若本地内容不同，先存 `<file>.bak.<ts>`（每文件留 5 份）；`SYNC_ERROR` 去重，避免离线机器把 200 条账本刷满
+- **commit 身份**：workdir 没配 git 身份（prod 就是）时用 `-c user.name=memx-sync -c user.email=memx@localhost` 现造
+- **不做**：删除传播、逐行合并（两机同改靠 git rebase，冲突即 abort 留人工）、pull 与写盘互斥（`.bak` 兜底）
+
+**操作命令**
+
+```bash
+pnpm run doctor                                      # 只读面板（⚠️ 别用 pnpm doctor：pnpm 有同名内建命令，会跑成 pnpm 自检）
+pnpm sync:dry-run -- --fetch                         # 首合并预演：对齐远端后逐文件报双向行数 + PII（永不 push）
+pnpm sync:op -- status|pull|push [--machine=<name>]  # 手工同步，与插件同一条代码路径（status 纯只读）
+```
+
+`--machine=<name>` 显式覆盖 `{enabled:true, machineName:<name>}` 且**不改配置文件** —— "同步还没开、但要人工跑一次首推/首拉"走这条路（prod 首次合并即此路）。
+
+**2026-10-14 prod 首次合并（人工评审后执行）**：远端 `USER.md` 与 prod 本地是两代画像（mbp 是 10 月新版，prod 停在 8 月版），`MEMORY.md` 两侧小节完全不相交。合并策略 = **并集 + 语义去重**：保留 prod 独有的、仍成立的条目，去掉语义重复与自我弃用行，已过期的一条（`Playwright 复用 snap chromium`，与 `root-project` 项目记忆冲突）标 `deprecated` 而非删除。提案 + 逐字 diff 在 `test/memx-sync-merge/`（已 gitignore）。
+**执行顺序上踩过一个坑，值得记**：**必须先把文件集补齐，再装并集索引** —— 索引一旦指向别机还没同步过来的 `.mem` 文件就是死链，`runHealthMaintenance` 会按每轮 3 条把条目摘掉（实测：mbp 先推了并集索引，索引里 prod 的 9 条一度全是死链）。正确顺序 = prod 先 pull（拿到 mbp 文件）→ prod push（补上自己的 9 个文件）→ mbp pull。最终：远端 `projects/root-project*` = 9 个文件、mbp/prod 双侧死链 0、**三方 sha256 完全一致**（USER `7a8eac87…`、MEMORY `83723bc6…`）。
+
+**运营坑（都实测过）**
+
+- `pnpm doctor` 会被 pnpm 内建命令吃掉 → 一律 `pnpm run doctor`（memx 已加 `tests/scripts-smoke.test.ts` 防此类脚本加载回归）
+- 插件**按 run 惰性加载**：重启宿主后 journal 里不一定立刻有 `loading plugin memx.ts`；判断是否生效要看行为（state 是否推进 / diag kv 是否更新），别只看日志
+- alert store **只进不出**：一条历史 warn/critical 会让 `MEMORY.md` 顶部面包屑长期存在（prod 有一条 2026-10-13 的 `REFINEMENT_FAILURE_STREAK`，E4 窗口前的 json-parse EOF，非本轮引入）
+- `SYNC_ERROR` 在 git stderr 为空时只报「未知」（mbp 2026-10-14T08:24Z 有一条），排障时信息不足
+
+**⚠️ prod 上有两个 opencode 进程，验证时必须认准（2026-10-14 实测踩坑）**
+
+| 进程 | 启动 | HOME | 端口 | 谁在用 |
+|---|---|---|---|---|
+| `/root/.opencode/bin/opencode serve --port 4096 …`（**systemd `opencode-4096.service`**） | 随服务重启 | **未设**（unit 里没有 `Environment=HOME=`） | 127.0.0.1:4096 | **BFF / App companion 走这个** |
+| `opencode serve --service`（pid 1991381，2026-10-12 起就在跑） | 长期不重启 | `/root` | 127.0.0.1:49374 | 当前**无任何连接**；但 `opencode run` 默认连它 |
+
+- **`opencode run` 默认连"后台 service"守护进程**，不是 4096。要验证 app 路径上的插件行为，必须显式指定：
+  `OPENCODE_PASSWORD=<unit 里的值> opencode run --server http://127.0.0.1:4096 --model opencode/mimo-v2.6-flash-free "…"`
+  （`opencode run --help` 里有 `--server` / `--standalone`；不加就是连后台 service。）
+- 踩坑实测：在 prod 上直接 `opencode run` 验证，拿到的是那个**常驻旧实例**的 diag —— `sync:{enabled:false}`、`lastPullAt` 不推进，看起来像"插件没生效"；改走 `--server …:4096` 后同一次验证立刻显示 `sync:{enabled:true, machineName:"prod"}` 且 `lastPullAt` 推进（插件实例是按目录/进程懒加载的，旧进程里的实例读的是**旧配置**）。
+- `HOME` 未设**没有**影响 memx（Bun/Node 的 `homedir()` 回落到 `getpwuid` → `/root`；证据：注入字节数 11280 = `/root/.opencode` 下 协议 4362 + USER 1865 + MEMORY 5053 之和），但属潜在隐患 —— 建议给 unit 补 `Environment=HOME=/root`（需窗口 + 重启）。
+- 那个常驻 `--service` 进程当前是**惰性**的；但任何经它跑的会话，其记忆**不会同步**（它的插件实例是旧配置）。来源疑似微信桥的重复拉起（`guraul/wechat-opencode-bridge#1`：把 v2 的 `/api/health` 401 当成"没在跑"）。
 
 ## DSH 接入 OpenCode Go（订阅模型，`opencode-go` provider）
 
