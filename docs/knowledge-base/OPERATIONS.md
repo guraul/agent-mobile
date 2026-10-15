@@ -359,6 +359,8 @@ pnpm sync:op -- status|pull|push [--machine=<name>]  # 手工同步，与插件�
 - alert store **只进不出**：一条历史 warn/critical 会让 `MEMORY.md` 顶部面包屑长期存在（prod 有一条 2026-10-13 的 `REFINEMENT_FAILURE_STREAK`，E4 窗口前的 json-parse EOF，非本轮引入）
 - `SYNC_ERROR` 在 git stderr 为空时只报「未知」（mbp 2026-10-14T08:24Z 有一条），排障时信息不足
 - **USER.md（Track 1）去重已修（memx `48f21f6`，2026-10-15）**：`append` 原本零重复检查 → 实测同批重复落 N 行、跨轮重复变两条、`deprecate(旧)+append(同文本)` 留下"划掉旧行 + 逐字相同新行"并存、历史重复永不清理（10-13 长出 4 条、10-14 又长 2 条；重复条目还会被注入回模型形成正反馈）。现在：`append` 前用 `normalizeAnchor` 查**全 doc** 有无同文 active（同批顺序应用 → 批内重复自动被挡）+ 落盘前 `dedupeUserMd` **两遍扫描**自愈（删同文 deprecated 行、合并归一后同文的 active，留位置最早那条、日期取组内最新）。Track 2（MEMORY.md 索引）早有同类守卫（`append 已存在，未重复登记`），Track 1 是漏了。自愈命中写 `diag.lastWarnings`（`memx_status` 可见）；注意**纯空批次不落盘**（三态设计），所以历史重复要等下一次真实写入才被清掉
+- **alert 生命周期（memx `4796179`，2026-10-15）**：`AlertStore` 有了出口——① `resolve(code)` 销指定 code；② `maxAgeDays`（默认 7）在 load 时剪掉过期事件（`ts` 不可解析的保留）；③ **成功即销账**：`sync.push()`/`sync.pull()` 成功（含 no-change）即销 `SYNC_ERROR` / `SYNC_PUSH_FAILED`，而 `SYNC_PII_BLOCKED` / `SYNC_CONFLICT` **不自动销**（需人工处置）。手工出口 `pnpm alerts:clear [--code=X] [--dry-run]`（只清账本、不碰记忆文件）。含义：MEMORY.md 顶部那条 `<!-- memx:` 面包屑现在会**自己消失**（计数归零后的下一次索引写盘移除）；实测 mbp 的 `memx-alerts.json` 已被自动销成 `[]`
+- **`SYNC_ERROR` 不再报「未知」（memx `4796179`）**：`GitRunner.exec` 回传 `reason`（spawnSync 的 error.message / signal / status），失败文案是 `stderr || reason || "无输出"`
 - **生产 memx 代码基线**：2026-10-15 = `48f21f6`（含上面的去重修复）。`git pull --ff-only` + `systemctl restart opencode-4096` 后生效（PID 3554127→4041671；重启前后 USER/MEMORY sha256 未变、`.bak` 数未增）。生产版本不在本地仓库记录，跨会话以这条为基线
 
 **⚠️ prod 上有两个 opencode 进程，验证时必须认准（2026-10-14 实测踩坑）**
