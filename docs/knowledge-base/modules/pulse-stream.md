@@ -42,6 +42,7 @@ root（cream #F7F5DC 画布，页面水平 padding 25）
 
 - **presence 映射不变**：opencode/bff 离线 → offline；openAttentions.length > 0 → needs-you；否则 attentive。
 - **attention 详情**（`/attention/[id]`，pulseB-review 基准）：Related responsibility 卡（resp-body + ACTIVE pill）→ Evidence 卡（ev-row 灰底行：type·attempt·time + error）→ 页脚注 "Viewing never changes state."；底部**紫渐变 dock**（Open Talk，路由 D8）+ 弱化 Dismiss/Retry 压 pill 左侧（D9：Dismiss Alert 二次确认）；**主卡已删**（与 Featured 重复）。
+  - **凭据到期事项动作（#96，ref agent-mobile#91）**：`subjectKind === "credential"`（域 `personal`、`sessionId=null`）的事项，dock 主按钮换成「重发二维码」（testID `attention-renew`）→ `POST /api/product/attention/:id/renew`（**依赖 homebase 片 1**）→ 成功：本地视为已关闭 + 一行反馈 `attention-renew-notice`（"已发送二维码到企业微信…10 分钟未扫会再提醒你"），按钮转 "已重发" 不可重复点；失败：错误行 + 按钮保持可点（不静默）。**Open Talk 对这类事项隐藏**（sessionId=null 且非 market 会走 `services/attention/talk.ts` 抛「该事项的会话已不可用」）。判据纯函数在 `services/attention/store.ts`：`isCredentialItem` / `attentionActionFlags`（普通事项行为不变）。
 - **动效**：AnimatedEntry stagger 保留（Reduce Motion 兼容）；呼吸点 reanimated withRepeat（Reduce Motion 兼容）。
 - **预算为硬约束**：Featured ≤1 / Supporting ≤4 / Noticed ≤5。
 - **动作语义红线不变**：查看 ≠ 授权；Confirm/Reject 是 suggestion 唯一推进路径；破坏性动作（Dismiss）弱化 + 二次确认（D9）。

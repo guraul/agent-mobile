@@ -5,10 +5,11 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, RefreshCw } from "lucide-react-native";
 import { iconStroke } from "@/theme";
 import { loadToken } from "@/services/auth";
-import { fetchAttentionDetail, dismissAttention, type AttentionDetail } from "@/services/attention/client";
+import { fetchAttentionDetail, dismissAttention, renewAttention, type AttentionDetail } from "@/services/attention/client";
 import { repairAssignment } from "@/services/assignment/client";
 import { formatRelative } from "@/services/assignment/projection";
 import { resolveAttentionConversation } from "@/services/attention/talk";
+import { attentionActionFlags } from "@/services/attention/store";
 import { classifyRuntimeFailure, runtimeFailureMessage } from "@/services/runtime-presence";
 import { LightDock, LightStatusPill, LightTextAction } from "@/components/pulse/LightAtoms";
 import { lightColors, lightTypography, lightRadius, lightSpacing } from "@/theme/light";
@@ -20,6 +21,9 @@ import { showAlert } from "../../services/alert";
 // 主卡已删（2026-09-27 设计定稿：title/summary/meta 与首页 Featured 重复）。
 // Viewing ≠ Handling：打开本页不改 state；Open Talk 不自动 handle。
 // Retry（repair 场景）保留，弱化态置于 dock 左侧 Dismiss 旁。
+// #96（ref agent-mobile#91）：凭据到期事项（subjectKind=credential）动作区换成
+// 「重发二维码」（dock 主按钮），并隐藏 Open Talk（该事项 sessionId=null，Open Talk
+// 必然抛「该事项的会话已不可用」）；成功后本地视为已关闭 + 一行反馈。
 
 export default function AttentionDetailScreen() {
   const router = useRouter();
@@ -27,7 +31,9 @@ export default function AttentionDetailScreen() {
   const [detail, setDetail] = useState<AttentionDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState<"retry" | "dismiss" | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [renewed, setRenewed] = useState(false);
+  const [busy, setBusy] = useState<"retry" | "dismiss" | "renew" | null>(null);
 
   const reload = useCallback(async () => {
     if (!id) return;
@@ -47,6 +53,8 @@ export default function AttentionDetailScreen() {
 
   const att = detail?.attention;
   const isRepair = att?.provenance?.repairRequest === true;
+  // 动作可见性（纯函数判据，见 services/attention/store.ts）
+  const actions = att ? attentionActionFlags(att) : { renew: false, openTalk: true };
 
   const doRetry = async () => {
     const asgId = detail?.relatedAssignment?.id;
@@ -56,6 +64,24 @@ export default function AttentionDetailScreen() {
       const r = await repairAssignment(asgId);
       if (r.failed) setError(`Retry failed (attempt ${r.attempt}): ${r.error}`);
       await reload();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  // #96：凭据到期 → 重发二维码（服务端关闭当前 Attention + 推二维码到企业微信）。
+  // 失败不静默：错误行 + 按钮保持可点（可重试）。
+  const doRenew = async () => {
+    if (!att) return;
+    setBusy("renew");
+    setError(null);
+    setNotice(null);
+    try {
+      await renewAttention(att.id);
+      setRenewed(true); // 本地视为已关闭（权威关闭由 BFF 完成，10 分钟未扫会新建一张）
+      setNotice("已发送二维码到企业微信，请扫码续期；10 分钟未扫会再提醒你");
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -182,17 +208,21 @@ export default function AttentionDetailScreen() {
 
             {/* 页脚注：只读语义（mock .note） */}
             <Text style={s.note}>Viewing never changes state.</Text>
+
+            {/* #96：重发二维码成功 → 一行反馈 */}
+            {notice ? <Text style={s.notice} testID="attention-renew-notice">{notice}</Text> : null}
           </>
         ) : null}
       </ScrollView>
 
-      {/* 紫渐变 dock：整颗 → Open Talk；Dismiss/Retry 弱化态压左侧（D9） */}
+      {/* 紫渐变 dock：整颗 → Open Talk；Dismiss/Retry 弱化态压左侧（D9）。
+          #96：凭据到期事项主按钮换「重发二维码」，Open Talk 隐藏（判据见 store.ts）。 */}
       <View style={s.dock}>
         <LightDock
-          label="Open Talk"
+          label={actions.renew ? (renewed ? "已重发" : busy === "renew" ? "发送中…" : "重发二维码") : "Open Talk"}
           variant="gradient"
-          onPress={openTalk}
-          testID="attention-open-talk"
+          onPress={actions.renew ? (renewed ? undefined : doRenew) : openTalk}
+          testID={actions.renew ? "attention-renew" : "attention-open-talk"}
           leading={
             <>
               {isRepair ? (
@@ -306,6 +336,14 @@ const s = StyleSheet.create({
     lineHeight: lightTypography.caption.lineHeight,
     color: lightColors.grayText,
     textAlign: "center", // mock .note 居中
+  },
+  notice: {
+    // #96 重发二维码成功反馈（语义色 green 系，token 取 theme/light）
+    fontSize: lightTypography.caption.fontSize,
+    fontWeight: lightTypography.caption.fontWeight,
+    lineHeight: lightTypography.caption.lineHeight,
+    color: lightColors.greenDeep,
+    textAlign: "center",
   },
   loadingText: {
     fontSize: lightTypography.caption.fontSize,

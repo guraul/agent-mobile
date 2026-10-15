@@ -29,6 +29,7 @@
 | `/api/opencode/stream` | GET | SSE 事件流（`message.*`、`delta`、`session.*`、`permission.*`、`question.*`（`question.asked/replied/rejected`，v1 名）、`server.connected`、`stream.error`） | Bearer JWT |
 | `/api/product/attention` | GET/POST | query `state/domain/...`；POST=405（创建只能经内部管道） | Attention 列表/405 | Bearer JWT |
 | `/api/product/attention/:id/{handle,dismiss,engage}` | POST | `{artifactRef?}`/`{}`/`{sessionId}` | 生命周期迁移（PM §17） | Bearer JWT |
+| `/api/product/attention/:id/renew` | POST | `{}` | 凭据到期事项「重发二维码」：服务端立即关闭当前 Attention + 推最新二维码到企业微信（10 分钟未扫 → 服务端新建一张）。App 侧只调用 + 本地视为已关闭；**依赖 homebase 片 1 先上线（未上线 → 404）** | Bearer JWT |
 | `/api/product/stream` | GET | SSE：`attention.created/updated` + `proposal.created/updated`（Phase 13：连接时重放 open attention + proposed proposals；均为 presentation 变更通知，非 product_event） | Pulse 增量通道 | Bearer JWT |
 | `/api/product/l1` | GET | L1 snapshot（只读；无 lifecycle；stale/收盘返回 `items: []`） | L1 presentation 快照 | Bearer JWT |
 | `/api/product/l1/stream` | GET | SSE：`l1.updated`（每帧全量替换当前生效 statements） | L1 presentation 增量 | Bearer JWT |
