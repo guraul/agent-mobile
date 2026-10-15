@@ -1,6 +1,7 @@
 import type { OpenCodeMessage, OpenCodePart } from "./opencode-client";
 import { extractDiffText } from "./tool-diff";
 import { stripLeadingCheck } from "./command-receipt";
+import { extractAssignmentCard, type AssignmentCardPayload } from "./assignment/card-payload";
 
 /** 出口①（#82 §B）显式记忆写入的工具名（memx 插件注册；命名与 memx 工具契约一致，勿改） */
 export const MEMORY_WRITE_TOOL = "memory_write";
@@ -23,6 +24,18 @@ export type ToolStep = {
 /** #59 命令族回执步：客户端本地步（ChatPanelZ 的 localSteps 追加在消息流尾部，不来自 opencode 消息） */
 export type ReceiptStep = { kind: "receipt"; id: string; text: string; createdAt: number };
 
+/**
+ * #98（切片 2 / 跨仓 #60 出口②）：定时任务确认卡步——模型回复里隐藏块
+ * `<!--assignment-card:{…}-->` 被剥出后，作为独立 step 渲染成气泡内白卡（确认 / 补充）。
+ * 块不合法 → 不出卡（extractAssignmentCard 优雅降级），文本原样。
+ */
+export type AssignmentCardStep = {
+  kind: "assignmentCard";
+  id: string;
+  payload: AssignmentCardPayload;
+  createdAt: number;
+};
+
 export type DisplayStep =
   | { kind: "user";      id: string; text: string; createdAt: number }
   | { kind: "reasoning"; id: string; text?: string; createdAt: number }
@@ -31,7 +44,8 @@ export type DisplayStep =
   | { kind: "error";     id: string; text: string; createdAt: number }
   /** 连续工具调用的呈现分组（groupToolSteps 产出；数据层 step 原样挂 tools 上） */
   | { kind: "toolGroup"; id: string; tools: ToolStep[]; createdAt: number }
-  | ReceiptStep;
+  | ReceiptStep
+  | AssignmentCardStep;
 
 function isTextPart(part: OpenCodePart): part is OpenCodePart & { type: "text"; text?: string } {
   return part.type === "text";
@@ -131,9 +145,13 @@ export function mergeMessages(
     for (const part of msg.parts) {
       const partId = (part as { id?: string }).id ?? `${msg.info.id}-${out.length}`;
       if (isTextPart(part)) {
-        const text = part.text ?? "";
-        if (!text) continue;
-        out.push({ kind: "text", id: partId, text, createdAt });
+        const raw = part.text ?? "";
+        if (!raw) continue;
+        // #98：先跑隐藏块提取/剥离——命中则正文只留剥离后的文本，卡作为独立 step 追加在正文之后
+        //（模型约定把块放在回复末尾）；块不合法时 payload=null、文本原样（优雅降级）。
+        const { payload, cleanedText } = extractAssignmentCard(raw);
+        if (cleanedText) out.push({ kind: "text", id: partId, text: cleanedText, createdAt });
+        if (payload) out.push({ kind: "assignmentCard", id: `${partId}-card`, payload, createdAt });
       } else if (isToolPart(part)) {
         const toolName = part.tool ?? "tool";
         // v2 真机（2026-10-13 实测，issue #83）：工具结果在 state.content[]，state.output 恒空

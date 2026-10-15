@@ -273,4 +273,30 @@ describe("memory_write 回执 chip（出口① #82 §B）", () => {
     const grouped = groupToolSteps(steps);
     expect(grouped.map((s) => s.kind)).toEqual(["toolGroup", "receipt", "toolGroup"]);
   });
+
+  it("#98 隐藏块 → 正文剥离 + 追加 assignmentCard step", () => {
+    const payload = {
+      mode: "one-shot",
+      domain: "personal",
+      responsibility: "18:00 提醒我吃药",
+      schedule: "0 18 * * *",
+      condition: { kind: "always" },
+    };
+    const out = mergeMessages([
+      msg("a1", "assistant", [
+        { type: "text", text: `帮你定好了。\n<!--assignment-card:${JSON.stringify(payload)}-->`, id: "p1" },
+      ]),
+    ]);
+    expect(out.map((s) => s.kind)).toEqual(["text", "assignmentCard"]);
+    expect(out[0]).toMatchObject({ kind: "text", text: "帮你定好了。" });
+    expect(out[1]).toMatchObject({ kind: "assignmentCard", payload });
+    expect(JSON.stringify(out)).not.toContain("assignment-card:");
+  });
+
+  it("#98 块非法 → 不出卡，正文原样（含块文本，展示层 stripHtmlComments 兜底）", () => {
+    const out = mergeMessages([
+      msg("a1", "assistant", [{ type: "text", text: "正文\n<!--assignment-card:{坏}-->", id: "p1" }]),
+    ]);
+    expect(out.map((s) => s.kind)).toEqual(["text"]);
+  });
 });
