@@ -3,3 +3,8 @@ session.md
 *.local
 .worktrees/
 test/
+
+# 某工具的记忆数据（2026-09-28），不是本仓代码
+.workbuddy/
+# 仓库根误生成过 node_modules（2026-09-28 npm 残留），防复发
+node_modules/
