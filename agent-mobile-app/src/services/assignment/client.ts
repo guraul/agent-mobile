@@ -126,6 +126,53 @@ export async function confirmProposal(proposalId: string): Promise<{ assignment:
   return { assignment: body.assignment ?? null, proposal: body.proposal! };
 }
 
+/**
+ * #98（切片 2 / 跨仓 #60 出口②）：确认卡 → 建任务。
+ * BFF `POST /api/product/assignments/from-card`（**切片 1 在 homebase 实现，上线晚于本 PR**）：
+ * 内部 propose→（confirmation.required 时）confirm，一次调用收两处失败面。
+ * body 字段：`{mode, responsibility, domain, trigger, sessionId?, instructionRef?}`。
+ */
+export interface FromCardResponse {
+  /** 是否已激活（false = 仅创建提案，等待激活） */
+  activated: boolean;
+  assignmentId?: string | null;
+  /** 已有同规则的 assignment id → 本次未重复创建 */
+  duplicateOf?: string | null;
+  proposalId: string;
+  confirmation?: { required: boolean; reason?: string };
+}
+
+export async function createAssignmentFromCard(body: {
+  mode: "one-shot" | "ongoing";
+  responsibility: string;
+  domain: "market" | "personal";
+  trigger: {
+    kind: "schedule-rule";
+    schedule: string;
+    timezone: string;
+    condition: Record<string, unknown>;
+    enabled: boolean;
+  };
+  sessionId?: string;
+  instructionRef?: string;
+}): Promise<FromCardResponse> {
+  const res = await fetch(`${getBaseUrl()}/api/product/assignments/from-card`, {
+    method: "POST",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  await throwIfUnauth(res);
+  const payload = (await res.json().catch(() => ({}))) as Partial<FromCardResponse> & { error?: string };
+  if (!res.ok) throw new Error(payload.error ?? `from-card failed: ${res.status}`);
+  return {
+    activated: payload.activated ?? false,
+    assignmentId: payload.assignmentId ?? null,
+    duplicateOf: payload.duplicateOf ?? null,
+    proposalId: payload.proposalId ?? "",
+    confirmation: payload.confirmation,
+  };
+}
+
 export async function rejectProposal(proposalId: string): Promise<ProposalRecord> {
   const res = await fetch(`${getBaseUrl()}/api/product/assignment-proposals/${proposalId}/reject`, {
     method: "POST",

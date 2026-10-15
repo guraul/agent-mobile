@@ -117,6 +117,13 @@ ChatPanelZ `send()` 前拦截：`/assign fund <code> above-target|above <v>|belo
 `/assign remind <text> at HH:MM`（one-shot personal，低风险直接激活）、`/confirm /reject /revoke <prp_|asg_ id>`、`/assignments`。
 命令不发给 Agent；执行结果经 `Alert.alert` 反馈。E2E：`pnpm e2e[:nosend]`（登录前置已内建）。
 
+**出口② 定时任务确认卡（#98，切片 2 / 跨仓 #60）**：模型回复末尾输出隐藏块 `<!--assignment-card:{…}-->`
+→ `services/assignment/card-payload.ts` 提取/校验/剥离 → `mergeMessages` 产出 `assignmentCard` step
+→ 气泡内白卡（确认 / 补充）→ **`POST /api/product/assignments/from-card`**
+body `{mode, responsibility, domain, trigger, sessionId?, instructionRef?}`
+返回 `{activated, assignmentId?, duplicateOf?, proposalId, confirmation?}`。
+⚠️ 该端点由**切片 1（homebase 仓）**实现，**上线晚于客户端 PR**（合并顺序：homebase 先）；端点缺失时确认失败 → 卡转错误态（不静默）。
+
 ## Memory / KB（Phase 6）
 
 `src/services/memory/client.ts`：Memory 投影（`fetchMemories`）+ Forget（`forgetMemory`，作用于 memx canonical）+ KB 检索（`searchKb`）+ 分组纯函数（`buildMemoryGroups`，User / Projects 分组）。

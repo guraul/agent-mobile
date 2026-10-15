@@ -53,6 +53,8 @@
 ────────────────────────────────────────────────────────────────
 用户发消息 (prompt_async)  OpenCode Server (内存+磁盘)    ChatPanel (SSE + 全量刷新)
 agent 回复 (SSE 流式)      OpenCode Server                message-reducer → mergeMessages → MessageBubble/StepChip
+定时任务隐藏块 (#98)       模型回复正文（HTML 注释）        extractAssignmentCard（剥离）→ assignmentCard step → 确认卡
+确认卡 [确认] (#98)        BFF /assignments/from-card      assignmentService（切片 1，homebase）→ 回执行情 chip
 opencode serve 运行态      /session/status (活跃表)       useProjectEvents (30s 轮询 + SSE)
 session CRUD               OpenCode Server                useProjectEvents / ProjectChat
 开发者编辑                 theme/*.ts / app.json         组件与页面（import）

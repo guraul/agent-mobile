@@ -6,10 +6,13 @@ import { Check, Copy } from "lucide-react-native";
 import { Text } from "../../index";
 import { lightColors, lightChatColors, lightChatTypography, lightChatSizes, lightRadius, spacing } from "../../../theme";
 import type { DisplayStep, ToolStep } from "../../../services/message-merging";
+import type { AssignmentCardPayload } from "../../../services/assignment/card-payload";
+import type { FromCardResponse } from "../../../services/assignment/client";
 import { ThinkCard } from "./ThinkCard";
 import { stripHtmlComments } from "../../../services/text-sanitize";
 import { ToolGroupCard } from "./ToolGroupCard";
 import { AiChatOrb } from "./AiChatOrb";
+import { AssignmentConfirmCard } from "./AssignmentConfirmCard";
 
 // 气泡排版（chat.html .bubble 基准，#29）：14.5/400 lh21，双气泡配色。
 // code_inline 红线：必须显式覆盖 padding（默认 padding:10 会顶开相邻行）。
@@ -106,10 +109,16 @@ function CheckBadge() {
 export const MessageBubbleZ = React.memo(function MessageBubbleZ({
   step,
   onOpenOutput,
+  onConfirmAssignmentCard,
+  onSupplementAssignmentCard,
 }: {
   step: DisplayStep;
   /** #32：工具行点击 → 打开完整输出 LightSheet（sheet 在 ChatPanelZ 尾部渲染，保层叠正确） */
   onOpenOutput?: (tool: ToolStep) => void;
+  /** #98：确认卡 [确认/重试] → POST /assignments/from-card（ChatPanelZ 注入） */
+  onConfirmAssignmentCard?: (payload: AssignmentCardPayload) => Promise<FromCardResponse>;
+  /** #98：确认卡 [补充] → 把补充文字作为新消息发回模型（ChatPanelZ 注入） */
+  onSupplementAssignmentCard?: (payload: AssignmentCardPayload, text: string) => void;
 }) {
   // #32 信息层：thinking 块（think-card）+ 工具折叠组（tech-card，含 diff 代码卡）
   if (step.kind === "reasoning") {
@@ -117,6 +126,24 @@ export const MessageBubbleZ = React.memo(function MessageBubbleZ({
   }
   if (step.kind === "toolGroup" || step.kind === "tool") {
     return <ToolGroupCard tools={step.kind === "toolGroup" ? step.tools : [step]} onOpenOutput={onOpenOutput} />;
+  }
+
+  // #98 定时任务确认卡：AI 气泡内白卡（非模态、不跳页，留在对话流里）
+  if (step.kind === "assignmentCard") {
+    return (
+      <View style={s.rowAi}>
+        <View style={s.orbSlot}>
+          <AiChatOrb />
+        </View>
+        <View style={[s.bubble, bubbleBox, { backgroundColor: lightChatColors.bubbleAi, maxWidth: "92%" }]}>
+          <AssignmentConfirmCard
+            payload={step.payload}
+            onConfirm={onConfirmAssignmentCard ?? (async () => { throw new Error("确认不可用"); })}
+            onSupplement={onSupplementAssignmentCard ?? (() => {})}
+          />
+        </View>
+      </View>
+    );
   }
 
   // #59 命令族回执 chip：轻量留痕（✓ 图标 + 反馈全文），取代原 showAlert 弹窗。

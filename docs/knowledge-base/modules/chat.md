@@ -106,7 +106,7 @@ SSE: BFF /api/opencode/stream（Bearer JWT + ?sessionID= 过滤）
 ### DisplayStep 结构（不合并 step）
 
 - `mergeMessages` 输出 `DisplayStep[]`，**不再合并**同轮 assistant step 为单个气泡；每条有意义的 part 独立成 step。
-- step 类型：`user`（用户气泡）/ `text`（assistant 主气泡，markdown）/ `reasoning`（思考中…）/ `tool`（工具(x)调用中…）/ **`error`（错误气泡，2026-08-25 新增）**。
+- step 类型：`user`（用户气泡）/ `text`（assistant 主气泡，markdown）/ `reasoning`（思考中…）/ `tool`（工具(x)调用中…）/ **`error`（错误气泡，2026-08-25 新增）**/ **`receipt`（#59 命令族回执 chip，localSteps）**/ **`assignmentCard`（#98 定时任务确认卡）**。
 - **step-start / step-finish 被过滤**（opencode 每次工具调用循环都产生一对，噪音大；2026-08-12 起不再展示）。
 - 空 text part、snapshot/agent/file/compaction 等 part 也被过滤。
 - 单测：`message-merging.test.ts` 覆盖 step 展开/过滤/顺序。
@@ -118,6 +118,17 @@ SSE: BFF /api/opencode/stream（Bearer JWT + ?sessionID= 过滤）
 - **实时链路（关键）**：SSE `message.updated` 的 `info.error` 由 **`applyMessageUpdated` 透传**（曾只保留 id/role/sessionID/time，把 error 丢掉 → 错误只会在全量 reload 时显示，需重进聊天才看到；2026-08-25 修复透传）。
 - **⚠️ error 是对象不是字符串**：`OpenCodeMessage.info.error` 运行时是 NamedError 对象 `{name, data}`，不是 string。若把对象直接塞进 `<Text>` 会触发 React error #31（"Objects are not valid as a React child"）→ **整棵组件树崩溃 → 白屏**。`mergeMessages` 用 `errorText()` 安全转换（name + data.message，兜底 JSON）。
 - 单测：`message-merging.test.ts` 覆盖字符串/对象两种 error；`message-reducer.test.ts` 覆盖 SSE 透传 error + 无 error 时保持 undefined。
+
+### 定时任务确认卡（#98，切片 2 / 跨仓 #60 出口②「定时任务」）
+
+- **通道**：模型在回复**末尾**输出一行隐藏结构化块 `<!--assignment-card:{…json…}-->`（沿用 #71 STYLE_SIGNAL / memx 面包屑的"HTML 注释隐藏标记 + 前端剥离"先例；客户端**不靠工具调用、不新增建卡端点**）。
+- **块字段**（与 BFF `from-card` 契约对齐）：`{mode:"one-shot"|"ongoing", domain:"market"|"personal", responsibility, schedule:"<cron 五段>", condition:{kind:"always"|"fund-nav-above-target"|"fund-nav-above"|"fund-nav-below", fundCode?, value?}}`；时区**固定 `Asia/Shanghai`**（块里不带 timezone，组装 trigger 时写死）。
+- **解析纯函数** `services/assignment/card-payload.ts`：`extractAssignmentCard(text)` → `{payload, cleanedText}`；**校验 = cron 恰好五段 + mode/domain/condition.kind 在枚举内 + 必填齐全**（fund-* 需 `fundCode`，above/below 还需数值 `value`）。**解析/校验失败 → 原样返回文本、不出卡、不报错**（优雅降级；残缺 `<!--…` 由展示层 `stripHtmlComments` 兜底隐藏）。
+- **渲染接入**：`mergeMessages` 的 text 分支先跑提取——命中则正文只留 `cleanedText`，卡作为独立 `assignmentCard` step 追加在正文之后；`ChatPanelZ` 渲染前即已剥离（数据层完成，非展示层临时处理）。卡 = **AI 气泡内白卡**（`.inner-card` 形态重新设计，**非模态、不跳页**），内容为规则原文（时间可视化 `describeCardSchedule` + 动作/责任）+ **[确认]** + **[补充]**。
+- **确认** → `POST /api/product/assignments/from-card`（`services/assignment/client.ts`；**切片 1 在 homebase 实现，上线晚于客户端 PR**）→ 成功卡转「已创建」态 + 复用 `pushReceipt` 回执行情 chip；`duplicateOf` → 卡上提示「已有相同规则」且不激活；**失败不得静默** → 卡转错误态 + 重试按钮（判据纯函数 `cardControls` / `phaseFromCardResponse`）。
+- **[补充]**：卡内展开输入 → 文字作为新用户消息发回模型（busy 时进 `message-queue`）→ 模型重新出卡；**旧卡转 `superseded`（"已更新"，按钮失效）**。
+- prompt 真源：`docs/pipeline/COMPANION_PROMPT_V0.md` v0.3 第 3 段（**只落仓内真源**，本机/生产 `agents.companion.system` 同步需上线窗口）。
+- 单测：`services/assignment/card-payload.test.ts`（提取/校验/剥离/判据）+ `message-merging.test.ts`（隐藏块 → 正文剥离 + 追加卡 step / 块非法不出卡）。
 
 ### 消息顺序：chronological
 
@@ -202,6 +213,8 @@ SSE: BFF /api/opencode/stream（Bearer JWT + ?sessionID= 过滤）
 - **勿把对象塞进 `<Text>`/`<Markdown>`**：运行时字段可能是对象（如 `info.error` 是 NamedError `{name,data}`），直接渲染会 React error #31 → 白屏。必须经 `errorText()` 等安全转字符串。
 - **勿只监听 `question.v2.asked`**：opencode 实际发 `question.asked`（v1 兼容名），两端命名都要同时兼容，否则实时弹窗不触发。
 - 单测：`message-merging.test.ts`（含 error step 字符串/对象 case）、`message-reducer.test.ts`（含 SSE 透传 error case）、`order-sim.test.ts`（模拟完整 SSE 链路）。
+- **勿复活 #59 退役的 `InnerCard`/`dutiesCard`/`projectsCard` 家族**：确认卡（`assignmentCard`）是**唯一**允许的气泡内白卡形态；查看任务的正确路径是自然语言问 companion（只读）。
+- **勿把隐藏块搬进展示层剥离**：`assignmentCard` step 由 `mergeMessages`（数据层）产出，`stripHtmlComments` 只是残缺注释的兜底；两层都剥离会让"块在正文中间"这类 case 出现错位。
 - E2E：`scripts/e2e/pulse-e2e.mjs` 覆盖打开项目 → 发消息 → 顺序校验；`test/steps-verify*.mjs` 验证旁白渲染；`test/agent-pill-verify.mjs` 验证 agent 循环 + prompt 参数；`test/model-sheet-verify.mjs` 验证模型弹出框；`test/bff-e2e.mjs` 验证登录 + 打字机 + 动态模型（阶段 2）；`test/diag/*.mjs` 各种诊断/隔离验证脚本。
 
 

@@ -43,7 +43,12 @@ import { loadModelPrefs } from "../../../services/model-prefs";
 import { DEFAULT_MODEL, selectModels } from "../../../services/model-registry";
 import { buildAttentionContext } from "../../../services/attention/context";
 import { handleAttention } from "../../../services/attention/client";
-import { parseAssignmentCommand, executeAssignmentCommand } from "../../../services/assignment/client";
+import { parseAssignmentCommand, executeAssignmentCommand, createAssignmentFromCard, type FromCardResponse } from "../../../services/assignment/client";
+import {
+  assignmentCardReceipt,
+  toCardTrigger,
+  type AssignmentCardPayload,
+} from "../../../services/assignment/card-payload";
 import { appendReceipt, makeReceiptStep, commandFailureStep } from "../../../services/command-receipt";
 import {
   dequeueFirst,
@@ -404,6 +409,12 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
   // 队列自动发送、composer 主键（Stop/Send）全部看它。旧版这三处盯的是 sending（HTTP 在途
   // ~1.4s），导致入队分支与"busy 显示 Stop"永不同时成立 → 排队是死代码（#33 根因）。
   const busy = sending || eventBusy;
+  // #98：确认卡 [补充] 回调要读最新 busy 又要保持引用稳定（MessageBubbleZ 是 memo，
+  // 回调换引用会让所有气泡重渲染、打断打字机）→ 用 ref 镜像，回调只依赖 doSend。
+  const busyLiveRef = useRef(busy);
+  useEffect(() => {
+    busyLiveRef.current = busy;
+  }, [busy]);
 
   useEffect(() => {
     loadMessages();
@@ -801,6 +812,35 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
     }
   }, [sessionID, isChat, agents, agentIdx, model]);
 
+  /* ---- #98 定时任务确认卡：确认/重试（POST /assignments/from-card）+ 补充（改文案） ---- */
+  // 端点由切片 1（homebase）提供，**上线晚于本 PR**——调用只在用户点[确认]时发生，
+  // 端点不存在时 fetch 失败 → 卡片转错误态（不静默）。成功留痕复用 #59 回执 chip。
+  const confirmAssignmentCard = useCallback(async (payload: AssignmentCardPayload): Promise<FromCardResponse> => {
+    const res = await createAssignmentFromCard({
+      mode: payload.mode,
+      responsibility: payload.responsibility,
+      domain: payload.domain,
+      trigger: toCardTrigger(payload),
+      sessionId: sessionID,
+      instructionRef: `talk-card:${sessionID}`,
+    });
+    const receipt = assignmentCardReceipt(payload, res);
+    if (receipt) pushReceipt(receipt);
+    return res;
+  }, [sessionID, pushReceipt]);
+
+  // [补充]：把补充文字当作新用户消息发回模型（模型重新出卡）；busy 时走队列，不并发。
+  // 旧卡由 AssignmentConfirmCard 自身转 superseded（按钮失效）。
+  const supplementAssignmentCard = useCallback((_payload: AssignmentCardPayload, text: string) => {
+    const t = text.trim();
+    if (!t) return;
+    if (busyLiveRef.current) {
+      setQueue((prev) => enqueueMessage(prev, t, `q-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`));
+      return;
+    }
+    void doSend(t);
+  }, [doSend]);
+
   // #33 排队队列操作统一入口：任何 chip 动作（删除/上移/回填）都解除发送阻塞
   const mutateQueue = useCallback((next: QueuedMessage[]) => {
     setQueueBlocked(false);
@@ -1016,7 +1056,12 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
             }
             return (
               <View style={{ marginTop: isTurnStart ? lightChatSizes.msgGap + 5 : lightChatSizes.msgGap }}>
-                <MessageBubbleZ step={step} onOpenOutput={openToolOutput} />
+                <MessageBubbleZ
+                  step={step}
+                  onOpenOutput={openToolOutput}
+                  onConfirmAssignmentCard={confirmAssignmentCard}
+                  onSupplementAssignmentCard={supplementAssignmentCard}
+                />
               </View>
             );
           }}
