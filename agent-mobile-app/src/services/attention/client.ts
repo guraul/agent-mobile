@@ -36,6 +36,25 @@ export async function dismissAttention(id: string): Promise<void> {
   if (!res.ok) throw new Error(`dismiss failed: ${res.status}`);
 }
 
+/**
+ * 凭据到期事项「重发二维码」（#96，ref agent-mobile#91）：服务端立即关闭当前这张
+ * Attention → 把最新二维码推到企业微信 → 10 分钟仍未扫 → 服务端新建一张。
+ * App 侧只负责调用 + 本地视为已关闭；重复调用由服务端权威判定（终态 → 非 2xx，上抛）。
+ * ⚠️ 依赖 homebase 片 1（BFF renew 端点）先上线，否则 404。
+ */
+export async function renewAttention(id: string): Promise<void> {
+  const res = await fetch(`${getBaseUrl()}/api/product/attention/${id}/renew`, {
+    method: "POST",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  if (res.status === 401) {
+    await handleUnauthorized();
+    throw new Error("unauthorized");
+  }
+  if (!res.ok) throw new Error(`renew failed: ${res.status}`);
+}
+
 export interface AttentionSubscription {
   unsubscribe: () => void;
 }

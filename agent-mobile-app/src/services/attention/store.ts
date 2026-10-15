@@ -3,7 +3,7 @@
 // Pulse 只渲染 state==='open' 的条目（HANDLED/DISMISSED/EXPIRED 自动消失）。
 
 export type AttentionState = "open" | "handled" | "dismissed" | "expired";
-export type AttentionDomain = "coding" | "market";
+export type AttentionDomain = "coding" | "market" | "personal";
 
 /** BFF /api/product/attention 返回的 item 形状（camelCase） */
 export interface AttentionItem {
@@ -98,4 +98,23 @@ export function reconcileFromSnapshot(
   return snapshot
     .map(toPulseAttentionItem)
     .sort((a, b) => b.createdAt - a.createdAt);
+}
+
+// ── 动作可见性判据（纯函数，便于单测；#96 / ref agent-mobile#91）──
+// 凭据到期事项：subjectKind === "credential"（domain=personal、sessionId=null，
+// 由 homebase ttskill-login-guard 管道创建）。其唯一动作是「重发二维码」；
+// Open Talk 必须隐藏——sessionId=null 且非 market 会走 talk.ts 抛「该事项的会话已不可用」。
+
+/** 凭据到期类事项 */
+export function isCredentialItem(item: { subjectKind: string }): boolean {
+  return item.subjectKind === "credential";
+}
+
+/** Attention 详情屏动作可见性：凭据事项 = 重发二维码 ON / Open Talk OFF */
+export function attentionActionFlags(item: { subjectKind: string }): {
+  renew: boolean;
+  openTalk: boolean;
+} {
+  const credential = isCredentialItem(item);
+  return { renew: credential, openTalk: !credential };
 }

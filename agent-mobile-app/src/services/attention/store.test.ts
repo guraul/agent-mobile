@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   applyAttentionChange,
+  attentionActionFlags,
+  isCredentialItem,
   openPulseItems,
   reconcileFromSnapshot,
   toPulseAttentionItem,
@@ -87,5 +89,50 @@ describe("Attention store（Phase 3 Pulse 数据层）", () => {
     ];
     const items = reconcileFromSnapshot(snapshot);
     expect(openPulseItems(items)).toHaveLength(2);
+  });
+});
+
+describe("凭据到期事项动作判据（#96 / ref agent-mobile#91）", () => {
+  it("isCredentialItem 只认 subjectKind === credential", () => {
+    expect(isCredentialItem({ subjectKind: "credential" })).toBe(true);
+    expect(isCredentialItem({ subjectKind: "permission" })).toBe(false);
+    expect(isCredentialItem({ subjectKind: "fund" })).toBe(false);
+    expect(isCredentialItem({ subjectKind: "" })).toBe(false);
+  });
+
+  it("credential 事项：显示重发二维码 + 隐藏 Open Talk", () => {
+    expect(attentionActionFlags({ subjectKind: "credential" })).toEqual({
+      renew: true,
+      openTalk: false,
+    });
+  });
+
+  it("普通事项行为不变：Open Talk 保留、不出现重发", () => {
+    expect(attentionActionFlags({ subjectKind: "permission" })).toEqual({
+      renew: false,
+      openTalk: true,
+    });
+    expect(attentionActionFlags({ subjectKind: "fund" })).toEqual({
+      renew: false,
+      openTalk: true,
+    });
+  });
+
+  it("personal 域的凭据事项照常进 open 列表（Pulse 呈现不依赖域）", () => {
+    const snapshot: AttentionItem[] = [
+      {
+        ...row({ id: "cred", state: "open" }),
+        domain: "personal" as const,
+        subjectKind: "credential",
+        creationReasonKind: "system-credential-expiry",
+        creationReasonRef: "ttskill.login-guard",
+        sessionId: null,
+        title: "登录态到期",
+        summary: "请重新扫码续期",
+      },
+    ];
+    const items = reconcileFromSnapshot(snapshot);
+    expect(openPulseItems(items).map((i) => i.id)).toEqual(["cred"]);
+    expect(items[0].domain).toBe("personal");
   });
 });
