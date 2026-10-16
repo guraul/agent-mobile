@@ -445,7 +445,7 @@ E0（只读探针，必须第一）
 - **①-c 生产 model 同窗口一并设为 `opencode/mimo-v2.6-flash-free`**（与客户端 `DEFAULT_MODEL` 一致，消除 #41 同源隐患）。
 - **⚠️ 本关自我更正**：我原先给的 A/B/C/E 四个选项把"升级"与"配 exa"当成**互斥方案**，**框错了**——用户的处置是**叠加**（升级是地基、exa 是增强）。此更正留档，防止后续按旧选项讨论。
 
-> **执行方式（2026-10-10 用户拍板，常驻规则）**：**E2 起的实现/执行类工作委派给 opencode 子代理**（DSH 四角色已 pin `opencode`），**模型 `opencode/step-5-preview-free`（每次委派显式传参——`product_roles` 已核实角色库不 pin 模型）**；**DSH 只做编排 / 决策 / 验收**。产品讨论与 BRIEF / 知识库落档仍由 DSH 主模型直接做。规则全文见仓库 `AGENTS.md` 强制规定 11-13（family-finance 侧 6-8）。**模型不可用即停下报告，不降级。**
+> **执行方式（2026-10-10 用户拍板，常驻规则）**：**E2 起的实现/执行类工作委派给 opencode 子代理**（DSH 四角色已 pin `opencode`），**模型按 `AGENTS.md` 规则 12 的**现行链** `opencode/deepseek-v4.1-flash-free` → `opencode/glm-5.3-flash-free` → `opencode/mimo-v2.6-flash-free` → `opencode-go/longcat-2.5-preview-free`（每次委派显式传参——`product_roles` 已核实角色库不 pin 模型）**；**DSH 只做编排 / 决策 / 验收**。产品讨论与 BRIEF / 知识库落档仍由 DSH 主模型直接做。规则全文见仓库 `AGENTS.md` 强制规定 11-13（family-finance 侧 6-8）。**模型不可用即停下报告，不降级。**
 
 - **E0 · 开工前探针（只读，必须第一）**：**✅ 已完成 2026-10-10**，结论见 §8「E0 探针结论」。**只读执行，零写入**。两项决策已拍板（见上）。
 - **E1 · 生产升级链 + exa（用户 2026-10-10 从 backlog 拉回，升至队列首位）**：
@@ -616,7 +616,7 @@ E0（只读探针，必须第一）
 - **推论**：若"2 个并发会话打爆额度"，429 应集中在那些 session；实际**散布 57 个 session 且 6 分钟自愈** → 特征是**共享额度池瞬时耗尽后快速回补**。**并发不是根因**（但子代理 11:11 启动与 11:13 起始的 429 时间吻合，**不排除并发加重瞬时压力**——如实记录）。
 - **网上佐证**：多个独立项目同类问题（[hermes-agent #106495](https://github.com/NousResearch/hermes-agent/issues/106495)、[pi #2824](https://github.com/earendil-works/pi/issues/2824)、[OmniRoute #10357](https://github.com/diegosouzapw/OmniRoute/pull/10357)、[opencode #33495](https://github.com/anomalyco/opencode/issues/33495)）：**Zen 免费档是共享/账户级上限**（#33495 称付费后仍受"200 请求"免费上限约束）；部分项目报告**需带 opencode CLI 身份请求头（UA + `X-Session-ID`）才返回 200**。
 - **与我们的委派路径无关**：`dsh-plugin-product-subagents/lib/providers.js:66` = **`type: acp, command: opencode, args: [acp]`** → **由 opencode 原生客户端发请求，不自造 HTTP 头**（头部合成逻辑 grep 0 命中）→ "头不对"不是病因。
-- **已立规则（用户 2026-10-10 授权，写入两份 AGENTS.md 规则 11/12）**：**免费档回退链 = `space-bunny-free` → `mimo-v2.6-flash-free` → `step-5-preview-free`**；遇 **429** 按序自动降级，**每次切换与最终结果必须告知用户**；**非限流失败（不存在/鉴权/超时/报错）仍一律停下报告、不得换模型**。另立**并发纪律：大任务只起一个子代理；执行不得由主模型自做，验证可以。**
+- **已立规则（用户 2026-10-10 授权，写入两份 AGENTS.md 规则 11/12）**：**免费档回退链 = `space-bunny-free` → `mimo-v2.6-flash-free` → `step-5-preview-free`**（⚠️ **历史记录**：该链已于 2026-10-14、2026-10-16 两次更新，**现行链见 `AGENTS.md` 规则 12**）；遇 **429** 按序自动降级，**每次切换与最终结果必须告知用户**；**非限流失败（不存在/鉴权/超时/报错）仍一律停下报告、不得换模型**。另立**并发纪律：大任务只起一个子代理；执行不得由主模型自做，验证可以。**
 - **运维提示**：委派前先花 1 次调用验证模型有额度；遇 429 等窗口或按链降级，**绝不降级重试**。
 
 **DSH 指令机制实况（2026-10-10 实测，回答"DSH 的 AGENTS.md 在哪里 / 有没有全局的"）**：
@@ -651,7 +651,7 @@ E0（只读探针，必须第一）
 
 **委派执行方式（2026-10-10 用户拍板落档）**：
 
-- 见 §6 顶部「执行方式」指针——四角色已 pin `opencode`（生效配置在 `~/.dsh/profiles/web/roles/*.json`；插件仓库里的 `roles/*.json` 是默认值 claude-code，**不是生效那份**），**模型每次显式传 `opencode/step-5-preview-free`**。
+- 见 §6 顶部「执行方式」指针——四角色已 pin `opencode`（生效配置在 `~/.dsh/profiles/web/roles/*.json`；插件仓库里的 `roles/*.json` 是默认值 claude-code，**不是生效那份**），**模型每次显式传现行链首档 `opencode/deepseek-v4.1-flash-free`（429 按规则 12 的链逐档回退）**。
 - ⚠️ **子代理看不到本 BRIEF、也看不到仓库 `AGENTS.md`**：角色 JSON 的 `instructions` 字段（发往远端 product 的指令）**不读工作区文件**（已核实）。故**每次委派必须在 task 文本里显式带上相关约束**（模型规则、不降级、不改依赖、读写权限、验收方式），否则子代理无从知晓。
 - **首次实测（2026-10-10）**：`explore` 角色 + 显式 model 委派成功——registry 回读 `model: opencode/step-5-preview-free` 已 pin；remote session 消息记录 `"agent":"build"`、`"model":{"id":"space-bunny-free","providerID":"opencode"}`；产出结论质量可接受（自带证据链）。**注意 `product_wait` 默认 180s 会超时但任务仍在跑**（DB 持续写入 reasoning），**不能据超时判定失败**。
 

@@ -55,8 +55,9 @@
     - **作用域边界（防歧义）**：本规则适用于**实现 / 执行阶段**。**产品决策讨论、拍板记录、交底书（BRIEF）与知识库落档，仍由 DSH 主模型直接做**——这类工作依赖当前对话上下文，且 subagent 看不到主会话，外包会导致决策链断裂（本仓 `docs/pipeline/CHAT_COMPANION_BRIEF.md` 的逐单元落档即为典型）。
     - **只读小探针**（单条 `grep` / `cat` / `sqlite -readonly` 即可答）由主模型直接跑更快，不算违规。
     - **子代理模型（用户 2026-10-14 二次拍板；取代 2026-10-13 的 longcat 首选）**：**首选档 `opencode/deepseek-v4.1-flash-free`**（homebase 侧已核实本机模型目录存在、并已实测委派成功）→ **每次委派都要显式传 `model`**（角色库不 pin 模型）。
-      **回退链（free 档；429 / 限流 / 偶发不通时按序）**：`opencode/mimo-v2.6-flash-free` → `opencode-go/longcat-2.5-preview-free`（**保留为最后一档**）；**单档不通换下一档，只有全链都不可用才警告并停下**（与规则 13 同源）。
+      **回退链（free 档；429 / 限流 / 偶发不通时按序）**：`opencode/glm-5.3-flash-free` → `opencode/mimo-v2.6-flash-free` → `opencode-go/longcat-2.5-preview-free`（**保留为最后一档**）；**单档不通换下一档，只有全链都不可用才警告并停下**（与规则 13 同源）。
       （`opencode/space-bunny-free` 与 `opencode/step-5-preview-free` 已按 2026-10-14 拍板**从链中删除**。）
+      **2026-10-16 用户拍板：把 `opencode/glm-5.3-flash-free` 插入链中**（排在 mimo 之前）——free 档多一个备选，避免单个模型 429 就直接落到 Go 档。⚠️ **当次整条 free 档都在 429**（glm 与 deepseek 用本机 CLI 直测均返回 `Rate limit exceeded`），故 **glm 档的实际可用性待限流恢复后实测确认**（模型目录 `opencode models` 中确实存在 `opencode/glm-5.3-flash-free`）。
       ⚠️ 澄清（用户 2026-10-13）：free 档**不是永久禁用** —— 多数时间可用，只是用的人多、偶发 429；此前 2026-10-12 写成「已被网关打挂 / 仅作历史 / 一律不降级（通知我）」**表述过严，以本条为准**。
       **非限流故障**（403 鉴权/地区、模型不存在、报错、无响应）→ 规则 13：停下报告，不改配置。
       **小模型**（`small_model` / `agents.title.model`，标题生成这类轻量旁路）→ 用户 2026-10-13 拍板：**可用 `opencode/mimo-v2.6-flash-free`**（旁路失败只影响标题；opencode 源码 `session/title.ts` 会自动回落到会话主模型）。
@@ -65,8 +66,8 @@
       - 主模型（控制面）只做：**产品决策与拍板**、**审阅 diff**、**"用户 review 完成"的确认（人在环）**、**验收**、**交底书 / 知识库 / 规则文件落档**、**单条只读探针**。
       - `merge-pr.sh` 的命令执行可委派，但**合并前必须由控制面拿到用户确认**再发（手册 §一 review 约定）。
 12. **子代理模型 = 首选 `opencode/deepseek-v4.1-flash-free` + free 档回退链**（用户 2026-10-14 二次拍板；取代 2026-10-13 的 longcat 首选）。⚠️ **角色库不 pin 模型**（`product_roles` 已核实：四角色只有 `provider: "opencode"`，**无 model 字段**；`~/.dsh/product-subagents-registry.json` 也查不到模型）→ **每次委派都要显式传 `model: "opencode/deepseek-v4.1-flash-free"`**，不能指望"已 pin 自动生效"（传参形式与 `prompt_async` 的逐条 model 一致）。
-   - **429 / 限流 / 偶发不通** → 按序回退 `opencode/mimo-v2.6-flash-free` → `opencode-go/longcat-2.5-preview-free`（最后一档）；**全链都不可用才警告并停下**，不挑链外模型、不改配置、不静默降质。
-   - ⚠️ **model id 必须写全 `provider/model` 形式**：deepseek 是 `opencode/deepseek-v4.1-flash-free`、mimo 是 `opencode/mimo-v2.6-flash-free`、longcat 是 `opencode-go/longcat-2.5-preview-free`。**写裸名会落到会话默认模型**（`opencode/mimo-v2.6-flash-free`），表现为"指定了但没生效"。
+   - **429 / 限流 / 偶发不通** → 按序回退 `opencode/glm-5.3-flash-free` → `opencode/mimo-v2.6-flash-free` → `opencode-go/longcat-2.5-preview-free`（最后一档）；**全链都不可用才警告并停下**，不挑链外模型、不改配置、不静默降质。
+   - ⚠️ **model id 必须写全 `provider/model` 形式**：deepseek 是 `opencode/deepseek-v4.1-flash-free`、glm 是 `opencode/glm-5.3-flash-free`、mimo 是 `opencode/mimo-v2.6-flash-free`、longcat 是 `opencode-go/longcat-2.5-preview-free`。**写裸名会落到会话默认模型**（`opencode/mimo-v2.6-flash-free`），表现为"指定了但没生效"。
    - **非限流故障**（403 鉴权/地区、模型不存在、报错、无响应）→ 规则 13：**停下报告，不降级**。
    - 作用域 = **DSH 子代理委派**。
    - ⚠️ **App/companion 运行时模型保持 `opencode/mimo-v2.6-flash-free`**（2026-10-12 二次拍板；本条与回退链约定无关、继续有效）：App 的唯一真实目标是生产 opencode，而**生产的模型目录里没有 `opencode-go`**（见 OPERATIONS 上线窗口预检）——写死 Go 档会让手机端直接 `Model unavailable`。Go 档仍只用于 **DSH 子代理 + 本机 memx 提炼**（首选档；free 档偶发 429 按上面的回退链处理）。
