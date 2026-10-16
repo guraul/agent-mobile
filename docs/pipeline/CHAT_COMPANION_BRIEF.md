@@ -388,6 +388,16 @@ E0（只读探针，必须第一）
 | 8 | E4 v2 插件 + 出口① | `personal-context` 存储/检索 + 插件薄壳（instructions 注入 + memory_read/search/write）+ 出口③ 的 memory 半边（顺序写死：建项目拿 slug → 写 memory → 建 session → 投喂） | E3-d 出口③ + **E2**（`personal-context` 骨架）。⚠️ 插件落地需 opencode v2 环境（本机已 v2），**生产仍是 v1**（E1 后置），故 E4 属"本机可开发、生产不可上线" |
 | 9 | 归档（开工后第一批动作） | 关 `#31`/`#32`/`#33`/`#34`（工作已 merged：PR #36-#40 / #47，销账） | 无 |
 
+**执行状态（2026-10-15/16 更新，控制面落档）**：
+
+- **队列 4/5**（E3-b `#58`、E3-c `#59`）：10-10 已合并上线。
+- **队列 6 · E3-d 出口②：DoD1/2/4/5 已完成并真机验收通过** —— homebase PR #27（`c4ba364`：`from-card` 单路由 propose→按需 confirm，`confirmedBy:"card"`，**先查重再 propose**）+ agent-mobile PR #99（`50e4351`：隐藏块 `<!--assignment-card:{…}-->` → 气泡内白卡「内容 + 确认 + 补充」，解析失败优雅降级）。用户 2026-10-15 真机验收：新建任务授权痕迹 = `confirmation:<prp>:card`（证明走确认卡路径）。prompt v0.3 已同步生产 `agents.companion.system`（备份 `/root/backups/opencode.json.bak.20261015-222931`）。
+  - ⚠️ **DoD3 未完成**（"今天早上的检查做了吗" → 她只读查 assignment 执行记录）：companion 现有工具集（`read`/`grep`/`glob`/`websearch`/`memory_write`）**没有到 BFF 的通道**；需要**给她注册只读工具**（插件方案）。与出口③的"只读回程工具"**同源**，建议合并为一次「companion 工具通道」切片。
+  - 顺带修复（本次暴露）：**assignment schedule-rule 时区 bug** —— `later.date.localTime()` 是模块级全局副作用，只作用于 instrumentation 那份 `later`；Next.js 生产构建把 app 路由与 instrumentation 拆成两个 webpack layer（两份 later 实例）→ **运行期经 API 新建的 assignment 按 UTC 求值（晚 8 小时）**。已由 homebase PR #32 修复（`cron-tz.ts` TZ 显式纯函数 + 消费方 import + `Environment=TZ=Asia/Shanghai` + 注册日志打 `next=`），生产验证 `next=2026-10-16T06:50:00.000Z`（北京 14:50）✓。**属既有缺陷**（`assignment-triggers.ts` 自 Phase 5 起未处理时区），非本批改动引入。
+- **队列 8 · E4：已由 memx v2 插件路线实质完成**（v2 插件 + 出口① `memory_write` + 多机云同步双机上线；`#56`/`#82`/`#87` 已按证据关闭）。→ **`personal-context` 包骨架是否仍需落地，待 E2 窗口时一并重估**（memx 已承担该角色）。
+- **队列 7 · E3-d 出口③（`#61`）**：仍未开工（依赖 BFF 两端点 + companion 只读回程工具，同上"工具通道"议题）。
+- **E2（改名迁移）**：仍卡在**生产窗口**（服务器目录 `mv` + systemd 两行 + 历史会话 DB directory 迁移 + 合 agent-mobile PR #66）。
+
 **④ 归档与 backlog 归属**（详见 §7）：`#44` 排队 → backlog，**标注前置 = E3-b 的 busy 信号修复**（§3.7 已定该修复属 E3，等于先铺地基）；`#46` 抽屉 = E3-c 已含 chatcode 入口（`#34` 的 workspace 抽屉仍 backlog）；`#48`/`#50` 维持开放、不进本 epic。
 
 **⑤ E2 定稿（名字已定 = `homebase`，本项已从 backlog 回到队列）**：
