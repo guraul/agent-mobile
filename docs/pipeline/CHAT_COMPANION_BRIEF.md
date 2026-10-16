@@ -394,11 +394,15 @@ E0（只读探针，必须第一）
 - **队列 6 · E3-d 出口②：DoD1/2/4/5 已完成并真机验收通过** —— homebase PR #27（`c4ba364`：`from-card` 单路由 propose→按需 confirm，`confirmedBy:"card"`，**先查重再 propose**）+ agent-mobile PR #99（`50e4351`：隐藏块 `<!--assignment-card:{…}-->` → 气泡内白卡「内容 + 确认 + 补充」，解析失败优雅降级）。用户 2026-10-15 真机验收：新建任务授权痕迹 = `confirmation:<prp>:card`（证明走确认卡路径）。prompt v0.3 已同步生产 `agents.companion.system`（备份 `/root/backups/opencode.json.bak.20261015-222931`）。
   - ⚠️ **DoD3 未完成**（"今天早上的检查做了吗" → 她只读查 assignment 执行记录）：companion 现有工具集（`read`/`grep`/`glob`/`websearch`/`memory_write`）**没有到 BFF 的通道**；需要**给她注册只读工具**（插件方案）。与出口③的"只读回程工具"**同源**，建议合并为一次「companion 工具通道」切片。
   - 顺带修复（本次暴露）：**assignment schedule-rule 时区 bug** —— `later.date.localTime()` 是模块级全局副作用，只作用于 instrumentation 那份 `later`；Next.js 生产构建把 app 路由与 instrumentation 拆成两个 webpack layer（两份 later 实例）→ **运行期经 API 新建的 assignment 按 UTC 求值（晚 8 小时）**。已由 homebase PR #32 修复（`cron-tz.ts` TZ 显式纯函数 + 消费方 import + `Environment=TZ=Asia/Shanghai` + 注册日志打 `next=`），生产验证 `next=2026-10-16T06:50:00.000Z`（北京 14:50）✓。**属既有缺陷**（`assignment-triggers.ts` 自 Phase 5 起未处理时区），非本批改动引入。
-- **队列 8 · E4：已由 memx v2 插件路线实质完成**（v2 插件 + 出口① `memory_write` + 多机云同步双机上线；`#56`/`#82`/`#87` 已按证据关闭）。→ **`personal-context` 包骨架是否仍需落地，待 E2 窗口时一并重估**（memx 已承担该角色）。
+- **队列 8 · E4：已由 memx v2 插件路线实质完成**（v2 插件 + 出口① `memory_write` + 多机云同步双机上线；`#56`/`#82`/`#87` 已按证据关闭）。→ **`personal-context` 包骨架是否仍需落地：重估项仍开放**（E2 窗口已于 2026-10-16 收官；memx 已承担该角色，是否仍要落骨架待用户拍板）。
 - **队列 7 · E3-d 出口③（`#61`）**：仍未开工（依赖 BFF 两端点 + companion 只读回程工具，同上"工具通道"议题）。
-- **E2（改名迁移）**：仍卡在**生产窗口**（服务器目录 `mv` + systemd 两行 + 历史会话 DB directory 迁移 + 合 agent-mobile PR #66）。
+- **队列 3 · E2（改名迁移）：✅ 2026-10-16 收官**（两侧闭环，无功能遗留）：
+  - **服务端半场**（实测复核，本次未重启任何服务）：`/root/project/family-finance` 目录**已不存在**（更早窗口完成迁移）；systemd 两行已指向 homebase（`Description=BFF (homebase web) production server on 19234` / `WorkingDirectory=/root/project/homebase/packages/web`）；repo remote = `git@github.com:guraul/homebase.git`；历史库文案残留替换 `product_events.payload` 3 行 + `attention_items.summary` 3 行（**均 `retention_class='audit'` 历史行**）→ 复扫 **0/0**，备份 `/root/project/homebase/data/backups/finance.db.pre-e2.20261016-211531`（`integrity_check=ok`，含改动前 3/3）；复核三服务 active / bff=307 / 9928=200 / memory shas 不变 / alerts 0/0/0。
+  - **agent-mobile 半场**：main 经 **PR #73（`201103f`）** 已落地同名引用迁移（含 KB 文档），issue #54 已于 **2026-10-11 自动 CLOSED** → **PR #66 为零差异重复件**（合 main 后 `git diff origin/main` 为空），用户 2026-10-16 拍板按 **superseded 关闭**（评论说明 + 删本地/远端分支 + 清 worktree `e2-rename`）。
+  - **遗留（非阻断）**：homebase 仓仍有 **19 个 tracked 文件**含 `family-finance` 字样（`app.sh` / `prod/*.sh` 的 pid/log 文件名、`cloudflare` worker name、测试注释与夹具字符串、KB 与历史 runbook 叙事）——**无功能性路径引用**（不指向 `/root/project/family-finance`），属命名/历史残留，另立 backlog 清扫。
+  - **⚠️ 本机 homebase checkout 有未提交改动**（`M vitest.config.ts` + `?? vitest.setup.ts` / `vitest.global-setup.ts`，内容是 `/tmp` 测试库回收 harness）——非本次产出，归属待确认（可能是另一会话的 homebase#39 方向尝试），**未动**。
 
-**④ 归档与 backlog 归属**（详见 §7）：`#44` 排队 → backlog，**标注前置 = E3-b 的 busy 信号修复**（§3.7 已定该修复属 E3，等于先铺地基）；`#46` 抽屉 = E3-c 已含 chatcode 入口（`#34` 的 workspace 抽屉仍 backlog）；`#48`/`#50` 维持开放、不进本 epic。
+**④ 归档与 backlog 归属**（详见 §7）：`#44` 排队 → backlog，**标注前置 = E3-b 的 busy 信号修复**（§3.7 已定该修复属 E3，等于先铺地基）；`#46` 抽屉：chat 侧 Layers 唤起 `SessionsDrawer` 已落地（PR #47 `4aac6f0`）；**chatcode 侧入口经用户 2026-10-16 拍板「②不加」已回退**（回退 #59/PR #64 的入口渲染）；**真机边缘手势验证移出至 #100**（APK 阶段再验——浏览器自身边缘手势冲突，测不出结论）；`#34` 的 workspace 抽屉仍 backlog；`#48`/`#50` 维持开放、不进本 epic。
 
 **⑤ E2 定稿（名字已定 = `homebase`，本项已从 backlog 回到队列）**：
 
@@ -450,7 +454,7 @@ E0（只读探针，必须第一）
   - **E1-c · 生产配 exa MCP**（`mcp.servers.exa` = remote `https://mcp.exa.ai/mcp`），验证 `web_search_exa` / `web_fetch_exa` 可用。
   - ⚠️ **前置未知**：**本机无 v1 环境可仿**（本机已 v2）→ v1→v2 的**真实升级路径与插件兼容性只能在生产窗口验证**；**升级前必须先在服务器做一次只读勘察**（当前 v1 的插件加载形态、DB 兼容性、回滚可行性）。**硬约束不变：测试只在本机做不了的部分，需用户批准后才在生产执行；受阻即停并告知，不降级不绕道。**
   - **v2 插件/内置能力事实**：v2 有 `plugin` 子命令（add/remove/list/check/update）+ 原生 `websearch`/`webfetch`；memx 需按 v2 插件 API 适配（属 E4）。
-- **E2 · homebase 改名迁移**（**名字已定 = `homebase`**）：引用清单（§3.11 ⑤：agent-mobile 11 处内 + KB 文档 + server 侧 **systemd 两行已实测**）→ GitHub 仓改名 `guraul/family-finance` → `homebase`（**已获同意；gh scopes 含 repo**）→ 服务器目录迁移至 `/root/project/homebase`（**已获同意，路径确认**）→ `personal-context` 包骨架落地。
+- **E2 · homebase 改名迁移** ✅ **2026-10-16 收官（两侧闭环，证据见 §6「执行状态」）**（**名字已定 = `homebase`**）：引用清单（§3.11 ⑤：agent-mobile 11 处内 + KB 文档 + server 侧 **systemd 两行已实测**）→ GitHub 仓改名 `guraul/family-finance` → `homebase`（**已获同意；gh scopes 含 repo**）→ 服务器目录迁移至 `/root/project/homebase`（**已获同意，路径确认**）→ `personal-context` 包骨架落地。
 - ✅ **E3-b（#58）与 E3-c（#59）已于 2026-10-10 合并并部署成功**（PR #63 `26caf9a` / PR #64 `aeeed74`；deploy-web 两次 run 均 success，生产 9928 在线）。busy 真实信号 + 状态行动效、两卡退役 + 命令回执 chip + chatcode Layers 入口**均已上线**。
 - **E3 · companion 主体**（**无记忆上线**）：
   - `E3-a` agent 配置（白名单 + 强制接线 + chat 侧去 agent 选择器）——依赖 E0（✅ 已答：本机 v2 原生 `websearch`；**生产 v1 无**，见 §8 E0 第 2 条）+ **E2**。⚠️ **必须显式配 `model`**：生产 `opencode.json` 的 agent 仍写已下线的 `deepseek/deepseek-v4-flash`（issue #41 同源），不显式配则新 agent 会 `ProviderModelNotFoundError` 且**无 error 气泡**（最隐蔽失败形态）。
@@ -469,7 +473,7 @@ E0（只读探针，必须第一）
   - **原后置理由已作废**：当初后置是因"E1-a（本机摘 v1 插件）"要人确认且非急需；**E0 实测发现本机早已是 v2 且零插件（本机无对象）**，而**生产 v1 无 websearch 成为实际缺口** → 用户决定**直接升生产**。
   - **新范围见 §6 E1**（E1-a 升级 / E1-b model 修正 / E1-c 配 exa）。
   - **保留的硬约束**：**测试只在本机能做的部分在本机做；生产变更需用户批准后执行；受阻即停下告知，不绕道不降级**。⚠️ **本机无 v1 环境**（已 v2）→ v1→v2 升级路径**无法在本机预演**，这是本次升级链的最大未知，须先在服务器只读勘察。
-- **E2 · homebase 改名迁移** → ✅ **在队列**（§6）。名字已定 = `homebase`；服务器路径 = `/root/project/homebase`（已确认）；清单见 §3.11 ⑤。
+- **E2 · homebase 改名迁移** → ✅ **2026-10-16 已收官**（§6）。名字已定 = `homebase`；服务器路径 = `/root/project/homebase`；清单见 §3.11 ⑤。
 
 **Backlog 调研结论：memx 能否同时被 DSH 使用（2026-10-10 用户要求调查，结论记此不施工）**：
 
