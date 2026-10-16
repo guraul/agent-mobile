@@ -189,10 +189,10 @@ async function main() {
     await runRow.dispatchEvent('click', { bubbles: true });
     await page.waitForTimeout(12000);
     const codeChatTitle = await page.locator('text=Pulse — Code Chat').first().isVisible().catch(() => false);
-    // #59：chatcode 侧 Layers 入口已开（"绑最新 session"仍是默认，入口与默认并存）
+    // #46 拍板「②不加」：chatcode 侧无 Layers 入口（回退 #59/PR #64）
     const layersEntry = (await page.locator('[aria-label="Switch session"]').count()) > 0;
-    check('Running 行进入 chatcode 壳 (Pulse — Code Chat)', codeChatTitle && layersEntry,
-      `title=${codeChatTitle} layers-entry=${layersEntry}`);
+    check('Running 行进入 chatcode 壳 (Pulse — Code Chat)', codeChatTitle && !layersEntry,
+      `title=${codeChatTitle} layers-entry=${layersEntry}（期望 false）`);
     await page.goBack();
     await page.waitForTimeout(8000);
   } else {

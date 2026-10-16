@@ -2,7 +2,7 @@
 // 左返回 / 右 Layers（会话切换）+ Close，主体为 ChatPanelZ（白色聊天区 + inputbar）。
 // #34F（issue #46）：chat 侧 Layers 改为唤起 SessionsDrawer（边缘手势 + 拖拽关闭），
 // 替代原 LightSheet 会话选择器——避免两个会话选择 UI 并存；
-// #59：chatcode 侧起 Layers 入口同样显示（边缘手势仍不挂，待用户确认）。
+// #46 拍板「②不加」（2026-10-16）：chatcode 侧不加入口（回退 #59 / PR #64）。
 import React, { useEffect, useState, useCallback } from "react";
 import { View, Pressable, StyleSheet } from "react-native";
 import { ArrowLeft, Plus, Layers, X } from "lucide-react-native";
@@ -139,17 +139,19 @@ export function ProjectChatZ({ projectPath, onBack, kind, attention, initialSess
           </Text>
         </View>
         <View style={[styles.headerSide, styles.headerRight]}>
-          {/* Layers 会话切换入口：#59 起 chatcode 侧同样显示（"绑最新 session"保留为默认，
-              显式入口与默认行为并存——同 chat 侧 #34F 口径） */}
-          <Pressable
-            onPress={openPicker}
-            accessibilityLabel="Switch session"
-            accessibilityRole="button"
-            hitSlop={10}
-            style={styles.headerBtn}
-          >
-            <Layers color={lightColors.ink} size={20} strokeWidth={iconStroke} />
-          </Pressable>
+          {/* Layers 会话切换入口：仅 chat 侧（#46 拍板「②不加」，2026-10-16；回退 #59/PR #64）
+              —— chatcode 侧维持"绑最新 session"单一口径，无显式入口 */}
+          {kind !== "chatcode" ? (
+            <Pressable
+              onPress={openPicker}
+              accessibilityLabel="Switch session"
+              accessibilityRole="button"
+              hitSlop={10}
+              style={styles.headerBtn}
+            >
+              <Layers color={lightColors.ink} size={20} strokeWidth={iconStroke} />
+            </Pressable>
+          ) : null}
           {onClose ? (
             <Pressable
               onPress={onClose}
@@ -198,7 +200,7 @@ export function ProjectChatZ({ projectPath, onBack, kind, attention, initialSess
       )}
 
       {/* #34F：sessions 抽屉（Layers 唤起 + 左缘右滑手势）；
-          chatcode 侧已开 Layers 入口（#59），边缘手势仍未挂（edgeGesture 见下） */}
+          chatcode 侧不加入口（#46 拍板 ②不加，2026-10-16；回退 #59/PR #64），边缘手势仍未挂（edgeGesture 见下） */}
       <SessionsDrawer
         visible={drawerOpen}
         onClose={() => setDrawerOpen(false)}

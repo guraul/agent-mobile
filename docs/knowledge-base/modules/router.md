@@ -44,7 +44,7 @@ Settings / Memory / Knowledge 检索以 contextual sheet 呈现（不再是 tab 
                      │                 · cream 底 + 白面板 + 双气泡 + peach 主行动作
                      │                 · 命令族回执 chip（#59；Duties/Projects 内白卡已退役）
                      └─ "chatcode" → ProjectChatZ（工作台壳）标题 "Pulse — Code Chat"
-                                       · **默认绑项目最新 session**（resume-most-recent）；#59 起也有 Layers 入口
+                                       · **默认绑项目最新 session**（resume-most-recent）；**无 Layers 入口**（#46 拍板「②不加」）
                                        · 工具折叠组 / thinking / diff 卡 / composer 两态 / 排队 chip
 ```
 
@@ -66,7 +66,7 @@ Settings / Memory / Knowledge 检索以 contextual sheet 呈现（不再是 tab 
 ### 会话切换导航（#34F 抽屉，2026-10-01 拍板 A 方案）
 
 - **chat 侧**：header Layers 图标（aria-label "Switch session"）唤起 `SessionsDrawer`（自实现 drawer：cream 306px + 左缘 24px 热区右滑唤起 + 抽屉内拖拽关闭），**替代**原 LightSheet 会话选择器——列表/切换/新建同一份 listSessions 数据
-- **chatcode 侧**：维持"绑最新 session"无选择器、无抽屉入口（#31 拍板不变）；是否加抽屉入口待用户确认（实现是一行 prop 改动）
+- **chatcode 侧**：绑最新 session、**无 Layers 入口 / 无抽屉**（#46 拍板「②不加」，2026-10-16；回退 #59/PR #64 的短暂入口）
 - 抽屉实现与三个手势坑见 `modules/chat.md` #34F 段；松手决策纯函数在 `src/services/drawer-gesture.ts`
 **所有既有 route params（autoSendContext / autoContextText / attId / projectPath / subjectId / sessionId）全兼容，e2e 零改动。**
 
@@ -75,7 +75,7 @@ Settings / Memory / Knowledge 检索以 contextual sheet 呈现（不再是 tab 
 
 ### 边界与已知限制
 
-- chatcode 侧 **#59 起渲染 Layers 按钮**（入口与"绑最新 session"默认并存，用户 2026-10-10 拍板解禁）；**边缘手势仍未挂**（`edgeGesture={kind !== "chatcode"}` 未动，待用户确认）。
+- chatcode 侧**不渲染 Layers 按钮**（#46 拍板「②不加」，2026-10-16；回退 #59/PR #64）；**边缘手势仍未挂**（`edgeGesture={kind !== "chatcode"}` 未动，真机手势验证移至 issue #100）。
 - ~~内白卡（Duties/Projects）~~ 已退役（#59）；Assignment 命令的反馈回执 chip 与命令路由同在 `ChatPanelZ` 内，两壳共用。
 - 两壳共享 `ChatPanelZ` / `MessageBubbleZ` 全部数据逻辑；分流只影响 header 形态与呈现。
 
