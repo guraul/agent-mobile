@@ -77,7 +77,7 @@
     - ① **issue / PR 一旦关闭，必须立刻清理对应 worktree + 本地分支**：`git worktree remove --force <path>` → `git branch -D task/<N>-<slug>`（squash 合并后提交**不是** main 祖先，故用 `-D` 而非 `-d`）→ `git worktree prune` → `git worktree list` 确认**只剩主工作区**；远端分支随手删（`gh pr merge --delete-branch` 或 `git push origin --delete`）。
     - ② **外仓（memx / companion-tools 等）的任务分支必须落在仓库外的 worktree 容器**（`/Users/gubin/workspace/<repo>-worktrees/`），**绝不** checkout 在主仓 —— 本机 opencode **从主仓加载插件源码**（`~/.config/opencode/plugins/memx.ts` → 主仓 `src/hosts/opencode/index`），主仓切到未合并分支会让插件**加载到未合并代码**（已真实发生过一次）。
     - ③ 建 worktree 一律**绝对路径 + 从主仓根执行**：在子目录里跑 `git worktree add .worktrees/X` 会嵌进错误的 worktree 层级。
-    - ④ ⚠️ **已知脚本缺陷**：`scripts/pipeline/merge-pr.sh` 从**主工作区**运行时会**跳过** worktree 清理与本地 main 快进（见 issue **#102**）→ 该用法下必须按 ① 手工补齐。
+    - ④ **`merge-pr.sh` 已修（#102 → PR #103 `1f38630`）**：从**主工作区**运行也会「清该任务 worktree + 删本地分支 + 快进 main」，不再需要手工补齐。**推荐从主工作区运行** `scripts/pipeline/merge-pr.sh <PR号>`（shell 不会站在被删目录里）；从 worktree 内运行同样会清理，但**被清的就是你所在的 worktree**。**脚本自检**：`bash scripts/pipeline/test-merge-pr.sh`（PATH 打桩伪造 git/gh，不碰真实远端）。
 16. **读写长期记忆只走 memx 的对外 CRUD 面（2026-10-17 用户拍板，配合 #62 路径 A）**：DSH 侧如需读/写 memx 长期记忆，**一律**在 `/Users/gubin/workspace/memx` 下执行 `pnpm mem <list|search|get|status|write|forget> …`（读 `list`/`search`/`get`/`status`；写 `write` 传 stdin 的 `MemoryProposal[]`、`forget` 软删；**写前先 `--dry-run`**）。
     - **禁止直写 `~/.opencode/**` 的 markdown** —— 会绕过 `withFileLock` + 索引更新 + `.bak`，产生"不在索引里的孤儿"（2026-10-17 实测到 3 条）与格式分叉。
     - 命令面/退出码/语义见 memx 仓 `docs/knowledge-base/OPERATIONS.md §3.1` 与 memx `AGENTS.md` 规则 17；CLI 落地 = memx PR #14（`4f32fbd`，issue #13）。
