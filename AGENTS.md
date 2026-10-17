@@ -73,6 +73,11 @@
    - ⚠️ **App/companion 运行时模型保持 `opencode/mimo-v2.6-flash-free`**（2026-10-12 二次拍板；本条与回退链约定无关、继续有效）：App 的唯一真实目标是生产 opencode，而**生产的模型目录里没有 `opencode-go`**（见 OPERATIONS 上线窗口预检）——写死 Go 档会让手机端直接 `Model unavailable`。Go 档仍只用于 **DSH 子代理 + 本机 memx 提炼**（首选档；free 档偶发 429 按上面的回退链处理）。
 13. **子代理模型因"非限流"原因不可用时：报告，不降级（用户硬约束）**：若模型（回退链任一档）**不可用**（不存在 / 鉴权失败 / 报错 / 无响应；**⚠️ 限流 / 429 / 偶发不通不在此列** —— 那属于规则 12 的回退链场景，按链逐档尝试），**立即停下并告知用户**，**严禁自行降级、替换模型、改配置、切 provider，或用其他方式绕道兜底**（含"先用别的模型顶一下"）。与第 10 条 vision-reader 的"不得自行降级重试"同源；**宁可失败并如实报告，不可静默降质**。
 14. **包管理器只用 pnpm（2026-10-11 用户偏好，全局约定）**：**禁止 npm / yarn / bun**。装依赖用 `pnpm add` / `pnpm remove`；跑脚本用 `pnpm <script>` / `pnpm exec <bin>`；临时二进制用 `pnpm dlx`，**不用 `npx`**。与规则 1 呼应——装依赖统一走 `npx expo install` 的场景改为 `pnpm exec expo install`（等价且不引 npm）。不提交 `package-lock.json` / `yarn.lock`，只保留 `pnpm-lock.yaml`。全局版本见 `~/.config/opencode/AGENTS.md`（对所有项目生效）。
+15. **worktree 纪律（2026-10-17 用户明确「issue 关闭，相应的 worktree 也要清理」）**：
+    - ① **issue / PR 一旦关闭，必须立刻清理对应 worktree + 本地分支**：`git worktree remove --force <path>` → `git branch -D task/<N>-<slug>`（squash 合并后提交**不是** main 祖先，故用 `-D` 而非 `-d`）→ `git worktree prune` → `git worktree list` 确认**只剩主工作区**；远端分支随手删（`gh pr merge --delete-branch` 或 `git push origin --delete`）。
+    - ② **外仓（memx / companion-tools 等）的任务分支必须落在仓库外的 worktree 容器**（`/Users/gubin/workspace/<repo>-worktrees/`），**绝不** checkout 在主仓 —— 本机 opencode **从主仓加载插件源码**（`~/.config/opencode/plugins/memx.ts` → 主仓 `src/hosts/opencode/index`），主仓切到未合并分支会让插件**加载到未合并代码**（已真实发生过一次）。
+    - ③ 建 worktree 一律**绝对路径 + 从主仓根执行**：在子目录里跑 `git worktree add .worktrees/X` 会嵌进错误的 worktree 层级。
+    - ④ ⚠️ **已知脚本缺陷**：`scripts/pipeline/merge-pr.sh` 从**主工作区**运行时会**跳过** worktree 清理与本地 main 快进（见 issue **#102**）→ 该用法下必须按 ① 手工补齐。
 
 ## BROWSER AUTOMATION (Playwright)
 
