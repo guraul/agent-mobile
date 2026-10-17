@@ -33,12 +33,18 @@ scripts/pipeline/new-task.sh 12
 # 开 PR（在 worktree 目录内运行）
 cd .worktrees/12-xxx && ../../scripts/pipeline/open-pr.sh
 
-# 合并（用户 review 通过后；⚠️ 必须从主工作区运行或先 cd 出 worktree——
-#   merge-pr.sh 会删除 worktree，shell 停在里面会被连根带走）
+# 合并（用户 review 通过后；推荐从主工作区运行，两种运行位置都会清理现场）
 scripts/pipeline/merge-pr.sh            # 自动识别当前分支的 PR
 scripts/pipeline/merge-pr.sh 34         # 指定 PR 号
 scripts/pipeline/merge-pr.sh --force    # CI 失败时强行合并（慎用）
-#   合并动作：squash merge → 删远端/本地分支 → 清理 worktree → 主工作区快进
+#   合并动作（无论从哪运行都会做）：squash merge → 删远端分支
+#     → 删本地 task/* 分支（先移除检出它的 worktree → 主工作区 fetch + pull --ff-only main）
+#   清理范围：
+#     · 从主工作区运行（如 `merge-pr.sh 34`）：清掉该任务的 worktree + 本地分支，并把主工作区的
+#       main 快进到 origin/main。✅ 推荐用法（shell 不会站在被删的目录里）
+#     · 从 worktree 内运行（无参数）：同样会清理——被清的就是你所在的 worktree，shell 会被"连根
+#       带走"（目录已删）；建议先 cd 回主工作区再运行
+#   自检（PATH 打桩，不碰真实 git 远端/GitHub）：bash scripts/pipeline/test-merge-pr.sh
 
 # 手动部署兜底（Actions 不可用时；质量门槛默认开启）
 scripts/pipeline/deploy.sh                 # tsc + test → export → rsync releases/<id> → 切软链 → restart → 验证
