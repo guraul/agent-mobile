@@ -57,7 +57,7 @@
     - **子代理模型（用户 2026-10-14 二次拍板；取代 2026-10-13 的 longcat 首选）**：**首选档 `opencode/deepseek-v4.1-flash-free`**（homebase 侧已核实本机模型目录存在、并已实测委派成功）→ **每次委派都要显式传 `model`**（角色库不 pin 模型）。
       **回退链（free 档；429 / 限流 / 偶发不通时按序）**：`opencode/glm-5.3-flash-free` → `opencode/mimo-v2.6-flash-free` → `opencode-go/longcat-2.5-preview-free`（**保留为最后一档**）；**单档不通换下一档，只有全链都不可用才警告并停下**（与规则 13 同源）。
       （`opencode/space-bunny-free` 与 `opencode/step-5-preview-free` 已按 2026-10-14 拍板**从链中删除**。）
-      **2026-10-16 用户拍板：把 `opencode/glm-5.3-flash-free` 插入链中**（排在 mimo 之前）——free 档多一个备选，避免单个模型 429 就直接落到 Go 档。⚠️ **当次整条 free 档都在 429**（glm 与 deepseek 用本机 CLI 直测均返回 `Rate limit exceeded`），故 **glm 档的实际可用性待限流恢复后实测确认**（模型目录 `opencode models` 中确实存在 `opencode/glm-5.3-flash-free`）。
+      **2026-10-16 用户拍板：把 `opencode/glm-5.3-flash-free` 插入链中**（排在 mimo 之前）——free 档多一个备选，避免单个模型 429 就直接落到 Go 档。插入当天整条 free 档都在 429（glm / deepseek 本机 CLI 直测均 `Rate limit exceeded`，当日委派全部落到 Go 档）；**2026-10-17 09:35 复测已确认恢复可用**（`glm-5.3-flash-free` / `deepseek-v4.1-flash-free` / `mimo-v2.6-flash-free` 三个 free 档实测均 3–5s 返回 `OK`）。
       ⚠️ 澄清（用户 2026-10-13）：free 档**不是永久禁用** —— 多数时间可用，只是用的人多、偶发 429；此前 2026-10-12 写成「已被网关打挂 / 仅作历史 / 一律不降级（通知我）」**表述过严，以本条为准**。
       **非限流故障**（403 鉴权/地区、模型不存在、报错、无响应）→ 规则 13：停下报告，不改配置。
       **小模型**（`small_model` / `agents.title.model`，标题生成这类轻量旁路）→ 用户 2026-10-13 拍板：**可用 `opencode/mimo-v2.6-flash-free`**（旁路失败只影响标题；opencode 源码 `session/title.ts` 会自动回落到会话主模型）。
