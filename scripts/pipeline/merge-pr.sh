@@ -8,26 +8,33 @@
 # 用法:
 #   scripts/pipeline/merge-pr.sh                # 在 worktree 内运行：自动识别当前分支的 PR（连本 worktree 一起清掉）
 #   scripts/pipeline/merge-pr.sh <PR号|分支名>   # 任意位置指定 PR（推荐在主工作区跑，见 docs/pipeline/README.md §二）
+#   scripts/pipeline/merge-pr.sh -C <dir> ...    # 显式指定目标工作区（同 --worktree；优先于脚本所在仓库）
 #   scripts/pipeline/merge-pr.sh --force        # CI 失败/未配置时仍合并（慎用）
 source "$(dirname "$0")/lib.sh"
 require_gh
 
 FORCE=0; TARGET=""
-for a in "$@"; do
-  case "$a" in
-    --force) FORCE=1 ;;
-    *) TARGET="$a" ;;
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --force) FORCE=1; shift ;;
+    -C|--worktree)
+      [[ $# -ge 2 ]] || die "$1 缺少目录参数"
+      TARGET_DIR_OVERRIDE="$2"; shift 2 ;;
+    --worktree=*) TARGET_DIR_OVERRIDE="${1#*=}"; shift ;;
+    -*) die "未知参数: $1（支持 <PR号|分支名> / -C <dir> / --force）" ;;
+    *) TARGET="$1"; shift ;;
   esac
 done
+resolve_work_dir
 
 # 检出 main 的主工作区：合并后快进 main 用。它与"当前是否就在主工作区"无关——
 # 从主工作区运行（TARGET 为 PR 号）时 MAIN_WT 就是当前工作区，清理与快进两件事都必须照做（issue #102）。
-MAIN_WT=$(git worktree list --porcelain | awk '/^worktree /{w=$2} /^branch refs\/heads\/main$/{print w; exit}')
+MAIN_WT=$(git -C "$WORK_DIR" worktree list --porcelain | awk '/^worktree /{w=$2} /^branch refs\/heads\/main$/{print w; exit}')
 [[ -n "$MAIN_WT" ]] || die "未找到检出 main 的主工作区"
 
 # —— 定位 PR ——
 if [[ -z "$TARGET" ]]; then
-  BRANCH=$(git branch --show-current)
+  BRANCH=$(git -C "$WORK_DIR" branch --show-current)
   [[ "$BRANCH" == task/* ]] || die "在 task/* 分支（worktree）内运行，或用 <PR号|分支名> 指定"
   TARGET="$BRANCH"
 fi
@@ -52,11 +59,11 @@ gh pr merge "$PR_NUM" --repo guraul/agent-mobile --squash
 # —— 清理现场（远端分支、本地分支及其 worktree；主工作区快进 main）——
 # 「快进 main」与「清理 worktree/本地分支」是两件独立的事，各自判断，不再共用一个总开关。
 info "清理分支与 worktree"
-git push origin --delete "$BRANCH" 2>/dev/null || true
+git -C "$WORK_DIR" push origin --delete "$BRANCH" 2>/dev/null || true
 
 # 本地分支：先摘掉检出它的 worktree（通常就是本任务的 .worktrees/<issue>-<slug>），
 # 否则 git branch -D 会以"该分支正被某 worktree 检出"拒绝。
-BRANCH_WT=$(git worktree list --porcelain \
+BRANCH_WT=$(git -C "$WORK_DIR" worktree list --porcelain \
   | awk -v b="refs/heads/${BRANCH}" '/^worktree /{w=$2} $0 == "branch " b {print w; exit}')
 if [[ -n "$BRANCH_WT" && "$BRANCH_WT" != "$MAIN_WT" ]]; then
   info "移除 worktree: ${BRANCH_WT}"
