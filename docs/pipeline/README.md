@@ -10,7 +10,7 @@
 2. 建工作区      scripts/pipeline/new-task.sh <issue号>
                  → 分支 task/<issue号>-<slug> + worktree .worktrees/<issue号>-<slug>
 3. 开发          cd 到 worktree 内开发；提交信息建议带 #<issue号>
-4. 开 PR         （在 worktree 内）scripts/pipeline/open-pr.sh
+4. 开 PR         （推荐：在 worktree 内）scripts/pipeline/open-pr.sh
                  → 自动推送 + 开 PR，body 首行 Closes #<issue号>
 5. review        CI 过（tsc + vitest）+ **review 约定**（见下）→ squash merge
                  → 合并自动关闭 issue，并触发自动部署
@@ -30,12 +30,19 @@
 scripts/pipeline/new-task.sh 12
 #   输出 worktree 路径，cd 进去开发；重复运行幂等
 
-# 开 PR（在 worktree 目录内运行）
+# 开 PR（推荐在 worktree 目录内运行）
 cd .worktrees/12-xxx && ../../scripts/pipeline/open-pr.sh
+scripts/pipeline/open-pr.sh -C .worktrees/12-xxx    # 不 cd，显式指定目标 worktree（同 --worktree）
+scripts/pipeline/open-pr.sh --worktree <dir>
+#   目标解析（issue #108）：-C/--worktree > 脚本自身所在工作区；**cwd 不参与**
+#     → 从主工作区用绝对路径调用 worktree 里的脚本，也会解析到那个 worktree，而不是 main
+#   在 main 工作区跑（分支不是 task/*）会拒绝；报错一律带「目标工作区 / 分支 / 调用 cwd」
+#   自检（PATH 打桩，不碰真实 git 远端/GitHub）：bash scripts/pipeline/test-open-pr.sh
 
 # 合并（用户 review 通过后；推荐从主工作区运行，两种运行位置都会清理现场）
 scripts/pipeline/merge-pr.sh            # 自动识别当前分支的 PR
 scripts/pipeline/merge-pr.sh 34         # 指定 PR 号
+scripts/pipeline/merge-pr.sh -C <dir>   # 指定目标工作区（同 --worktree）
 scripts/pipeline/merge-pr.sh --force    # CI 失败时强行合并（慎用）
 #   合并动作（无论从哪运行都会做）：squash merge → 删远端分支
 #     → 删本地 task/* 分支（先移除检出它的 worktree → 主工作区 fetch + pull --ff-only main）
@@ -64,6 +71,8 @@ scripts/pipeline/status.sh
 ```
 
 环境要求：本机 node 24.21.0（`nvm use`）、pnpm、gh CLI 已登录（`gh auth status`）、SSH 公钥已授权服务器。
+
+**仓库解析约定（issue #108）**：所有 `scripts/pipeline/*.sh` 的 `REPO_ROOT` 取**脚本自身位置**（`git -C "$SCRIPT_DIR" rev-parse --show-toplevel`），与调用时的 cwd 无关；`open-pr.sh` / `merge-pr.sh` 还支持 `-C <dir>` / `--worktree <dir>` 覆盖目标工作区。失败信息统一附带「目标工作区 / 分支 / 调用 cwd」。
 
 ## 三、服务器速查（106.13.181.13，Ubuntu 24.04）
 

@@ -18,6 +18,7 @@ SUT="${1:-$HERE/merge-pr.sh}"
 [[ -f "$HERE/lib.sh" ]] || { echo "✗ 缺少 $HERE/lib.sh（被测脚本需与 lib.sh 同目录）" >&2; exit 2; }
 
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/merge-pr-selftest.XXXXXX")"
+TMP="$(cd "$TMP" && pwd -P)"   # macOS /var → /private/var：归一化，避免与脚本内 pwd -P 比对失配
 trap 'rm -rf "$TMP"' EXIT
 
 REPO_SLUG="guraul/agent-mobile"
@@ -111,7 +112,7 @@ run_sut "$FAKE_MAIN" "$FAKE_MAIN" 102
 echo "  退出码: $RC"
 [[ $RC -eq 0 ]] || { echo "  ✗ 退出码应为 0，实为 $RC"; FAIL=1; }
 has "gh pr merge 102 --repo ${REPO_SLUG} --squash"                     "squash 合并"
-has "git push origin --delete ${BRANCH}"                               "删远端分支"
+has "git -C ${FAKE_MAIN} push origin --delete ${BRANCH}"               "删远端分支"
 has "git -C ${FAKE_MAIN} worktree remove --force ${FAKE_WT}"           "清理任务 worktree（#102 修复点）"
 has "git -C ${FAKE_MAIN} branch -D ${BRANCH}"                          "删本地任务分支"
 has "git -C ${FAKE_MAIN} pull --ff-only origin main --quiet"           "快进主工作区 main（#102 修复点）"
@@ -123,7 +124,7 @@ echo "── ② worktree 形态: bash merge-pr.sh（cwd=${FAKE_WT##*/}，自动
 run_sut "$FAKE_WT" "$FAKE_WT"
 echo "  退出码: $RC"
 [[ $RC -eq 0 ]] || { echo "  ✗ 退出码应为 0，实为 $RC"; FAIL=1; }
-has "git branch --show-current"                                        "自动识别当前分支"
+has "git -C ${FAKE_WT} branch --show-current"                          "自动识别当前分支（取目标工作区）"
 has "gh pr merge 102 --repo ${REPO_SLUG} --squash"                     "squash 合并"
 has "git -C ${FAKE_MAIN} worktree remove --force ${FAKE_WT}"           "既有行为: 清理该 worktree"
 has "git -C ${FAKE_MAIN} branch -D ${BRANCH}"                          "既有行为: 删本地任务分支"
