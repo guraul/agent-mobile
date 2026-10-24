@@ -11,15 +11,16 @@ export const MARKET_TALK_DIRECTORY = "/root/project/homebase";
 // #57/#53：chat 伴侣页的 agent/model 在建会话时写死（v2 契约：agent/model 建会话定，
 // 逐消息指定已废除）。
 // #74（2026-10-11 护栏降级）：免费档网关对请求工具列表的指纹校验波动收紧 → companion
-// permissions 白名单撤除（改软护栏 = system prompt + 客户端写死），model 定为与 chatcode
-// 同款 mimo（过网关确定性）。#75/#76 起 **CHAT_MODEL 只在本文件定义**（ChatPanelZ.tsx 的
-// 历史本地副本已删）——改它只需改这里 + 全仓 grep 确认。
-// 2026-10-12 用户拍板（二次）：**保持 `opencode/mimo-v2.6-flash-free`**——App 唯一的真实目标
-// 是生产 opencode，而生产的模型目录里没有 `opencode-go`（见 OPERATIONS 上线窗口预检）；
-// 写死 Go 档会让手机端直接 Model unavailable。Go 档只用于 **DSH 子代理 + 本机 memx 提炼**
-// （本机免费档被网关 403/429 挡）。
+// permissions 白名单撤除（改软护栏 = system prompt + 客户端写死）。#75/#76 起
+// **CHAT_MODEL 只在本文件定义**（ChatPanelZ.tsx 的历史本地副本已删）——改它只需改这里 +
+// 全仓 grep 确认。
+// 2026-10-24 用户拍板：**聊天模型用 `opencode/deepseek-v4.1-flash-free`**——生产 companion 上
+// `mimo-v2.6-flash-free` **调不动插件新工具 `project_sessions`**（同插件的 `session_status`
+// 正常），deepseek 实测一次调通。⚠️ **providerID 仍必须是 `opencode`**：App 唯一的真实目标是
+// 生产 opencode，而生产的模型目录里没有 `opencode-go`（见 OPERATIONS 上线窗口预检）——
+// 写死 Go 档会让手机端直接 Model unavailable（Go 档只用于 DSH 子代理 + 本机 memx 提炼）。
 export const CHAT_AGENT_ID = "companion";
-export const CHAT_MODEL = { providerID: "opencode", modelID: "mimo-v2.6-flash-free" } as const;
+export const CHAT_MODEL = { providerID: "opencode", modelID: "deepseek-v4.1-flash-free" } as const;
 
 export type ConversationKind = "chat" | "chatcode";
 
