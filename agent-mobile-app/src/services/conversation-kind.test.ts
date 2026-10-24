@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  CHAT_MODEL,
   MARKET_TALK_DIRECTORY,
   pickBareEntrySession,
   resolveConversationKind,
@@ -7,6 +8,19 @@ import {
 
 // 双 chat 页分流判据（epic #35 / #29）：
 // 绑项目 → chatcode；market 工作区 / 无项目 → chat
+
+describe("CHAT_MODEL（chat 伴侣页写死模型，#111）", () => {
+  it("是 opencode/deepseek-v4.1-flash-free（mimo 调不动 companion 的 project_sessions 工具）", () => {
+    expect(CHAT_MODEL).toEqual({
+      providerID: "opencode",
+      modelID: "deepseek-v4.1-flash-free",
+    });
+  });
+
+  it("providerID 必须是 opencode（生产模型目录里没有 opencode-go）", () => {
+    expect(CHAT_MODEL.providerID).toBe("opencode");
+  });
+});
 
 describe("resolveConversationKind", () => {
   it("market 工作区目录 → chat（market 会话统一挂 MARKET_TALK_DIRECTORY）", () => {
