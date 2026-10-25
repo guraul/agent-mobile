@@ -143,6 +143,7 @@ SSE: BFF /api/opencode/stream（Bearer JWT + ?sessionID= 过滤）
 - **状态机** `services/handoff/card-phase.ts`：`draft → submitting → done / error / dismissed / superseded`；`superseded` = 又来一张新卡，旧卡标「已更新」失效。**失败不静默**：error 态 + 原因 + 重试。
 - 单测：`handoff/payload.test.ts`、`handoff/target.test.ts`、`handoff/handoff-message.test.ts`、`handoff/card-phase.test.ts` + `message-merging.test.ts`（块 → 剥离 + 追加 `handoffCard` / 非法块不出卡）。
 - **进度可见性（#117）**：伴侣侧看不到 `handoffs` 状态，回答进度只能查会话/状态或照实说看不到（prompt v0.5 软约束）；不要猜「还没确认／还没开工」，也别断言目标目录存在或不存在。
+- **记忆（E4）**：出卡同轮会先 `memory_write` 记一条（新项目 `project` / 既有项目 `feedback`）；回执不走卡，只在正文半句带过。
 
 ### 消息顺序：chronological
 
