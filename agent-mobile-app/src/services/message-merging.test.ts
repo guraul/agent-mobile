@@ -300,3 +300,46 @@ describe("memory_write 回执 chip（出口① #82 §B）", () => {
     expect(out.map((s) => s.kind)).toEqual(["text"]);
   });
 });
+
+describe("#61 移交卡隐藏块（数据层）", () => {
+  const payload = { title: "修首页缓存", body: "目标：修掉缓存\n边界：只动 pulse\n落点：agent-mobile" };
+
+  it("命中隐藏块 → 正文只留剥离后的文本 + 追加 handoffCard step", () => {
+    const out = mergeMessages([
+      msg("a1", "assistant", [
+        { type: "text", text: `这个思路好，去帮我实现了吧。\n<!--handoff:${JSON.stringify(payload)}-->`, id: "p1" },
+      ]),
+    ]);
+    expect(out.map((s) => s.kind)).toEqual(["text", "handoffCard"]);
+    expect(out[0]).toMatchObject({ kind: "text", text: "这个思路好，去帮我实现了吧。" });
+    expect(out[1]).toMatchObject({ kind: "handoffCard", payload });
+    expect(JSON.stringify(out)).not.toContain("<!--handoff:");
+  });
+
+  it("块非法（非 JSON）→ 不出卡，正文原样", () => {
+    const raw = "正文\n<!--handoff:{坏}-->";
+    const out = mergeMessages([msg("a1", "assistant", [{ type: "text", text: raw, id: "p1" }])]);
+    expect(out.map((s) => s.kind)).toEqual(["text"]);
+    expect((out[0] as { text: string }).text).toBe(raw);
+  });
+
+  it("body 为空 → 不出卡", () => {
+    const out = mergeMessages([
+      msg("a1", "assistant", [{ type: "text", text: `正文\n<!--handoff:${JSON.stringify({ body: "  " })}-->`, id: "p1" }]),
+    ]);
+    expect(out.map((s) => s.kind)).toEqual(["text"]);
+  });
+
+  it("同一段文本里两种卡并存 → 两张卡都出，正文干净", () => {
+    const assignment = { mode: "one-shot", domain: "personal", responsibility: "提醒我喝水", schedule: "0 18 * * *", condition: { kind: "always" } };
+    const out = mergeMessages([
+      msg("a1", "assistant", [{
+        type: "text",
+        text: `都准备好了。\n<!--assignment-card:${JSON.stringify(assignment)}-->\n<!--handoff:${JSON.stringify(payload)}-->`,
+        id: "p1",
+      }]),
+    ]);
+    expect(out.map((s) => s.kind)).toEqual(["text", "assignmentCard", "handoffCard"]);
+    expect((out[0] as { text: string }).text).toBe("都准备好了。");
+  });
+});

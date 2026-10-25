@@ -55,6 +55,8 @@
 agent 回复 (SSE 流式)      OpenCode Server                message-reducer → mergeMessages → MessageBubble/StepChip
 定时任务隐藏块 (#98)       模型回复正文（HTML 注释）        extractAssignmentCard（剥离）→ assignmentCard step → 确认卡
 确认卡 [确认] (#98)        BFF /assignments/from-card      assignmentService（切片 1，homebase）→ 回执行情 chip
+移交卡隐藏块 (#61)         模型回复正文（HTML 注释）        extractHandoffBlock（剥离）→ handoffCard step → 移交卡
+移交卡 [移交] (#61)        BFF /api/product/handoffs       ChatPanelZ 编排：建 handoff → 建工程会话 → 首条消息 → consume → 跳 /talk
 opencode serve 运行态      /session/status (活跃表)       useProjectEvents (30s 轮询 + SSE)
 session CRUD               OpenCode Server                useProjectEvents / ProjectChat
 开发者编辑                 theme/*.ts / app.json         组件与页面（import）

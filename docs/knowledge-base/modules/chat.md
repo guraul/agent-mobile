@@ -107,7 +107,7 @@ SSE: BFF /api/opencode/stream（Bearer JWT + ?sessionID= 过滤）
 ### DisplayStep 结构（不合并 step）
 
 - `mergeMessages` 输出 `DisplayStep[]`，**不再合并**同轮 assistant step 为单个气泡；每条有意义的 part 独立成 step。
-- step 类型：`user`（用户气泡）/ `text`（assistant 主气泡，markdown）/ `reasoning`（思考中…）/ `tool`（工具(x)调用中…）/ **`error`（错误气泡，2026-08-25 新增）**/ **`receipt`（#59 命令族回执 chip，localSteps）**/ **`assignmentCard`（#98 定时任务确认卡）**。
+- step 类型：`user`（用户气泡）/ `text`（assistant 主气泡，markdown）/ `reasoning`（思考中…）/ `tool`（工具(x)调用中…）/ **`error`（错误气泡，2026-08-25 新增）**/ **`receipt`（#59 命令族回执 chip，localSteps）**/ **`assignmentCard`（#98 定时任务确认卡）**/ **`handoffCard`（#61 移交卡）**。
 - **step-start / step-finish 被过滤**（opencode 每次工具调用循环都产生一对，噪音大；2026-08-12 起不再展示）。
 - 空 text part、snapshot/agent/file/compaction 等 part 也被过滤。
 - 单测：`message-merging.test.ts` 覆盖 step 展开/过滤/顺序。
@@ -130,6 +130,18 @@ SSE: BFF /api/opencode/stream（Bearer JWT + ?sessionID= 过滤）
 - **[补充]**：卡内展开输入 → 文字作为新用户消息发回模型（busy 时进 `message-queue`）→ 模型重新出卡；**旧卡转 `superseded`（"已更新"，按钮失效）**。
 - prompt 真源：`docs/pipeline/COMPANION_PROMPT_V0.md` v0.3 第 3 段（**只落仓内真源**，本机/生产 `agents.companion.system` 同步需上线窗口）。
 - 单测：`services/assignment/card-payload.test.ts`（提取/校验/剥离/判据）+ `message-merging.test.ts`（隐藏块 → 正文剥离 + 追加卡 step / 块非法不出卡）。
+
+### 移交卡（#61，S3+S2 / 跨仓 #61 出口③「移交到 chatcode」）
+
+- **场景**：伴侣聊天里她说「这个思路好，去帮我实现了吧」→ 卡片给出**原文摘要 + 目标选择**，确认后建 handoff、建工程会话、投喂首条消息、跳 chatcode；**chat 会话原地保留**。
+- **通道**：与 #98 同构，模型在回复**末尾**输出 `<!--handoff:{"title":"可选，≤100","body":"目标 / 边界 / 落点，三件事，≤4000"}-->`。
+- **解析纯函数** `services/handoff/payload.ts`：`extractHandoffBlock(text)` → `{payload, cleanedText}`；非 JSON / body 空 / body 超 4000 → **原样返回文本、不出卡、不报错**（title 超长截断到 100，不因此废卡）；残缺 `<!--…` 由 `stripHtmlComments` 兜底。
+- **渲染接入**：`mergeMessages` 的 text 分支先剥 #98 卡再剥 #61 卡，正文只留两次剥离后的结果，卡按出现顺序作为独立 `handoffCard` step 追加（数据层完成）。
+- **卡 UI** `components/chat/zcode/HandoffCard.tsx`：标题「移交到工作台」+ 摘要（只读 →「改一下」进多行编辑）+ 目标段（分段切换：**新建项目** = 路径 + 可选名称；**既有项目** = `opencodeClient.getProject()` 的 `worktree` 候选，显示末段名 + 全路径）+ 动作行（pill 主按钮「移交到工作台」/ ghost「先不要」）。**一个主按钮、卡无阴影、不做多轮**。
+- **目标校验纯函数** `services/handoff/target.ts`：`/` 开头、不含 `..`、≤1024；**禁止** `/`、`/root/project`、`/root/project/homebase`（这三个目录 `resolveConversationKind` 判成 chat，进不了 chatcode 壳）。
+- **确认流程**（`ChatPanelZ.handoffToWorkbench`）：`POST /api/product/handoffs` → `opencodeClient.createSession({directory, agent, model})`（agent/model 沿用 chatcode 选择器，不写死）→ `sendMessageAsync(buildHandoffMessage(...))`（纯函数模板，缺 `sourceSessionId` 时「交接信息」整行省略）→ `POST /api/product/handoffs/{id}/consume`（失败只 `console.warn`，**不阻断跳转**）→ `router.push('/talk', {sessionId})`。**不新增 `/chat` `/chatcode` 路由**。
+- **状态机** `services/handoff/card-phase.ts`：`draft → submitting → done / error / dismissed / superseded`；`superseded` = 又来一张新卡，旧卡标「已更新」失效。**失败不静默**：error 态 + 原因 + 重试。
+- 单测：`handoff/payload.test.ts`、`handoff/target.test.ts`、`handoff/handoff-message.test.ts`、`handoff/card-phase.test.ts` + `message-merging.test.ts`（块 → 剥离 + 追加 `handoffCard` / 非法块不出卡）。
 
 ### 消息顺序：chronological
 
@@ -214,7 +226,7 @@ SSE: BFF /api/opencode/stream（Bearer JWT + ?sessionID= 过滤）
 - **勿把对象塞进 `<Text>`/`<Markdown>`**：运行时字段可能是对象（如 `info.error` 是 NamedError `{name,data}`），直接渲染会 React error #31 → 白屏。必须经 `errorText()` 等安全转字符串。
 - **勿只监听 `question.v2.asked`**：opencode 实际发 `question.asked`（v1 兼容名），两端命名都要同时兼容，否则实时弹窗不触发。
 - 单测：`message-merging.test.ts`（含 error step 字符串/对象 case）、`message-reducer.test.ts`（含 SSE 透传 error case）、`order-sim.test.ts`（模拟完整 SSE 链路）。
-- **勿复活 #59 退役的 `InnerCard`/`dutiesCard`/`projectsCard` 家族**：确认卡（`assignmentCard`）是**唯一**允许的气泡内白卡形态；查看任务的正确路径是自然语言问 companion（只读）。
+- **勿复活 #59 退役的 `InnerCard`/`dutiesCard`/`projectsCard` 家族**：气泡内白卡只有两张——#98 定时任务确认卡（`assignmentCard`）与 #61 移交卡（`handoffCard`）；查看任务的正确路径是自然语言问 companion（只读）。
 - **勿把隐藏块搬进展示层剥离**：`assignmentCard` step 由 `mergeMessages`（数据层）产出，`stripHtmlComments` 只是残缺注释的兜底；两层都剥离会让"块在正文中间"这类 case 出现错位。
 - E2E：`scripts/e2e/pulse-e2e.mjs` 覆盖打开项目 → 发消息 → 顺序校验；`test/steps-verify*.mjs` 验证旁白渲染；`test/agent-pill-verify.mjs` 验证 agent 循环 + prompt 参数；`test/model-sheet-verify.mjs` 验证模型弹出框；`test/bff-e2e.mjs` 验证登录 + 打字机 + 动态模型（阶段 2）；`test/diag/*.mjs` 各种诊断/隔离验证脚本。
 

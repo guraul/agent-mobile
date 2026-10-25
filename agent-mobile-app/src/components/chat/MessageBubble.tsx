@@ -32,7 +32,7 @@ export const MessageBubble = React.memo(function MessageBubble({ step }: { step:
   // #59：Duties/Projects 卡片步已随斜杠命令退役；回执 chip 由 zcode 渲染层承担
   //（MessageBubbleZ 的 receipt 分支）。legacy fork 无 localSteps，回执步实际不可达；
   // 显式拦掉，避免真被喂到时 fall-through 成暗色 AI 气泡（视觉错乱）。
-  if (step.kind === "receipt" || step.kind === "assignmentCard") {
+  if (step.kind === "receipt" || step.kind === "assignmentCard" || step.kind === "handoffCard") {
     return null;
   }
 

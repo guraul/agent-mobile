@@ -124,6 +124,15 @@ body `{mode, responsibility, domain, trigger, sessionId?, instructionRef?}`
 返回 `{activated, assignmentId?, duplicateOf?, proposalId, confirmation?}`。
 ⚠️ 该端点由**切片 1（homebase 仓）**实现，**上线晚于客户端 PR**（合并顺序：homebase 先）；端点缺失时确认失败 → 卡转错误态（不静默）。
 
+**出口③ 移交卡（#61，S3+S2 / 跨仓 #61）**：模型回复末尾输出隐藏块 `<!--handoff:{…}-->`
+→ `services/handoff/payload.ts` 提取/校验/剥离 → `mergeMessages` 产出 `handoffCard` step
+→ 气泡内白卡（摘要 + 新建/既有项目目标）→ 确认时依次调用：
+`POST /api/product/handoffs` body `{body, title?, sourceSessionId, targetKind, targetDirectory, targetName?}` → `{id}`；
+`POST /api/session`（BFF 转发 opencode，`location.directory` + 工程 agent/model）；
+`POST /api/session/{id}/prompt` 投喂 `buildHandoffMessage()`；
+`POST /api/product/handoffs/{id}/consume` body `{sessionId}`（失败只记日志，不阻断跳转）。
+⚠️ 端点由 homebase 侧**另一 PR** 提供，上线晚于客户端 PR；本地缺端点时卡片转 error 态（不静默、不加假数据兜底）。
+
 ## Memory / KB（Phase 6）
 
 `src/services/memory/client.ts`：Memory 投影（`fetchMemories`）+ Forget（`forgetMemory`，作用于 memx canonical）+ KB 检索（`searchKb`）+ 分组纯函数（`buildMemoryGroups`，User / Projects 分组）。
