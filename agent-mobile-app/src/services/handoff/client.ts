@@ -34,7 +34,7 @@ async function throwIfUnauth(res: Response): Promise<void> {
   }
 }
 
-/** `POST /api/product/handoffs` → `{id}`（失败抛错，调用方转卡片 error 态） */
+/** `POST /api/product/handoffs` → `{item:{id}, duplicate}`（失败抛错，调用方转卡片 error 态） */
 export async function createHandoff(body: CreateHandoffBody): Promise<{ id: string }> {
   const res = await fetch(`${getBaseUrl()}/api/product/handoffs`, {
     method: "POST",
@@ -42,10 +42,17 @@ export async function createHandoff(body: CreateHandoffBody): Promise<{ id: stri
     body: JSON.stringify(body),
   });
   await throwIfUnauth(res);
-  const payload = (await res.json().catch(() => ({}))) as { id?: string; error?: string };
+  const payload = (await res.json().catch(() => ({}))) as {
+    item?: { id?: unknown };
+    duplicate?: boolean;
+    error?: string;
+  };
   if (!res.ok) throw new Error(payload.error ?? `handoff failed: ${res.status}`);
-  if (!payload.id) throw new Error("handoff failed: 缺少 id");
-  return { id: payload.id };
+  const id = payload.item?.id;
+  if (typeof id !== "string" || !id.startsWith("hof_")) {
+    throw new Error("handoff failed: 响应缺少 item.id");
+  }
+  return { id };
 }
 
 /** `POST /api/product/handoffs/{id}/consume` → 绑定工程会话（失败抛错，调用方只记日志） */

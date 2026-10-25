@@ -127,7 +127,7 @@ body `{mode, responsibility, domain, trigger, sessionId?, instructionRef?}`
 **出口③ 移交卡（#61，S3+S2 / 跨仓 #61）**：模型回复末尾输出隐藏块 `<!--handoff:{…}-->`
 → `services/handoff/payload.ts` 提取/校验/剥离 → `mergeMessages` 产出 `handoffCard` step
 → 气泡内白卡（摘要 + 新建/既有项目目标）→ 确认时依次调用：
-`POST /api/product/handoffs` body `{body, title?, sourceSessionId, targetKind, targetDirectory, targetName?}` → `{id}`；
+`POST /api/product/handoffs` body `{body, title?, sourceSessionId, targetKind, targetDirectory, targetName?}` → `{item:{id,…}, duplicate}`（`id` 在 `item.id`，`hof_` 前缀）；
 `POST /api/session`（BFF 转发 opencode，`location.directory` + 工程 agent/model）；
 `POST /api/session/{id}/prompt` 投喂 `buildHandoffMessage()`；
 `POST /api/product/handoffs/{id}/consume` body `{sessionId}`（失败只记日志，不阻断跳转）。
