@@ -2,6 +2,7 @@ import type { OpenCodeMessage, OpenCodePart } from "./opencode-client";
 import { extractDiffText } from "./tool-diff";
 import { stripLeadingCheck } from "./command-receipt";
 import { extractAssignmentCard, type AssignmentCardPayload } from "./assignment/card-payload";
+import { extractHandoffBlock, type HandoffPayload } from "./handoff/payload";
 
 /** 出口①（#82 §B）显式记忆写入的工具名（memx 插件注册；命名与 memx 工具契约一致，勿改） */
 export const MEMORY_WRITE_TOOL = "memory_write";
@@ -36,6 +37,18 @@ export type AssignmentCardStep = {
   createdAt: number;
 };
 
+/**
+ * #61（S3+S2 / 跨仓 #61 出口③）：移交卡步——模型回复里隐藏块 `<!--handoff:{…}-->`
+ * 被剥出后，作为独立 step 渲染成气泡内白卡（选择目标 → 移交到工作台）。
+ * 块不合法 → 不出卡（extractHandoffBlock 优雅降级），文本原样。
+ */
+export type HandoffCardStep = {
+  kind: "handoffCard";
+  id: string;
+  payload: HandoffPayload;
+  createdAt: number;
+};
+
 export type DisplayStep =
   | { kind: "user";      id: string; text: string; createdAt: number }
   | { kind: "reasoning"; id: string; text?: string; createdAt: number }
@@ -45,7 +58,8 @@ export type DisplayStep =
   /** 连续工具调用的呈现分组（groupToolSteps 产出；数据层 step 原样挂 tools 上） */
   | { kind: "toolGroup"; id: string; tools: ToolStep[]; createdAt: number }
   | ReceiptStep
-  | AssignmentCardStep;
+  | AssignmentCardStep
+  | HandoffCardStep;
 
 function isTextPart(part: OpenCodePart): part is OpenCodePart & { type: "text"; text?: string } {
   return part.type === "text";
@@ -149,9 +163,13 @@ export function mergeMessages(
         if (!raw) continue;
         // #98：先跑隐藏块提取/剥离——命中则正文只留剥离后的文本，卡作为独立 step 追加在正文之后
         //（模型约定把块放在回复末尾）；块不合法时 payload=null、文本原样（优雅降级）。
-        const { payload, cleanedText } = extractAssignmentCard(raw);
-        if (cleanedText) out.push({ kind: "text", id: partId, text: cleanedText, createdAt });
-        if (payload) out.push({ kind: "assignmentCard", id: `${partId}-card`, payload, createdAt });
+        // #61：同一段文本可能先后带两张隐藏块（先剥定时任务卡，再剥移交卡），
+        // 正文只留两次剥离后的结果，卡片按出现顺序追加为独立 step。
+        const card = extractAssignmentCard(raw);
+        const handoff = extractHandoffBlock(card.cleanedText);
+        if (handoff.cleanedText) out.push({ kind: "text", id: partId, text: handoff.cleanedText, createdAt });
+        if (card.payload) out.push({ kind: "assignmentCard", id: `${partId}-card`, payload: card.payload, createdAt });
+        if (handoff.payload) out.push({ kind: "handoffCard", id: `${partId}-handoff`, payload: handoff.payload, createdAt });
       } else if (isToolPart(part)) {
         const toolName = part.tool ?? "tool";
         // v2 真机（2026-10-13 实测，issue #83）：工具结果在 state.content[]，state.output 恒空

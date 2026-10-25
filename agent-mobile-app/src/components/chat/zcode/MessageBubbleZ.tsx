@@ -13,6 +13,8 @@ import { stripHtmlComments } from "../../../services/text-sanitize";
 import { ToolGroupCard } from "./ToolGroupCard";
 import { AiChatOrb } from "./AiChatOrb";
 import { AssignmentConfirmCard } from "./AssignmentConfirmCard";
+import { HandoffCard } from "./HandoffCard";
+import type { HandoffRequest } from "../../../services/handoff/client";
 
 // 气泡排版（chat.html .bubble 基准，#29）：14.5/400 lh21，双气泡配色。
 // code_inline 红线：必须显式覆盖 padding（默认 padding:10 会顶开相邻行）。
@@ -111,6 +113,8 @@ export const MessageBubbleZ = React.memo(function MessageBubbleZ({
   onOpenOutput,
   onConfirmAssignmentCard,
   onSupplementAssignmentCard,
+  onHandoff,
+  latestHandoffId,
 }: {
   step: DisplayStep;
   /** #32：工具行点击 → 打开完整输出 LightSheet（sheet 在 ChatPanelZ 尾部渲染，保层叠正确） */
@@ -119,6 +123,10 @@ export const MessageBubbleZ = React.memo(function MessageBubbleZ({
   onConfirmAssignmentCard?: (payload: AssignmentCardPayload) => Promise<FromCardResponse>;
   /** #98：确认卡 [补充] → 把补充文字作为新消息发回模型（ChatPanelZ 注入） */
   onSupplementAssignmentCard?: (payload: AssignmentCardPayload, text: string) => void;
+  /** #61：移交卡 [移交到工作台] → 建 handoff + 工程会话 + 首条消息 + 跳 chatcode（ChatPanelZ 注入） */
+  onHandoff?: (req: HandoffRequest) => Promise<{ sessionId: string }>;
+  /** #61：最新一张移交卡的 step id（旧卡标「已更新」失效） */
+  latestHandoffId?: string | null;
 }) {
   // #32 信息层：thinking 块（think-card）+ 工具折叠组（tech-card，含 diff 代码卡）
   if (step.kind === "reasoning") {
@@ -140,6 +148,24 @@ export const MessageBubbleZ = React.memo(function MessageBubbleZ({
             payload={step.payload}
             onConfirm={onConfirmAssignmentCard ?? (async () => { throw new Error("确认不可用"); })}
             onSupplement={onSupplementAssignmentCard ?? (() => {})}
+          />
+        </View>
+      </View>
+    );
+  }
+
+  // #61 移交卡：AI 气泡内白卡（摘要 + 目标 + 一个 pill 主按钮），非模态、不跳页
+  if (step.kind === "handoffCard") {
+    return (
+      <View style={s.rowAi}>
+        <View style={s.orbSlot}>
+          <AiChatOrb />
+        </View>
+        <View style={[s.bubble, bubbleBox, { backgroundColor: lightChatColors.bubbleAi, maxWidth: "92%" }]}>
+          <HandoffCard
+            payload={step.payload}
+            superseded={!!latestHandoffId && latestHandoffId !== step.id}
+            onHandoff={onHandoff ?? (async () => { throw new Error("移交不可用"); })}
           />
         </View>
       </View>

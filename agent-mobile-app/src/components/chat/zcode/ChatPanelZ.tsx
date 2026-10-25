@@ -3,6 +3,7 @@
 // pagination / agents+model prefs）与上游保持一致，上游修复需手动同步；
 // Companion migration：/talk stack route 的唯一聊天渲染层（ProjectChatZ 内嵌）。
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useRouter } from "expo-router";
 import { View, TextInput, Pressable, Text as RNText, FlatList, ScrollView, KeyboardAvoidingView, Platform, RefreshControl, StyleSheet, type NativeSyntheticEvent, type NativeScrollEvent } from "react-native";
 import { ArrowUp, Bot, Check, GripVertical, Mic, Plus, Send, Square, X } from "lucide-react-native";
 import { Text, Box } from "../../index";
@@ -49,6 +50,8 @@ import {
   toCardTrigger,
   type AssignmentCardPayload,
 } from "../../../services/assignment/card-payload";
+import { createHandoff, consumeHandoff, type HandoffRequest } from "../../../services/handoff/client";
+import { buildHandoffMessage } from "../../../services/handoff/handoff-message";
 import { appendReceipt, makeReceiptStep, commandFailureStep } from "../../../services/command-receipt";
 import {
   dequeueFirst,
@@ -109,6 +112,7 @@ interface ChatPanelProps {
 }
 
 export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false, autoContextText }: ChatPanelProps) {
+  const router = useRouter();
   // #57 chat 伴侣页判据（kind 缺省按 chatcode 处理，行为与改造前一致）
   const isChat = kind === "chat";
   const [messages, setMessages] = useState<OpenCodeMessage[]>([]);
@@ -841,6 +845,38 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
     void doSend(t);
   }, [doSend]);
 
+  /* ---- #61 移交卡：建 handoff → 建工程会话 → 投首条消息 → consume → 跳 chatcode ---- */
+  // 端点由 homebase 侧另一 PR 提供；本地没有该端点时 fetch 失败 → 卡片转 error 态
+  // （不静默、不加假数据兜底）。chat 会话原地保留，只新开工程会话。
+  // agent/model 沿用本页 chatcode 选择器（不写死：用户 pin 的偏好 + DEFAULT_MODEL 兜底）。
+  const handoffToWorkbench = useCallback(async (req: HandoffRequest): Promise<{ sessionId: string }> => {
+    const targetAgent = agents[agentIdx]?.id ?? FALLBACK_AGENTS[0].id;
+    const targetModel = model;
+    const { id } = await createHandoff({ ...req, sourceSessionId: sessionID });
+    const created = await opencodeClient.createSession({
+      directory: req.targetDirectory,
+      title: req.targetName,
+      agent: targetAgent,
+      model: targetModel,
+    });
+    await opencodeClient.sendMessageAsync(created.id, {
+      parts: [{
+        type: "text",
+        text: buildHandoffMessage({ body: req.body, directory: req.targetDirectory, sourceSessionId: sessionID }),
+      }],
+      agent: targetAgent,
+      model: targetModel,
+    });
+    try {
+      await consumeHandoff(id, created.id);
+    } catch (e) {
+      // 绑定失败只记日志，不阻断跳转（会话已经在跑，补绑可以后置）
+      console.warn("[handoff] consume 失败", e);
+    }
+    router.push({ pathname: "/talk", params: { sessionId: created.id } });
+    return { sessionId: created.id };
+  }, [sessionID, agents, agentIdx, model, router]);
+
   // #33 排队队列操作统一入口：任何 chip 动作（删除/上移/回填）都解除发送阻塞
   const mutateQueue = useCallback((next: QueuedMessage[]) => {
     setQueueBlocked(false);
@@ -990,6 +1026,14 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
   // #59 本地回执步追加在消息流尾部（display 身份随 localSteps 变化，FlatList 自动重渲染）
   // useMemo 必须在条件 return（loading 分支）之前——hooks 顺序红线
   const listData = useMemo(() => [...display, ...localSteps], [display, localSteps]);
+  // #61：只有最新一张移交卡可操作，旧卡标「已更新」失效
+  const latestHandoffId = useMemo(() => {
+    for (let i = display.length - 1; i >= 0; i -= 1) {
+      const step = display[i];
+      if (step.kind === "handoffCard") return step.id;
+    }
+    return null;
+  }, [display]);
 
   if (loading) {
     return (
@@ -1061,6 +1105,8 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
                   onOpenOutput={openToolOutput}
                   onConfirmAssignmentCard={confirmAssignmentCard}
                   onSupplementAssignmentCard={supplementAssignmentCard}
+                  onHandoff={handoffToWorkbench}
+                  latestHandoffId={latestHandoffId}
                 />
               </View>
             );
