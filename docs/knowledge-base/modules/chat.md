@@ -142,6 +142,7 @@ SSE: BFF /api/opencode/stream（Bearer JWT + ?sessionID= 过滤）
 - **确认流程**（`ChatPanelZ.handoffToWorkbench`）：`POST /api/product/handoffs` → `opencodeClient.createSession({directory, agent, model})`（agent/model 沿用 chatcode 选择器，不写死）→ `sendMessageAsync(buildHandoffMessage(...))`（纯函数模板，缺 `sourceSessionId` 时「交接信息」整行省略）→ `POST /api/product/handoffs/{id}/consume`（失败只 `console.warn`，**不阻断跳转**）→ `router.push('/talk', {sessionId})`。**不新增 `/chat` `/chatcode` 路由**。
 - **状态机** `services/handoff/card-phase.ts`：`draft → submitting → done / error / dismissed / superseded`；`superseded` = 又来一张新卡，旧卡标「已更新」失效。**失败不静默**：error 态 + 原因 + 重试。
 - 单测：`handoff/payload.test.ts`、`handoff/target.test.ts`、`handoff/handoff-message.test.ts`、`handoff/card-phase.test.ts` + `message-merging.test.ts`（块 → 剥离 + 追加 `handoffCard` / 非法块不出卡）。
+- **进度可见性（#117）**：伴侣侧看不到 `handoffs` 状态，回答进度只能查会话/状态或照实说看不到（prompt v0.5 软约束）；不要猜「还没确认／还没开工」，也别断言目标目录存在或不存在。
 
 ### 消息顺序：chronological
 
