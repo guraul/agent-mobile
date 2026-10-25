@@ -18,6 +18,12 @@
 
 **应用无本地数据库**：项目/会话/消息数据全部由 OpenCode Server 提供（REST + SSE 流式增量）。
 
+> **OpenCodeSession 形状归一（#115）**：生产 v2 的 session **没有顶层 `directory`**，目录只在 `location.directory`
+> （`{"id":"ses_…","location":{"directory":"/root/project/x"}}`）。`opencode-client` 的 `getSession` /
+> `listSessions` / `createSession` 三处返回值统一经 `services/session-mapper.ts toSession()` 归一
+> （`location.directory ?? directory`，冲突以 v2 为准，两者都缺 → `undefined`）；调用方继续读 `s.directory`。
+> 漏了归一 → `resolveConversationKind` 恒拿 `"/"` → 移交后仍停在 chat 伴侣壳。
+
 ### 客户端本地存储（AsyncStorage，`@react-native-async-storage/async-storage`）
 
 | Key | 写入方 | 读取方 | 内容 |
