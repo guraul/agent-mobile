@@ -1,5 +1,6 @@
 import { getBaseUrl } from "../config/opencode";
 import { tokenHeader, handleUnauthorized, login as loginToBff } from "./auth";
+import { toSession, type RawSession } from "./session-mapper";
 
 export interface OpenCodeProject {
   id: string;
@@ -199,26 +200,30 @@ export const opencodeClient = {
     return (list ?? []).map((p) => ({ id: p.id, worktree: p.worktree ?? p.canonical ?? "" }));
   },
 
-  listSessions(directory?: string): Promise<OpenCodeSession[]> {
+  // #115：三个返回 session 的端点统一走 toSession 归一（v2 只有 location.directory）
+  async listSessions(directory?: string): Promise<OpenCodeSession[]> {
     const q = directory ? `?directory=${encodeURIComponent(directory)}` : "";
-    return request<OpenCodeSession[]>(`/session${q}`);
+    const list = await request<RawSession[]>(`/session${q}`);
+    return (list ?? []).map(toSession);
   },
 
-  getSession(id: string): Promise<OpenCodeSession> {
-    return request<OpenCodeSession>(`/session/${id}`);
+  async getSession(id: string): Promise<OpenCodeSession> {
+    return toSession(await request<RawSession>(`/session/${id}`));
   },
 
-  createSession(body: {
+  async createSession(body: {
     directory?: string;
     title?: string;
     // #53（E1 v2）：agent/model 建会话时定（逐消息指定已废除）
     agent?: string;
     model?: { providerID: string; modelID: string };
   }): Promise<OpenCodeSession> {
-    return request<OpenCodeSession>("/session", {
-      method: "POST",
-      body: JSON.stringify(body),
-    });
+    return toSession(
+      await request<RawSession>("/session", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    );
   },
 
   deleteSession(id: string): Promise<boolean> {
