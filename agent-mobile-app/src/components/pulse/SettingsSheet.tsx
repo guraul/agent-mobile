@@ -70,12 +70,14 @@ export function SettingsSheet({
   onClose,
   onOpenMemory,
   onOpenKnowledge,
+  onOpenActivity,
   onLogin,
 }: {
   visible: boolean;
   onClose: () => void;
   onOpenMemory: () => void;
   onOpenKnowledge: () => void;
+  onOpenActivity: () => void;
   onLogin: () => void;
 }) {
   const router = useRouter();
@@ -167,6 +169,16 @@ export function SettingsSheet({
               onPress={() => {
                 onClose();
                 router.push("/assignments");
+              }}
+            />
+            {/* 只读审计：她替你做过什么（PM §14 可见化第一步；无授权/撤销入口） */}
+            <SettingsRow
+              label="她最近做了什么"
+              detail="近 7 天的执行与提醒 · 只读"
+              testID="settings-activity"
+              onPress={() => {
+                onClose();
+                onOpenActivity();
               }}
             />
           </View>
