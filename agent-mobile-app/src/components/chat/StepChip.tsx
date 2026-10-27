@@ -4,15 +4,16 @@ import { Loader, Wrench } from "lucide-react-native";
 import { Text } from "../index";
 import { colors, spacing } from "../../theme";
 import type { DisplayStep } from "../../services/message-merging";
+import { t, useLocale } from "../../i18n";
 
 type ProcessStep = Extract<DisplayStep,
   { kind: "reasoning" } | { kind: "tool" } | { kind: "toolGroup" }>;
 
 function label(step: ProcessStep): string {
   switch (step.kind) {
-    case "reasoning": return "思考中…";
-    case "tool": return `工具(${step.tool})调用中…`;
-    case "toolGroup": return `工具(${step.tools.length})调用中…`;
+    case "reasoning": return t("chat.think.pending");
+    case "tool": return t("chat.tools.running", { tool: step.tool });
+    case "toolGroup": return t("chat.tools.runningMany", { n: step.tools.length });
   }
 }
 
@@ -27,6 +28,7 @@ function icon(step: ProcessStep) {
 }
 
 export function StepChip({ step }: { step: ProcessStep }) {
+  useLocale();
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingVertical: spacing.xxs }}>
       {icon(step)}

@@ -1,4 +1,4 @@
-# `src/i18n/` — 轻量 i18n（第 0 期建能力，第 1 期已迁移首批界面）
+# `src/i18n/` — 轻量 i18n（第 0 期建能力；第 1 期 Pulse / Settings / Attention / sheets；第 2 期 chat）
 
 零依赖的类型化字典 + `t()`。默认语言 **`en`**（当前 UI 的实际语言），`zh` 保留现有中文文案。
 
@@ -41,7 +41,19 @@ Pulse 各 sheet（Settings / Memory / Knowledge / Noticed / Detail / Fund / List
 TodayDigest）与两个 sheet 原语（`navigation/BottomSheet`、`pulse/LightSheet`）的全部界面文案，
 共 102 条 key。`ListSheet`、`TodayDigest` 本身没有硬编码文案（标题由调用方传、摘要由 service 生成）。
 
+**第 2 期已迁移**：chat / chatcode 面板——`components/chat/zcode/` 下 `ChatPanelZ`（状态行、Attention
+上下文卡、排队 chip、输入区两态、model / agent 面板、question / permission / 工具输出 sheet）、
+`MessageBubbleZ`、`HandoffCard`、`AssignmentConfirmCard`、`SessionsDrawer`、`ProjectChatZ`、
+`ToolGroupCard`、`ThinkCard`，以及 legacy 渲染层（`ChatPanel` / `MessageBubble` / `ProjectChat` /
+`StepChip`）与 `app/talk.tsx` 的 boot / offline 文案，共 99 条 key（`chat.*`）。
+消息正文、session 标题、项目路径 / 名、agent 名、错误原文、assignment 标题与 body 一律透传，不进字典。
+
 **尚未迁移（后续期）**：`SupportingList`（`In motion` / 分组标签 / `Review` / `Confirm` / `Watching`）、
 `FeaturedItem` 的 `Review:` 无障碍文案、domain 标签（Market / Coding / Pulse）、activity / memory
 service 里拼出的英文句子（`buildActivitySummary` / `buildTodayDigestText` / `activityOutcomeLabel`）、
-chat 与 assignments 相关界面。
+**chat 侧由 service 拼句的文案**——`services/assignment/card-payload.ts`（`describeCardSchedule` /
+`describeCardMode` / `describeCardDomain` / `describeCardCondition` / `cardNote` /
+`assignmentCardReceipt`）、`services/handoff/card-phase.ts`（`handoffNote`）、
+`services/handoff/target.ts`（目录校验 reason）、`services/command-receipt.ts`（失败回执）、
+`services/runtime-presence.ts`（auth / other 兜底文案）、`services/assignment/client.ts`（命令族反馈）。
+这些是纯函数 + 单测锁定文案，迁移需跨模块改字典与断言，留给下一期。

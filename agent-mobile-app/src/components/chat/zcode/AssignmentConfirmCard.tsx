@@ -31,6 +31,7 @@ import {
   type AssignmentCardPhase,
 } from "../../../services/assignment/card-payload";
 import type { FromCardResponse } from "../../../services/assignment/client";
+import { t, useLocale } from "../../../i18n";
 
 export function AssignmentConfirmCard({
   payload,
@@ -43,6 +44,8 @@ export function AssignmentConfirmCard({
   /** [补充] 提交的文字 → 作为新消息发回模型（由 ChatPanelZ 注入），本卡随即失效 */
   onSupplement: (payload: AssignmentCardPayload, text: string) => void;
 }) {
+  // 订阅语言：卡片文案随 locale 重渲染
+  useLocale();
   const [phase, setPhase] = useState<AssignmentCardPhase>({ kind: "ready" });
   const [expanded, setExpanded] = useState(false);
   const [draft, setDraft] = useState("");
@@ -72,7 +75,7 @@ export function AssignmentConfirmCard({
   return (
     <View style={s.card} testID="assignment-card">
       <View style={s.head}>
-        <Text variant="lightScheduleTitle" color="lightInk">定时任务</Text>
+        <Text variant="lightScheduleTitle" color="lightInk">{t("chat.assignment.title")}</Text>
         <View style={s.pill}>
           <Text variant="lightScheduleMeta" color="lightGreenDeep">
             {describeCardDomain(payload.domain)} · {describeCardMode(payload.mode)}
@@ -83,11 +86,11 @@ export function AssignmentConfirmCard({
       <Text variant="lightScheduleMeta" color="lightGray">{describeCardSchedule(payload.schedule)}</Text>
       <Text variant="lightBody" color="lightField">{payload.responsibility}</Text>
       {conditionLabel ? (
-        <Text variant="lightCaption" color="lightGray">命中条件：{conditionLabel}</Text>
+        <Text variant="lightCaption" color="lightGray">{t("chat.assignment.condition", { condition: conditionLabel })}</Text>
       ) : null}
 
       {phase.kind === "failed" ? (
-        <Text variant="lightCaption" color="lightUpRed">创建失败：{phase.message}</Text>
+        <Text variant="lightCaption" color="lightUpRed">{t("chat.assignment.failed", { message: phase.message })}</Text>
       ) : note ? (
         <Text variant="lightCaption" color="lightGray">{note}</Text>
       ) : null}
@@ -97,23 +100,23 @@ export function AssignmentConfirmCard({
           <Pressable
             onPress={submit}
             accessibilityRole="button"
-            accessibilityLabel="重试"
+            accessibilityLabel={t("chat.common.retry")}
             testID="assignment-card-retry"
             style={[s.act, s.actPrimary]}
           >
-            <Text variant="lightScheduleTitle" color="lightInk">重试</Text>
+            <Text variant="lightScheduleTitle" color="lightInk">{t("chat.common.retry")}</Text>
           </Pressable>
         ) : (
           <Pressable
             onPress={submit}
             disabled={!controls.confirm}
             accessibilityRole="button"
-            accessibilityLabel="确认"
+            accessibilityLabel={t("chat.assignment.confirm")}
             testID="assignment-card-confirm"
             style={[s.act, s.actPrimary, !controls.confirm && s.actDisabled]}
           >
             <Text variant="lightScheduleTitle" color="lightInk">
-              {phase.kind === "submitting" ? "创建中…" : "确认"}
+              {phase.kind === "submitting" ? t("chat.assignment.creating") : t("chat.assignment.confirm")}
             </Text>
           </Pressable>
         )}
@@ -121,11 +124,11 @@ export function AssignmentConfirmCard({
           onPress={() => setExpanded(true)}
           disabled={!controls.supplement}
           accessibilityRole="button"
-          accessibilityLabel="补充"
+          accessibilityLabel={t("chat.assignment.supplement")}
           testID="assignment-card-supplement"
           style={[s.act, s.actQuiet, !controls.supplement && s.actDisabled]}
         >
-          <Text variant="lightScheduleTitle" color="lightSubtle">补充</Text>
+          <Text variant="lightScheduleTitle" color="lightSubtle">{t("chat.assignment.supplement")}</Text>
         </Pressable>
       </View>
 
@@ -134,31 +137,31 @@ export function AssignmentConfirmCard({
           <TextInput
             value={draft}
             onChangeText={setDraft}
-            placeholder="说说要改什么"
+            placeholder={t("chat.assignment.supplementPlaceholder")}
             placeholderTextColor={lightChatColors.inputPlaceholder}
             style={s.input}
             multiline
             testID="assignment-card-input"
-            accessibilityLabel="补充说明"
+            accessibilityLabel={t("chat.assignment.supplementA11y")}
           />
           <View style={s.acts}>
             <Pressable
               onPress={submitSupplement}
               disabled={!draft.trim()}
               accessibilityRole="button"
-              accessibilityLabel="发送补充"
+              accessibilityLabel={t("chat.assignment.send")}
               testID="assignment-card-send"
               style={[s.act, s.actPrimary, !draft.trim() && s.actDisabled]}
             >
-              <Text variant="lightScheduleTitle" color="lightInk">发送</Text>
+              <Text variant="lightScheduleTitle" color="lightInk">{t("chat.assignment.send")}</Text>
             </Pressable>
             <Pressable
               onPress={() => { setExpanded(false); setDraft(""); }}
               accessibilityRole="button"
-              accessibilityLabel="取消"
+              accessibilityLabel={t("app.common.cancel")}
               style={[s.act, s.actQuiet]}
             >
-              <Text variant="lightScheduleTitle" color="lightSubtle">取消</Text>
+              <Text variant="lightScheduleTitle" color="lightSubtle">{t("app.common.cancel")}</Text>
             </Pressable>
           </View>
         </View>

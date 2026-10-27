@@ -5,8 +5,10 @@ import React, { useState } from "react";
 import { View, Pressable, StyleSheet, Text as RNText } from "react-native";
 import { ChevronRight } from "lucide-react-native";
 import { lightChatColors, lightChatSizes } from "../../../theme";
+import { t, useLocale } from "../../../i18n";
 
 export function ThinkCard({ text }: { text?: string }) {
+  useLocale();
   const [open, setOpen] = useState(false);
   const body = (text ?? "").trim();
 
@@ -16,12 +18,12 @@ export function ThinkCard({ text }: { text?: string }) {
         onPress={() => body && setOpen((o) => !o)}
         style={s.head}
         accessibilityRole={body ? "button" : undefined}
-        accessibilityLabel="思考过程"
+        accessibilityLabel={t("chat.think.a11y")}
       >
         <View style={{ transform: [{ rotate: open ? "90deg" : "0deg" }] }}>
           <ChevronRight color="rgba(13,13,13,.45)" size={14} strokeWidth={2} />
         </View>
-        <RNText style={s.headLabel}>思考</RNText>
+        <RNText style={s.headLabel}>{t("chat.think.label")}</RNText>
       </Pressable>
       {open && body ? (
         <RNText style={s.body}>{body}</RNText>

@@ -13,6 +13,7 @@ import { opencodeClient, type OpenCodeSession } from "../../../services/opencode
 import { ChatPanelZ } from "./ChatPanelZ";
 import { CHAT_AGENT_ID, CHAT_MODEL, type ConversationKind } from "../../../services/conversation-kind";
 import type { EngagedAttentionRef } from "../../../services/attention/store";
+import { t, useLocale } from "../../../i18n";
 
 interface ProjectChatProps {
   projectPath: string;
@@ -45,6 +46,8 @@ function sessionLabel(s: OpenCodeSession): string {
  * or an empty chat composer when no session exists yet.
  */
 export function ProjectChatZ({ projectPath, onBack, kind, attention, initialSessionId, autoSendContext, autoContextText, onClose }: ProjectChatProps) {
+  // 订阅语言：标题 / 空态文案随 locale 重渲染
+  useLocale();
   const [session, setSession] = useState<OpenCodeSession | null>(null);
   const [sessions, setSessions] = useState<OpenCodeSession[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -127,7 +130,7 @@ export function ProjectChatZ({ projectPath, onBack, kind, attention, initialSess
           {onBack ? (
             <Pressable
               onPress={onBack}
-              accessibilityLabel="Back to projects"
+              accessibilityLabel={t("chat.shell.backToProjects")}
               accessibilityRole="button"
               testID="zcode-sheet-back"
               hitSlop={10}
@@ -139,7 +142,7 @@ export function ProjectChatZ({ projectPath, onBack, kind, attention, initialSess
         </View>
         <View style={styles.titleWrap} pointerEvents="none">
           <Text variant="lightChatTitle" color="lightInk" numberOfLines={1}>
-            {kind === "chatcode" ? "Pulse — Code Chat" : "Pulse — Chat"}
+            {kind === "chatcode" ? t("chat.shell.titleCode") : t("chat.shell.titleChat")}
           </Text>
         </View>
         <View style={[styles.headerSide, styles.headerRight]}>
@@ -148,7 +151,7 @@ export function ProjectChatZ({ projectPath, onBack, kind, attention, initialSess
           {kind !== "chatcode" ? (
             <Pressable
               onPress={openPicker}
-              accessibilityLabel="Switch session"
+              accessibilityLabel={t("chat.shell.switchSession")}
               accessibilityRole="button"
               hitSlop={10}
               style={styles.headerBtn}
@@ -159,7 +162,7 @@ export function ProjectChatZ({ projectPath, onBack, kind, attention, initialSess
           {onClose ? (
             <Pressable
               onPress={onClose}
-              accessibilityLabel="Close session"
+              accessibilityLabel={t("chat.shell.closeSession")}
               accessibilityRole="button"
               testID="zcode-session-close"
               hitSlop={10}
@@ -179,7 +182,7 @@ export function ProjectChatZ({ projectPath, onBack, kind, attention, initialSess
 
       {!ready ? (
         <Box padding="lg">
-          <Text variant="lightBody" color="lightGray">Loading…</Text>
+          <Text variant="lightBody" color="lightGray">{t("chat.common.loading")}</Text>
         </Box>
       ) : session ? (
         <View style={styles.flex}>
@@ -187,18 +190,18 @@ export function ProjectChatZ({ projectPath, onBack, kind, attention, initialSess
         </View>
       ) : (
         <Box padding="lg" style={styles.center}>
-          <Text variant="lightBody" color="lightGray">No session yet for this project.</Text>
+          <Text variant="lightBody" color="lightGray">{t("chat.shell.empty")}</Text>
           <Text variant="lightCaption" color="lightGray">
-            Start a new conversation.
+            {t("chat.shell.emptyHint")}
           </Text>
           <Pressable
             onPress={createAndOpen}
             accessibilityRole="button"
-            accessibilityLabel="New session"
+            accessibilityLabel={t("chat.sessions.new")}
             style={styles.peachBtn}
           >
             <Plus color={lightColors.ink} size={16} strokeWidth={2} />
-            <Text variant="lightBodyStrong" color="lightInk">New session</Text>
+            <Text variant="lightBodyStrong" color="lightInk">{t("chat.sessions.new")}</Text>
           </Pressable>
         </Box>
       )}

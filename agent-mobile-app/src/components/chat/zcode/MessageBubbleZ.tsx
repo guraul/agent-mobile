@@ -15,6 +15,7 @@ import { AiChatOrb } from "./AiChatOrb";
 import { AssignmentConfirmCard } from "./AssignmentConfirmCard";
 import { HandoffCard } from "./HandoffCard";
 import type { HandoffRequest } from "../../../services/handoff/client";
+import { t, useLocale } from "../../../i18n";
 
 // 气泡排版（chat.html .bubble 基准，#29）：14.5/400 lh21，双气泡配色。
 // code_inline 红线：必须显式覆盖 padding（默认 padding:10 会顶开相邻行）。
@@ -72,6 +73,7 @@ const bubbleBox = {
 // 不受打字机 slice 影响（slice 只发生在 ChatPanelZ 的展示层）。
 function Actions({ text, createdAt, align }: { text: string; createdAt: number; align: "left" | "right" }) {
   const [copied, setCopied] = useState(false);
+  useLocale();
   const copy = async () => {
     try {
       await Clipboard.setStringAsync(text);
@@ -82,7 +84,7 @@ function Actions({ text, createdAt, align }: { text: string; createdAt: number; 
   const time = new Date(createdAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
   return (
       <View style={[s.actions, align === "right" ? s.actionsRight : s.actionsLeft]}>
-        <Pressable onPress={copy} accessibilityLabel="复制消息" style={s.actionBtn} hitSlop={6}>
+        <Pressable onPress={copy} accessibilityLabel={t("chat.message.copy")} style={s.actionBtn} hitSlop={6}>
           {copied ? (
             <Check color={lightColors.green} size={12} strokeWidth={2} />
           ) : (

@@ -18,6 +18,7 @@ import { Text } from "../../index";
 import { iconStroke, lightColors, lightChatColors } from "../../../theme";
 import { clampDrawerTranslate, decideDrawerSnap, isHorizontalDrag } from "../../../services/drawer-gesture";
 import type { OpenCodeSession } from "../../../services/opencode-client";
+import { t, useLocale } from "../../../i18n";
 
 const DRAWER_WIDTH = 306;
 
@@ -25,10 +26,10 @@ function relativeTime(epoch: number): string {
   if (!epoch) return "";
   const diff = Date.now() - epoch;
   const mins = Math.round(diff / 60_000);
-  if (mins < 1) return "刚刚";
-  if (mins < 60) return `${mins} 分钟前`;
+  if (mins < 1) return t("chat.sessions.justNow");
+  if (mins < 60) return t("chat.sessions.minutesAgo", { n: mins });
   const hours = Math.round(mins / 60);
-  if (hours < 24) return `${hours} 小时前`;
+  if (hours < 24) return t("chat.sessions.hoursAgo", { n: hours });
   return new Date(epoch).toLocaleDateString();
 }
 
@@ -55,6 +56,8 @@ export function SessionsDrawer({
   onGestureClose?: () => void;
   edgeGesture?: boolean;
 }) {
+  // 订阅语言：抽屉文案随 locale 重渲染
+  useLocale();
   const { width: screenW } = useWindowDimensions();
   const width = Math.min(DRAWER_WIDTH, screenW * 0.84);
   // translateX：0 = 全开，-width = 全关（JS 驱动，web 兼容同 LightSheet 注释）
@@ -149,7 +152,7 @@ export function SessionsDrawer({
           { opacity: scrim, pointerEvents: visible && !dragging ? "auto" : "none" },
         ]}
       >
-        <Pressable style={StyleSheet.absoluteFill} accessibilityLabel="关闭抽屉" accessibilityRole="button" onPress={onClose} />
+        <Pressable style={StyleSheet.absoluteFill} accessibilityLabel={t("chat.sessions.close")} accessibilityRole="button" onPress={onClose} />
       </Animated.View>
 
       {/* 抽屉本体（cream 底，右侧 30px 圆角，mock .drawer-left） */}
@@ -162,10 +165,10 @@ export function SessionsDrawer({
         {...drawerPan.panHandlers}
       >
         <View style={styles.head}>
-          <Text variant="lightBodyStrong" color="lightInk">会话</Text>
+          <Text variant="lightBodyStrong" color="lightInk">{t("chat.sessions.title")}</Text>
           <Pressable
             onPress={onClose}
-            accessibilityLabel="关闭抽屉"
+            accessibilityLabel={t("chat.sessions.close")}
             accessibilityRole="button"
             hitSlop={10}
             style={styles.closeBtn}
@@ -177,7 +180,7 @@ export function SessionsDrawer({
           {error ? (
             <Text variant="lightCaption" color="lightUpRed">{error}</Text>
           ) : sessions.length === 0 ? (
-            <Text variant="lightCaption" color="lightGray">暂无会话</Text>
+            <Text variant="lightCaption" color="lightGray">{t("chat.sessions.empty")}</Text>
           ) : (
             sessions.map((s) => {
               const active = activeId === s.id;
@@ -204,11 +207,11 @@ export function SessionsDrawer({
           <Pressable
             onPress={onCreate}
             accessibilityRole="button"
-            accessibilityLabel="New session"
+            accessibilityLabel={t("chat.sessions.new")}
             style={styles.peachBtn}
           >
             <Plus color={lightColors.ink} size={16} strokeWidth={2} />
-            <Text variant="lightBodyStrong" color="lightInk">New session</Text>
+            <Text variant="lightBodyStrong" color="lightInk">{t("chat.sessions.new")}</Text>
           </Pressable>
         </View>
       </Animated.View>

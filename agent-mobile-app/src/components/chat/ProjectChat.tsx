@@ -6,6 +6,7 @@ import { colors, spacing, radius, iconStroke } from "../../theme";
 import { opencodeClient, type OpenCodeSession } from "../../services/opencode-client";
 import { ChatPanel } from "./ChatPanel";
 import { BottomSheet } from "../navigation/BottomSheet";
+import { t, useLocale } from "../../i18n";
 
 interface ProjectChatProps {
   projectPath: string;
@@ -25,6 +26,8 @@ function sessionLabel(s: OpenCodeSession): string {
  * or an empty chat composer when no session exists yet.
  */
 export function ProjectChat({ projectPath, onBack }: ProjectChatProps) {
+  // 订阅语言：空态 / 标题文案随 locale 重渲染
+  useLocale();
   const [session, setSession] = useState<OpenCodeSession | null>(null);
   const [sessions, setSessions] = useState<OpenCodeSession[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -89,7 +92,7 @@ export function ProjectChat({ projectPath, onBack }: ProjectChatProps) {
   return (
     <View style={styles.flex}>
       <View style={styles.headerRow}>
-        <Pressable onPress={onBack} style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="Back to projects">
+        <Pressable onPress={onBack} style={styles.iconBtn} accessibilityRole="button" accessibilityLabel={t("chat.shell.backToProjects")}>
           <ArrowLeft color={colors.body} size={18} strokeWidth={iconStroke} />
         </Pressable>
         <View style={styles.titleWrap}>
@@ -97,7 +100,7 @@ export function ProjectChat({ projectPath, onBack }: ProjectChatProps) {
             {projectPath.split("/").filter(Boolean).pop()}
           </Text>
         </View>
-        <Pressable onPress={openPicker} style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="Switch session">
+        <Pressable onPress={openPicker} style={styles.iconBtn} accessibilityRole="button" accessibilityLabel={t("chat.shell.switchSession")}>
           <Layers color={colors.body} size={18} strokeWidth={iconStroke} />
         </Pressable>
       </View>
@@ -110,7 +113,7 @@ export function ProjectChat({ projectPath, onBack }: ProjectChatProps) {
 
       {!ready ? (
         <Box padding="lg">
-          <Text variant="body" color="muted">Loading…</Text>
+          <Text variant="body" color="muted">{t("chat.common.loading")}</Text>
         </Box>
       ) : session ? (
         <View style={styles.flex}>
@@ -118,14 +121,14 @@ export function ProjectChat({ projectPath, onBack }: ProjectChatProps) {
         </View>
       ) : (
         <Box padding="lg" style={styles.center}>
-          <Text variant="body" color="muted">No session yet for this project.</Text>
+          <Text variant="body" color="muted">{t("chat.shell.empty")}</Text>
           <Text variant="caption" color="muted">
-            Start a new conversation.
+            {t("chat.shell.emptyHint")}
           </Text>
           <Box margin="md">
             <Button
               variant="primary"
-              label="New session"
+              label={t("chat.sessions.new")}
               icon={Plus}
               onPress={createAndOpen}
             />
@@ -135,13 +138,13 @@ export function ProjectChat({ projectPath, onBack }: ProjectChatProps) {
 
       <BottomSheet visible={pickerOpen} onClose={() => setPickerOpen(false)} testID="session-picker">
         <Box padding="sm" style={styles.pickerHeader}>
-          <Text variant="body" color="ink">会话</Text>
+          <Text variant="body" color="ink">{t("chat.sessions.title")}</Text>
         </Box>
         <ScrollView style={styles.pickerList}>
           {pickerError ? (
             <Text variant="caption" color="error">{pickerError}</Text>
           ) : sessions.length === 0 ? (
-            <Text variant="caption" color="muted">暂无会话</Text>
+            <Text variant="caption" color="muted">{t("chat.sessions.empty")}</Text>
           ) : (
             sessions.map((s) => {
               const active = session?.id === s.id;
@@ -168,7 +171,7 @@ export function ProjectChat({ projectPath, onBack }: ProjectChatProps) {
           )}
         </ScrollView>
         <Box padding="sm" style={styles.pickerFooter}>
-          <Button variant="primary" label="New session" icon={Plus} onPress={createAndOpen} />
+          <Button variant="primary" label={t("chat.sessions.new")} icon={Plus} onPress={createAndOpen} />
         </Box>
       </BottomSheet>
     </View>
