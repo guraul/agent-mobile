@@ -86,3 +86,18 @@ jobs:
           $SSH "git -C ${REPO} fetch --prune origin" || { echo "::warning::服务器克隆 fetch 失败，跳过同步"; exit 0; }
           $SSH "git -C ${REPO} reset --hard origin/main" || { echo "::warning::服务器克隆 reset 失败（产物已上线，不影响本次部署）"; exit 0; }
           $SSH "git -C ${REPO} log --oneline -1"
+
+      # 部署后冒烟：dist 已切到新 release、9928 已验收，这里再跑一遍真实浏览器 e2e（18 条断言），
+      # 免得「PR 合了但界面没上线」只能靠人肉发现。依赖、账号全部复用服务器上现成的
+      # agent-mobile-app/.env.local，不引入新 secret。
+      # continue-on-error + ::warning::：产物此时已在线上，e2e 失败只告警、不阻断部署（不误报部署失败）。
+      # 服务器克隆已由上一步 Sync server clone 重置到 origin/main，这里不再重复 fetch/reset。
+      # 加 pipefail：否则 `| tail -40` 会吞掉远端退出码，失败判定永远是成功。
+      - name: Post-deploy e2e smoke
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new root@106.13.181.13"
+          if ! $SSH "cd /root/project/agent-mobile/agent-mobile-app && timeout 900 pnpm e2e:nosend" 2>&1 | tail -40; then
+            echo "::warning::e2e 冒烟失败（产物已上线，请人工复核）"
+          fi
