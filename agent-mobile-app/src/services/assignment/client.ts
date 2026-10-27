@@ -1,4 +1,5 @@
 import { getBaseUrl } from "../../config/opencode";
+import { t } from "../../i18n";
 import { tokenHeader, handleUnauthorized } from "../auth";
 
 // Assignment client（Phase 5 最小接入）：Talk 内的 structured creation path。
@@ -341,85 +342,122 @@ function describeCondition(cmd: Extract<AssignmentCommand, { kind: "fund" }>): R
   return { kind: "fund-nav-below", fundCode: cmd.fundCode, value: cmd.value };
 }
 
+/** 命令 → 写入 proposal 的责任描述（也回显在卡面/回执里；基金代码与时间一律插值） */
+function fundResponsibility(cmd: Extract<AssignmentCommand, { kind: "fund" }>): string {
+  const vars = { at: cmd.at, fundCode: cmd.fundCode, value: cmd.value ?? "" };
+  switch (cmd.op) {
+    case "above-target":
+      return t("assignment.command.fund.responsibilityTarget", vars);
+    case "above":
+      return t("assignment.command.fund.responsibilityAbove", vars);
+    case "below":
+      return t("assignment.command.fund.responsibilityBelow", vars);
+  }
+}
+
 /** 执行命令（副作用入口）：返回给用户的可读反馈文本。 */
 export async function executeAssignmentCommand(command: AssignmentCommand, sessionId: string): Promise<string> {
   switch (command.kind) {
     case "fund": {
       const schedule = timeToCron(command.at, true);
-      if (!schedule) return `无效时间 ${command.at}`;
+      if (!schedule) return t("assignment.command.invalidTime", { at: command.at });
       const result = await createProposal({
         mode: "ongoing",
-        responsibility: `每个交易日 ${command.at} 监控基金 ${command.fundCode}${command.op === "above-target" ? " 估净是否达到目标净值" : command.op === "above" ? ` 是否高于 ${command.value}` : ` 是否低于 ${command.value}` }；命中时提醒我`,
+        responsibility: fundResponsibility(command),
         domain: "market",
         trigger: { kind: "schedule-rule", schedule, timezone: "Asia/Shanghai", condition: describeCondition(command), enabled: true },
         sessionId,
         instructionRef: `talk-command:${sessionId}`,
       });
       if (result.duplicateOf) {
-        return `已有正在生效的同类监控（${result.duplicateOf}）。如需更换，请先 /revoke ${result.duplicateOf}。本次提案未创建：${result.proposal.id}`;
+        return t("assignment.command.fund.duplicate", {
+          duplicateOf: result.duplicateOf,
+          proposalId: result.proposal.id,
+        });
       }
       if (result.assignment) {
-        return `✓ 已激活（低风险直接激活）\nAssignment: ${result.assignment.id}\n${result.assignment.responsibility}`;
+        return t("assignment.command.fund.activated", {
+          id: result.assignment.id,
+          responsibility: result.assignment.responsibility,
+        });
       }
-      return `已创建提案（等待你的确认——市场监控是持续责任）\nProposal: ${result.proposal.id}\n${result.proposal.responsibility}\n\n回复 /confirm ${result.proposal.id} 激活，或 /reject ${result.proposal.id} 放弃。`;
+      return t("assignment.command.fund.proposed", {
+        id: result.proposal.id,
+        responsibility: result.proposal.responsibility,
+      });
     }
     case "remind": {
       const schedule = timeToCron(command.at, false);
-      if (!schedule) return `无效时间 ${command.at}`;
+      if (!schedule) return t("assignment.command.invalidTime", { at: command.at });
       const result = await createProposal({
         mode: "one-shot",
-        responsibility: `${command.at} 提醒我：${command.text}`,
+        responsibility: t("assignment.command.remind.responsibility", { at: command.at, text: command.text }),
         domain: "personal",
         trigger: { kind: "schedule-rule", schedule, timezone: "Asia/Shanghai", condition: { kind: "always" }, enabled: true },
         sessionId,
         instructionRef: `talk-command:${sessionId}`,
       });
       if (result.assignment) {
-        return `✓ 提醒已设定（低风险直接激活）\n${result.assignment.responsibility}`;
+        return t("assignment.command.remind.activated", { responsibility: result.assignment.responsibility });
       }
-      return `已创建提醒提案：${result.proposal.id}\n回复 /confirm ${result.proposal.id} 激活。`;
+      return t("assignment.command.remind.proposed", { id: result.proposal.id });
     }
     case "confirm": {
       const { assignment } = await confirmProposal(command.id);
       return assignment
-        ? `✓ 提案已确认，Assignment 激活：${assignment.id}\n${assignment.responsibility}`
-        : `提案 ${command.id} 已确认（激活结果未返回）。`;
+        ? t("assignment.command.confirm.activated", { id: assignment.id, responsibility: assignment.responsibility })
+        : t("assignment.command.confirm.pending", { id: command.id });
     }
     case "reject": {
       const p = await rejectProposal(command.id);
-      return `提案已拒绝：${p.id}。未创建任何 Assignment，不会产生触发。`;
+      return t("assignment.command.reject", { id: p.id });
     }
     case "revoke": {
       const { transitioned, item } = await revokeAssignment(command.id);
       return transitioned
-        ? `✓ 已撤销：${item.id}\n未来触发已停止；已有提醒保持不变。`
-        : `该 Assignment 已不在 active 状态（当前：${item.state}），无需重复撤销。`;
+        ? t("assignment.command.revoke.done", { id: item.id })
+        : t("assignment.command.revoke.notActive", { state: item.state });
     }
     case "repair": {
       const r = await repairAssignment(command.id);
       return r.failed
-        ? `重试仍失败（attempt ${r.attempt}）：${r.error}\n可稍后再 /repair ${command.id}。`
-        : `✓ 重试成功（attempt ${r.attempt}）——责任已履行。`;
+        ? t("assignment.command.repair.failed", {
+            attempt: r.attempt ?? "",
+            error: r.error ?? "",
+            id: command.id,
+          })
+        : t("assignment.command.repair.done", { attempt: r.attempt ?? "" });
     }
     case "compensate": {
       const c = await compensateAssignment(command.id, command.action);
       if (command.action === "skip") {
         return c.assignment?.state === "revoked"
-          ? `✓ 已放弃该一次性责任（revoked）——不再执行，也不会补跑。`
-          : `已记录跳过决定（Assignment 状态：${c.assignment?.state ?? "未知"}）。`;
+          ? t("assignment.command.compensate.skipRevoked")
+          : t("assignment.command.compensate.skipped", {
+              state: c.assignment?.state ?? t("assignment.command.stateUnknown"),
+            });
       }
       if (c.result?.failed) {
-        return `补偿执行仍失败（attempt ${c.result.attempt}）：${c.result.error}\n可稍后再 /repair ${command.id} 重试。`;
+        return t("assignment.command.compensate.failed", {
+          attempt: c.result.attempt ?? "",
+          error: c.result.error ?? "",
+          id: command.id,
+        });
       }
-      return `✓ 已补偿执行（attempt ${c.result?.attempt ?? 1}）——责任已履行。`;
+      return t("assignment.command.compensate.done", { attempt: c.result?.attempt ?? 1 });
     }
     case "list": {
       const items = await fetchAssignments("active");
-      if (items.length === 0) return "当前没有生效中的 Assignment。";
-      return `生效中的 Assignment（${items.length}）：\n` + items
+      if (items.length === 0) return t("assignment.command.list.empty");
+      return t("assignment.command.list.header", { count: items.length }) + "\n" + items
         .map((a) => {
           const pc = a.provenance.pendingCompensation;
-          const tag = pc ? ` ⚠️ 补偿待决（${new Date(pc.occurrenceAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })} 错过）——/run-now ${a.id} 立即执行，或 /skip ${a.id} 放弃` : "";
+          const tag = pc
+            ? " " + t("assignment.command.list.pending", {
+                at: new Date(pc.occurrenceAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" }),
+                id: a.id,
+              })
+            : "";
           return `· ${a.id} [${a.domain}/${a.mode}] ${a.responsibility}${tag}`;
         })
         .join("\n");

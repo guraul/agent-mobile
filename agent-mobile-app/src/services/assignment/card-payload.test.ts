@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect } from "vitest";
 import {
   assignmentCardReceipt,
   cardControls,
@@ -14,6 +14,7 @@ import {
 } from "./card-payload";
 import type { FromCardResponse } from "./client";
 import type { AssignmentCardPayload } from "./card-payload";
+import { setLocale } from "../../i18n";
 
 const VALID: AssignmentCardPayload = {
   mode: "one-shot",
@@ -114,15 +115,27 @@ describe("isValidCron / validateCardPayload", () => {
 });
 
 describe("展示派生", () => {
-  it("cron → 人话", () => {
-    expect(describeCardSchedule("0 18 * * *")).toBe("每天 18:00");
-    expect(describeCardSchedule("50 14 * * 1-5")).toBe("每个交易日 14:50");
+  afterEach(() => setLocale("en"));
+
+  it("cron → 人话（默认 en）", () => {
+    expect(describeCardSchedule("0 18 * * *")).toBe("Every day at 18:00");
+    expect(describeCardSchedule("50 14 * * 1-5")).toBe("Every trading day at 14:50");
+    expect(describeCardSchedule("0 10 * * 6,0")).toBe("Every weekend at 10:00");
     expect(describeCardSchedule("乱七八糟")).toBe("乱七八糟");
   });
 
   it("条件 → 人话（always 无附加条件）", () => {
     expect(describeCardCondition({ kind: "always" })).toBeNull();
-    expect(describeCardCondition({ kind: "fund-nav-above", fundCode: "PZ0526", value: 1.31 })).toBe("基金 PZ0526 高于 1.31");
+    expect(describeCardCondition({ kind: "fund-nav-above", fundCode: "PZ0526", value: 1.31 })).toBe("Fund PZ0526 above 1.31");
+  });
+
+  it("zh：时间 / 条件回到原有中文", () => {
+    setLocale("zh");
+    expect(describeCardSchedule("0 18 * * *")).toBe("每天 18:00");
+    expect(describeCardSchedule("50 14 * * 1-5")).toBe("每个交易日 14:50");
+    expect(describeCardCondition({ kind: "fund-nav-below", fundCode: "PZ0526", value: 1.2 })).toBe(
+      "基金 PZ0526 低于 1.2",
+    );
   });
 
   it("payload → trigger 时区固定 Asia/Shanghai、enabled", () => {
@@ -132,6 +145,8 @@ describe("展示派生", () => {
 });
 
 describe("卡片判据", () => {
+  afterEach(() => setLocale("en"));
+
   const res = (over: Partial<FromCardResponse>): FromCardResponse => ({
     activated: true,
     assignmentId: "asg_1",
@@ -151,7 +166,7 @@ describe("卡片判据", () => {
     const phase = phaseFromCardResponse(res({ activated: false, duplicateOf: "asg_old" }));
     expect(phase).toEqual({ kind: "duplicate", duplicateOf: "asg_old" });
     expect(cardControls(phase)).toEqual({ confirm: false, supplement: false, retry: false, busy: false });
-    expect(cardNote(phase)).toBe("已有相同规则");
+    expect(cardNote(phase)).toBe("Same rule already exists");
     expect(assignmentCardReceipt(VALID, res({ duplicateOf: "asg_old" }))).toBeNull();
   });
 
@@ -160,11 +175,12 @@ describe("卡片判据", () => {
     expect(phaseFromCardResponse(res({ activated: false, assignmentId: null }))).toMatchObject({ kind: "created", activated: false, proposalId: "prp_1" });
   });
 
-  it("错误态可重试（confirm 关、retry 开）", () => {
+  it("错误态可重试（confirm 关、retry 开）；空原因走兜底文案", () => {
     const phase = phaseFromCardError(new Error("from-card failed: 500"));
     expect(phase).toEqual({ kind: "failed", message: "from-card failed: 500" });
     expect(cardControls(phase)).toEqual({ confirm: false, supplement: false, retry: true, busy: false });
     expect(phaseFromCardError("boom")).toEqual({ kind: "failed", message: "boom" });
+    expect(phaseFromCardError("")).toEqual({ kind: "failed", message: "Couldn't create it" });
   });
 
   it("superseded（[补充] 后旧卡）按钮全禁", () => {
@@ -172,7 +188,19 @@ describe("卡片判据", () => {
   });
 
   it("成功回执带 assignment id；未激活回执带 proposalId", () => {
-    expect(assignmentCardReceipt(VALID, res({}))).toContain("asg_1");
-    expect(assignmentCardReceipt(VALID, res({ activated: false, assignmentId: null }))).toContain("prp_1");
+    expect(assignmentCardReceipt(VALID, res({}))).toBe('Set up "18:00 提醒我吃药" (Assignment: asg_1)');
+    expect(assignmentCardReceipt(VALID, res({ activated: false, assignmentId: null }))).toBe(
+      "Proposal prp_1 submitted, waiting for activation",
+    );
+  });
+
+  it("zh：卡上注与回执回到原有中文", () => {
+    setLocale("zh");
+    expect(cardNote({ kind: "duplicate", duplicateOf: "asg_old" })).toBe("已有相同规则");
+    expect(cardNote({ kind: "created", activated: true, assignmentId: "asg_1", proposalId: "prp_1" })).toBe(
+      "已创建 · asg_1",
+    );
+    expect(assignmentCardReceipt(VALID, res({}))).toBe("已设定 “18:00 提醒我吃药”（Assignment: asg_1）");
+    expect(phaseFromCardError("")).toEqual({ kind: "failed", message: "创建失败" });
   });
 });

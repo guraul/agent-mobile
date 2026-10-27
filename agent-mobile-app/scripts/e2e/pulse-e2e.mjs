@@ -345,7 +345,8 @@ async function main() {
         return;
       }
       // 特征覆盖 list / confirm / reject / revoke / repair / compensate / 空态各分支
-      const looksLikeFeedback = /asg_|prp_|Assignment|提案|提醒|撤销|重试|补偿|确认|拒绝|监控|生效中/.test(probe.text);
+      // （i18n 第 3 期起回执默认英文，故同时匹配英文特征词；中文保留兼容旧回执）
+      const looksLikeFeedback = /asg_|prp_|Assignment|assignments|proposal|reminder|monitor|revoked|retry|catch-up|created|confirmed|rejected|提案|提醒|撤销|重试|补偿|确认|拒绝|监控|生效中/.test(probe.text);
       check(label + '（含真实反馈文本，非空 chip）', probe.text.length > 0 && looksLikeFeedback,
         probe.text ? probe.text.slice(0, 60) : 'innerText 为空');
       check(label + '（文本未被裁剪/截断）', !probe.clipped,

@@ -1,4 +1,4 @@
-# `src/i18n/` — 轻量 i18n（第 0 期建能力；第 1 期 Pulse / Settings / Attention / sheets；第 2 期 chat）
+# `src/i18n/` — 轻量 i18n（第 0 期建能力；第 1 期 Pulse / Settings / Attention / sheets；第 2 期 chat；第 3 期 service 拼句）
 
 零依赖的类型化字典 + `t()`。默认语言 **`en`**（当前 UI 的实际语言），`zh` 保留现有中文文案。
 
@@ -48,12 +48,14 @@ TodayDigest）与两个 sheet 原语（`navigation/BottomSheet`、`pulse/LightSh
 `StepChip`）与 `app/talk.tsx` 的 boot / offline 文案，共 99 条 key（`chat.*`）。
 消息正文、session 标题、项目路径 / 名、agent 名、错误原文、assignment 标题与 body 一律透传，不进字典。
 
-**尚未迁移（后续期）**：`SupportingList`（`In motion` / 分组标签 / `Review` / `Confirm` / `Watching`）、
-`FeaturedItem` 的 `Review:` 无障碍文案、domain 标签（Market / Coding / Pulse）、activity / memory
-service 里拼出的英文句子（`buildActivitySummary` / `buildTodayDigestText` / `activityOutcomeLabel`）、
-**chat 侧由 service 拼句的文案**——`services/assignment/card-payload.ts`（`describeCardSchedule` /
-`describeCardMode` / `describeCardDomain` / `describeCardCondition` / `cardNote` /
-`assignmentCardReceipt`）、`services/handoff/card-phase.ts`（`handoffNote`）、
-`services/handoff/target.ts`（目录校验 reason）、`services/command-receipt.ts`（失败回执）、
-`services/runtime-presence.ts`（auth / other 兜底文案）、`services/assignment/client.ts`（命令族反馈）。
-这些是纯函数 + 单测锁定文案，迁移需跨模块改字典与断言，留给下一期。
+**第 3 期已迁移**：service 层拼句与回执（纯函数直接调 `t()`，`locale` 是模块级全局，不需要 React）——
+`services/assignment/card-payload.ts`（时间 / 模式 / 域 / 条件 / 卡上注 / 回执 / 错误兜底）、
+`services/assignment/client.ts`（斜杠命令族反馈全文与写入用责任描述）、
+`services/handoff/card-phase.ts`（卡上注 / 错误兜底）、`services/handoff/target.ts`（目录校验 reason）、
+`services/command-receipt.ts`（`命令失败：` 前缀）、`services/runtime-presence.ts`（auth / other 兜底），
+共 57 条 key（`assignment.card.*` 18 / `assignment.command.*` 25 / `handoff.card.*` 4 / `handoff.target.*` 5 /
+`command.failed` 1 / `runtime.*` 4）。服务端原始错误、基金代码、目录路径、时间、assignment 标题一律插值透传。
+
+**尚未迁移**：`SupportingList`（`In motion` / 分组标签 / `Review` / `Confirm` / `Watching`）、
+`FeaturedItem` 的 `Review:` 无障碍文案、domain 标签（Market / Coding / Pulse）；
+`services/handoff/handoff-message.ts` 拼的是**投喂给 agent 的首条消息**（面向模型，不是界面），有意保留中文。

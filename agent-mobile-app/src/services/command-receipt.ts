@@ -7,6 +7,7 @@
 // ——首版为了"一行"观感用了 numberOfLines={1}，已作为回归修掉，本模块的
 // 单测负责守住"文本一字不改"。
 
+import { t } from "../i18n";
 import type { DisplayStep, ReceiptStep } from "./message-merging";
 import { classifyRuntimeFailure, runtimeFailureMessage } from "./runtime-presence";
 
@@ -62,7 +63,7 @@ export function commandFailureStep(
     return { kind: "alert", title, body };
   }
   const raw = err instanceof Error ? err.message : String(err);
-  return { kind: "error", id: makeReceiptId(now), text: `命令失败：${raw}`, createdAt: now };
+  return { kind: "error", id: makeReceiptId(now), text: t("command.failed", { raw }), createdAt: now };
 }
 
 /**

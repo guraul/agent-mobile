@@ -3,6 +3,8 @@
 // 严格分类：只有能确认「BFF 在、opencode runtime 不可达」的错误才算 AI offline；
 // BFF 自身不可达 / 网络失败 / 认证问题必须区分，不得把一切错误都归为 offline。
 
+import { t } from "../i18n";
+
 export type RuntimeFailureKind = "opencode-offline" | "bff-offline" | "auth" | "other";
 
 export function classifyRuntimeFailure(err: unknown): RuntimeFailureKind {
@@ -31,8 +33,8 @@ export function runtimeFailureMessage(kind: RuntimeFailureKind): { title: string
         body: "Cannot reach the service right now. Check your network or the BFF address in Settings.",
       };
     case "auth":
-      return { title: "请先登录", body: "登录已过期，请重新登录后再试。" };
+      return { title: t("runtime.auth.title"), body: t("runtime.auth.body") };
     default:
-      return { title: "出了点问题", body: "请求没有成功，请稍后重试。" };
+      return { title: t("runtime.other.title"), body: t("runtime.other.body") };
   }
 }

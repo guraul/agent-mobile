@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   appendReceipt,
   commandFailureStep,
@@ -8,18 +8,21 @@ import {
   RECEIPT_KEEP,
 } from "./command-receipt";
 import type { ReceiptStep } from "./message-merging";
+import { setLocale } from "../i18n";
 
 // executeAssignmentCommand 的真实返回形态（多行！单行截断回归的两个受害场景）
 const LIST_FEEDBACK =
-  "生效中的 Assignment（2）：\n· asg_7QW3K2M [market/ongoing] 每个交易日 14:50 监控基金 000001 估净是否达到目标净值\n· asg_9ZX1B4C [personal/one-shot] 09:00 提醒我：开会";
+  "Active assignments (2):\n· asg_7QW3K2M [market/ongoing] Every trading day at 14:50, watch fund 000001 for its estimated NAV reaching the target; remind me when it triggers\n· asg_9ZX1B4C [personal/one-shot] Remind me at 09:00: 开会";
 const PROPOSAL_FEEDBACK =
-  "已创建提案（等待你的确认——市场监控是持续责任）\nProposal: prp_4KQ8Z2T\n每个交易日 14:50 监控基金 000002 是否高于 1.5\n\n回复 /confirm prp_4KQ8Z2T 激活，或 /reject prp_4KQ8Z2T 放弃。";
+  "Proposal created (waiting for your confirmation — market monitoring is an ongoing responsibility)\nProposal: prp_4KQ8Z2T\nEvery trading day at 14:50, watch fund 000002 for going above 1.5; remind me when it triggers\n\nReply /confirm prp_4KQ8Z2T to activate, or /reject prp_4KQ8Z2T to discard.";
 
 /** 造 n 条回执步（id 可预测，便于断言裁剪后的顺序） */
 const steps = (n: number): ReceiptStep[] =>
   Array.from({ length: n }, (_, i) => makeReceiptStep(`m${i}`, 1000 + i));
 
 describe("commandFailureStep（#65-② 失败通道）", () => {
+  afterEach(() => setLocale("en"));
+
   it("离线失败 → alert（必须打断，沿用 runtime-presence 文案）", () => {
     const r = commandFailureStep(new Error("opencode /api/session failed: 502 Bad Gateway"), 1);
     expect(r.kind).toBe("alert");
@@ -29,10 +32,10 @@ describe("commandFailureStep（#65-② 失败通道）", () => {
     }
   });
 
-  it("鉴权失败 → alert（请先登录）", () => {
+  it("鉴权失败 → alert（Sign in first）", () => {
     const r = commandFailureStep(new Error("401 Unauthorized"), 1);
     expect(r.kind).toBe("alert");
-    if (r.kind === "alert") expect(r.title).toBe("请先登录");
+    if (r.kind === "alert") expect(r.title).toBe("Sign in first");
   });
 
   it("其余失败 → error 步（进消息流留痕，带命令失败前缀）", () => {
@@ -41,14 +44,22 @@ describe("commandFailureStep（#65-② 失败通道）", () => {
     if (r.kind === "error") {
       expect(r.id.startsWith("cmd-")).toBe(true);
       expect(r.createdAt).toBe(4242);
-      expect(r.text).toBe("命令失败：proposal not found");
+      expect(r.text).toBe("Command failed: proposal not found");
     }
   });
 
   it("非 Error 抛出物也能成步（不炸）", () => {
     const r = commandFailureStep("plain string failure", 1);
     expect(r.kind).toBe("error");
-    if (r.kind === "error") expect(r.text).toBe("命令失败：plain string failure");
+    if (r.kind === "error") expect(r.text).toBe("Command failed: plain string failure");
+  });
+
+  it("zh：失败前缀与鉴权弹窗回到原有中文", () => {
+    setLocale("zh");
+    const error = commandFailureStep(new Error("proposal not found"), 1);
+    expect(error.kind === "error" && error.text).toBe("命令失败：proposal not found");
+    const auth = commandFailureStep(new Error("401 Unauthorized"), 1);
+    expect(auth.kind === "alert" && auth.title).toBe("请先登录");
   });
 });
 

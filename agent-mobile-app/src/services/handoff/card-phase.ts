@@ -4,6 +4,8 @@
 // - error 必须带原因且可重试（失败不得静默）
 // - superseded = 对话里又来了一张新移交卡，旧卡标「已更新」并失效
 
+import { t } from "../../i18n";
+
 export type HandoffCardPhase =
   | { kind: "draft" }
   | { kind: "submitting" }
@@ -46,18 +48,18 @@ export function supersedeHandoffPhase(phase: HandoffCardPhase, superseded: boole
 /** 异常 → 失败相位（不得静默：卡片转错误态 + 原因 + 重试） */
 export function phaseFromHandoffError(err: unknown): HandoffCardPhase {
   const message = err instanceof Error ? err.message : String(err);
-  return { kind: "error", message: message || "移交失败" };
+  return { kind: "error", message: message || t("handoff.card.errorFallback") };
 }
 
 /** 相位 → 卡上的一行注（无注返回 null） */
 export function handoffNote(phase: HandoffCardPhase): string | null {
   switch (phase.kind) {
     case "done":
-      return "已移交，正在打开工作台";
+      return t("handoff.card.note.done");
     case "dismissed":
-      return "已取消，聊天的内容都还在";
+      return t("handoff.card.note.dismissed");
     case "superseded":
-      return "已更新，请看下面新的卡片";
+      return t("handoff.card.note.superseded");
     default:
       return null;
   }

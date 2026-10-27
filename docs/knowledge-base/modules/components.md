@@ -63,13 +63,13 @@
 | `pulse/TodayDigest.tsx` | Pulse 顶部一句话「她今天替你做了什么」（Tier1 先做后报，纯只读）：文案由 `services/activity/digest.buildTodayDigest` 判定（failed > matched > 全正常）；无数据/页满截断/失败均不渲染，AppState active 刷新，失败最多重试 1 次 |
 | 旧组件保留 | ActionChips / ConversationEntry / AIOrb / AIStatus / 旧 BottomSheet（Settings/Memory/Knowledge sheet 用）——待后续批次删 |
 
-## i18n（`src/i18n/`，第 0 期建能力 / 第 1 期迁移首批界面）
+## i18n（`src/i18n/`，第 0 期建能力 / 第 1–3 期迁移完成）
 
 零依赖的类型化字典：默认 `en`、`zh` 用 `satisfies` 强制补齐全部 key；`t(key, vars)` 支持 `{name}` 插值与 `_one`/`_other` 复数，`useLocale()` 订阅切换。
 
-**第 1 期已迁移**（102 条 key）：Pulse 首页、Attention 详情、Pulse 各 sheet（Settings / Memory / Knowledge / Noticed / Detail / Fund / List / Light / Activity / TodayDigest）与 `BottomSheet` / `LightSheet` 原语。约定：组件顶部调 `useLocale()` 订阅，渲染期 `t()`；`key` 命名 `<surface>.<component>.<key>`（`pulse.*` / `attention.detail.*` / `app.common.*` / `sheet.common.*`）。
+**已迁移**（258 条 key，三期）：第 1 期 Pulse / Attention / 各 sheet（102 条）；第 2 期 chat / chatcode 面板与 legacy 聊天壳（99 条 `chat.*`）；第 3 期 service 层拼句与回执（57 条，`assignment.card.*` / `assignment.command.*` / `handoff.card.*` / `handoff.target.*` / `command.failed` / `runtime.*`）。约定：组件顶部调 `useLocale()` 订阅、渲染期 `t()`；service 纯函数直接调 `t()`（locale 是模块级全局，无需 React）；`key` 命名 `<surface>.<component>.<key>`。
 
-**未迁移（后续期）**：`SupportingList` 的分组/动作标签、domain 标签（Market / Coding / Pulse）、activity/memory service 里拼出的英文句子、chat 与 assignments 界面。assignment 标题/记忆正文/项目名/用户数据**不进字典**（含服务端错误 message，原样透传）。详见 `agent-mobile-app/src/i18n/README.md`。
+**未迁移（残留）**：`SupportingList` 的分组/动作标签、`FeaturedItem` 的 `Review:` 无障碍文案、domain 标签（Market / Coding / Pulse）、`handoff-message.ts` 投喂给 agent 的首条消息（面向模型而非界面）。assignment 标题/记忆正文/项目名/用户数据**不进字典**（含服务端错误 message，原样透传，插值到回执里）。详见 `agent-mobile-app/src/i18n/README.md`。
 
 - **BottomSheet/LightSheet web 坑同源**：RN Web 不桥接 `translateY` 插值到 DOM——隐藏必须 `{visible ? ... : null}` 条件渲染（两个 sheet 原语都已内建）。
 

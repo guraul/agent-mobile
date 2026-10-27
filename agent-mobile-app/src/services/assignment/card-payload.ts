@@ -9,6 +9,7 @@
 // 模型偶发格式漂移不该把整条回复搞坏。
 //
 // 红线：纯函数、零 RN 依赖、可单测。
+import { t } from "../../i18n";
 import type { FromCardResponse } from "./client";
 
 /** 隐藏块标记名（模型侧 prompt 与本模块必须一致） */
@@ -154,31 +155,33 @@ export function describeCardSchedule(schedule: string): string {
   if (!Number.isInteger(min) || !Number.isInteger(hour)) return schedule;
   const time = `${String(hour).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
   const dow = parts[4];
-  if (dow === "*" || dow === "?" || dow === "0-6") return `每天 ${time}`;
-  if (dow === "1-5") return `每个交易日 ${time}`;
-  if (dow === "6,0" || dow === "0,6" || dow === "6-7") return `每周末 ${time}`;
+  if (dow === "*" || dow === "?" || dow === "0-6") return t("assignment.card.schedule.daily", { time });
+  if (dow === "1-5") return t("assignment.card.schedule.tradingDay", { time });
+  if (dow === "6,0" || dow === "0,6" || dow === "6-7") return t("assignment.card.schedule.weekend", { time });
   return `${dow} ${time}`;
 }
 
 export function describeCardMode(mode: AssignmentCardMode): string {
-  return mode === "one-shot" ? "一次性" : "持续";
+  return mode === "one-shot" ? t("assignment.card.mode.oneShot") : t("assignment.card.mode.ongoing");
 }
 
 export function describeCardDomain(domain: AssignmentCardDomain): string {
-  return domain === "market" ? "市场" : "个人";
+  return domain === "market" ? t("assignment.card.domain.market") : t("assignment.card.domain.personal");
 }
 
 /** 条件 → 人话；`always`（纯时间触发）无附加条件 → null */
 export function describeCardCondition(condition: AssignmentCardCondition): string | null {
+  // 校验层（validateCardPayload）已保证 fund 条件带 fundCode / value；此处兜底只为类型收窄
+  const fundCode = condition.fundCode ?? "";
   switch (condition.kind) {
     case "always":
       return null;
     case "fund-nav-above-target":
-      return `基金 ${condition.fundCode} 达到目标净值`;
+      return t("assignment.card.condition.target", { fundCode });
     case "fund-nav-above":
-      return `基金 ${condition.fundCode} 高于 ${condition.value}`;
+      return t("assignment.card.condition.above", { fundCode, value: condition.value ?? "" });
     case "fund-nav-below":
-      return `基金 ${condition.fundCode} 低于 ${condition.value}`;
+      return t("assignment.card.condition.below", { fundCode, value: condition.value ?? "" });
   }
 }
 
@@ -231,7 +234,7 @@ export function phaseFromCardResponse(res: FromCardResponse): AssignmentCardPhas
 /** 异常 → 失败相位（不得静默：卡片转错误态 + 重试按钮） */
 export function phaseFromCardError(err: unknown): AssignmentCardPhase {
   const message = err instanceof Error ? err.message : String(err);
-  return { kind: "failed", message: message || "创建失败" };
+  return { kind: "failed", message: message || t("assignment.card.createFailed") };
 }
 
 /** 相位 → 卡上的一行注（无注返回 null） */
@@ -240,13 +243,13 @@ export function cardNote(phase: AssignmentCardPhase): string | null {
     case "created":
       return phase.activated
         ? phase.assignmentId
-          ? `已创建 · ${phase.assignmentId}`
-          : "已创建"
-        : `已提交提案 ${phase.proposalId}，等待激活`;
+          ? t("assignment.card.note.createdWithId", { id: phase.assignmentId })
+          : t("assignment.card.note.created")
+        : t("assignment.card.proposalPending", { proposalId: phase.proposalId });
     case "duplicate":
-      return "已有相同规则";
+      return t("assignment.card.note.duplicate");
     case "superseded":
-      return "已更新，请看下面新的卡片";
+      return t("assignment.card.note.superseded");
     default:
       return null;
   }
@@ -257,9 +260,10 @@ export function cardNote(phase: AssignmentCardPhase): string | null {
  */
 export function assignmentCardReceipt(payload: AssignmentCardPayload, res: FromCardResponse): string | null {
   if (res.duplicateOf) return null;
-  const name = `“${payload.responsibility}”`;
   if (res.activated) {
-    return res.assignmentId ? `已设定 ${name}（Assignment: ${res.assignmentId}）` : `已设定 ${name}`;
+    return res.assignmentId
+      ? t("assignment.card.receipt.createdWithId", { name: payload.responsibility, id: res.assignmentId })
+      : t("assignment.card.receipt.created", { name: payload.responsibility });
   }
-  return `已提交提案 ${res.proposalId}，等待激活`;
+  return t("assignment.card.proposalPending", { proposalId: res.proposalId });
 }
