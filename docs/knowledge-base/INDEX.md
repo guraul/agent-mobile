@@ -18,7 +18,7 @@
 | 改聊天界面（Talk header/气泡/输入区） | modules/chat.md |
 | 改 opencode 对接（REST/SSE/reducer/状态机） | modules/services.md |
 | 改组件库 | modules/components.md |
-| **加/改界面文案（i18n）** | `agent-mobile-app/src/i18n/`（零依赖 `t()`，默认 `en`；第 0 期只建能力未迁移，新文案三步见该目录 README） |
+| **加/改界面文案（i18n）** | `agent-mobile-app/src/i18n/`（零依赖 `t()`，默认 `en`；Pulse / Attention / 各 sheet 已迁移，新文案三步见该目录 README） |
 | 改颜色/字号/间距等 token | modules/theme.md |
 | 改路由/新增页面 | modules/router.md |
 | 查数据在哪 / 数据怎么流动 | DATA.md |

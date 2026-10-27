@@ -14,6 +14,7 @@ import { classifyRuntimeFailure, runtimeFailureMessage } from "@/services/runtim
 import { LightDock, LightStatusPill, LightTextAction } from "@/components/pulse/LightAtoms";
 import { lightColors, lightTypography, lightRadius, lightSpacing } from "@/theme/light";
 import { showAlert } from "../../services/alert";
+import { t, useLocale } from "@/i18n";
 
 // Attention 详情屏（RN 迁移 #H 重做，基准 pulseB-review.html）。
 // 结构：Related responsibility → Evidence → 页脚注；底部紫渐变 dock（Open Talk），
@@ -27,6 +28,8 @@ import { showAlert } from "../../services/alert";
 
 export default function AttentionDetailScreen() {
   const router = useRouter();
+  // 订阅语言：切换时本屏重渲染，渲染期 t() 取到新文案。
+  useLocale();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [detail, setDetail] = useState<AttentionDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -66,11 +69,15 @@ export default function AttentionDetailScreen() {
 
   const doRetry = async () => {
     const asgId = detail?.relatedAssignment?.id;
-    if (!asgId) { setError("该 Attention 未关联可重试的 responsibility"); return; }
+    if (!asgId) { setError(t("attention.detail.retryNoAssignment")); return; }
     setBusy("retry");
     try {
       const r = await repairAssignment(asgId);
-      if (r.failed) setError(`Retry failed (attempt ${r.attempt}): ${r.error}`);
+      if (r.failed) {
+        setError(
+          t("attention.detail.retryFailed", { n: r.attempt ?? 0, error: r.error ?? "" }),
+        );
+      }
       await reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -89,7 +96,7 @@ export default function AttentionDetailScreen() {
     try {
       await renewAttention(att.id);
       setRenewed(true); // 本地视为已关闭（权威关闭由 BFF 完成，10 分钟未扫会新建一张）
-      setNotice("已发送二维码到企业微信，请扫码续期；10 分钟未扫会再提醒你");
+      setNotice(t("attention.detail.renewSent"));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -120,22 +127,22 @@ export default function AttentionDetailScreen() {
         const m = runtimeFailureMessage(kind); showAlert(m.title, m.body);
       } else if (/会话已不可用|404|not found/i.test(msg)) {
         // 会话已丢失（runtime 重启等）→ 提供去 Talk 默认会话的逃生口，而不是死胡同
-        showAlert("原会话已不存在", "该事项引用的会话已丢失（agent runtime 可能重启过）。", [
-          { text: "取消", style: "cancel" },
-          { text: "去 Talk 默认会话", onPress: () => router.push({ pathname: "/talk" }) },
+        showAlert(t("app.common.sessionGoneTitle"), t("app.common.sessionGoneBody"), [
+          { text: t("app.common.cancel"), style: "cancel" },
+          { text: t("app.common.sessionGoneAction"), onPress: () => router.push({ pathname: "/talk" }) },
         ]);
       } else {
-        showAlert("无法进入 Talk", msg);
+        showAlert(t("app.common.cannotOpenTalk"), msg);
       }
     }
   };
 
   // D9：Dismiss 破坏性动作 → Alert 二次确认（弱化视觉 + 强确认，双保险）
   const doDismiss = () => {
-    showAlert("Dismiss this item?", "仅代表显式退出，不影响 responsibility。", [
-      { text: "取消", style: "cancel" },
+    showAlert(t("attention.detail.dismissTitle"), t("attention.detail.dismissBody"), [
+      { text: t("app.common.cancel"), style: "cancel" },
       {
-        text: "Dismiss", style: "destructive",
+        text: t("attention.detail.dismiss"), style: "destructive",
         onPress: async () => {
           setBusy("dismiss");
           try { await dismissAttention(id!); router.back(); }
@@ -155,7 +162,7 @@ export default function AttentionDetailScreen() {
       <View style={s.header}>
         <Pressable
           onPress={() => router.back()}
-          accessibilityLabel="Back"
+          accessibilityLabel={t("attention.detail.back")}
           accessibilityRole="button"
           testID="attention-back"
           hitSlop={10}
@@ -164,7 +171,7 @@ export default function AttentionDetailScreen() {
         </Pressable>
         <Pressable
           onPress={reload}
-          accessibilityLabel="Refresh"
+          accessibilityLabel={t("attention.detail.refresh")}
           accessibilityRole="button"
           testID="attention-refresh"
           hitSlop={10}
@@ -178,7 +185,9 @@ export default function AttentionDetailScreen() {
           <RNTextError testID="attention-detail-error">{error}</RNTextError>
         ) : null}
         {loading && !att ? (
-          <Text style={s.loadingText} testID="attention-detail-loading">Loading…</Text>
+          <Text style={s.loadingText} testID="attention-detail-loading">
+            {t("attention.detail.loading")}
+          </Text>
         ) : null}
 
         {att && detail ? (
@@ -186,10 +195,10 @@ export default function AttentionDetailScreen() {
             {/* Related responsibility（只读投影；Attention 仍 canonical） */}
             {detail.relatedAssignment ? (
               <View style={s.card} testID="attention-related">
-                <Text style={s.groupLabel}>Related responsibility</Text>
+                <Text style={s.groupLabel}>{t("attention.detail.relatedResponsibility")}</Text>
                 <Text style={s.respBody}>{detail.relatedAssignment.responsibility}</Text>
                 <View style={s.kv}>
-                  <Text style={s.kvLabel}>State</Text>
+                  <Text style={s.kvLabel}>{t("attention.detail.state")}</Text>
                   <LightStatusPill label={detail.relatedAssignment.state.toUpperCase()} />
                 </View>
               </View>
@@ -197,15 +206,17 @@ export default function AttentionDetailScreen() {
 
             {/* Evidence 投影（canonical = attention_evidence + product_events） */}
             <View style={s.card} testID="attention-evidence">
-              <Text style={s.groupLabel}>Evidence</Text>
+              <Text style={s.groupLabel}>{t("attention.detail.evidence")}</Text>
               {detail.evidence.length === 0 ? (
-                <Text style={s.emptyEvidence}>No supporting events.</Text>
+                <Text style={s.emptyEvidence}>{t("attention.detail.noEvidence")}</Text>
               ) : (
                 <View style={s.evList}>
                   {detail.evidence.map((e) => (
                     <View key={e.id} style={s.evRow}>
                       <Text style={s.evCap}>
-                        {e.type}{e.attempt ? ` · attempt ${e.attempt}` : ""} · {formatRelative(e.occurredAt)}
+                        {e.type}
+                        {e.attempt ? ` · ${t("attention.detail.attempt", { n: e.attempt })}` : ""} ·{" "}
+                        {formatRelative(e.occurredAt)}
                       </Text>
                       {e.error ? <Text style={s.evBody}>{e.error}</Text> : null}
                     </View>
@@ -215,7 +226,7 @@ export default function AttentionDetailScreen() {
             </View>
 
             {/* 页脚注：只读语义（mock .note） */}
-            <Text style={s.note}>Viewing never changes state.</Text>
+            <Text style={s.note}>{t("attention.detail.note")}</Text>
 
             {/* #96：重发二维码成功 → 一行反馈 */}
             {notice ? <Text style={s.notice} testID="attention-renew-notice">{notice}</Text> : null}
@@ -227,7 +238,15 @@ export default function AttentionDetailScreen() {
           #96：凭据到期事项主按钮换「重发二维码」，Open Talk 隐藏（判据见 store.ts）。 */}
       <View style={s.dock}>
         <LightDock
-          label={actions.renew ? (renewed ? "已重发" : busy === "renew" ? "发送中…" : "重发二维码") : "Open Talk"}
+          label={
+            actions.renew
+              ? renewed
+                ? t("attention.detail.renewed")
+                : busy === "renew"
+                  ? t("attention.detail.renewing")
+                  : t("attention.detail.renew")
+              : t("attention.detail.openTalk")
+          }
           variant="gradient"
           onPress={actions.renew ? (renewed ? undefined : doRenew) : openTalk}
           testID={actions.renew ? "attention-renew" : "attention-open-talk"}
@@ -235,11 +254,15 @@ export default function AttentionDetailScreen() {
             <>
               {isRepair ? (
                 <Pressable onPress={doRetry} hitSlop={8} testID="attention-retry" disabled={busy !== null}>
-                  <Text style={s.dockWeak}>{busy === "retry" ? "Retrying…" : "Retry"}</Text>
+                  <Text style={s.dockWeak}>
+                    {busy === "retry" ? t("attention.detail.retrying") : t("attention.detail.retry")}
+                  </Text>
                 </Pressable>
               ) : null}
               <Pressable onPress={doDismiss} hitSlop={8} testID="attention-dismiss" disabled={busy !== null}>
-                <Text style={s.dockWeak}>{busy === "dismiss" ? "Dismissing…" : "Dismiss"}</Text>
+                <Text style={s.dockWeak}>
+                  {busy === "dismiss" ? t("attention.detail.dismissing") : t("attention.detail.dismiss")}
+                </Text>
               </Pressable>
             </>
           }

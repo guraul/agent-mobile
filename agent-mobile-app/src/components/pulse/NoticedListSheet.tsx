@@ -14,6 +14,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { colors, type, spacing, radii } from '../../theme/companion';
 import { NoticedItem } from './showcase-types';
+import { t, useLocale } from '../../i18n';
 
 export function NoticedListSheet({
   items,
@@ -23,6 +24,8 @@ export function NoticedListSheet({
   onClose: () => void;
 }) {
   const slide = useSharedValue(0);
+  // 订阅语言：切换时 sheet 重渲染，渲染期 t() 取到新文案。
+  useLocale();
 
   useEffect(() => {
     slide.value = withTiming(1, {
@@ -41,7 +44,7 @@ export function NoticedListSheet({
       <Pressable style={styles.scrim} onPress={onClose} />
       <Animated.View style={[styles.sheet, sheetStyle]}>
         <View style={styles.handle} />
-        <Text style={styles.label}>Noticed</Text>
+        <Text style={styles.label}>{t("pulse.noticed.title")}</Text>
         <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
           {items.map((item) => (
             <View key={item.id} style={styles.row}>

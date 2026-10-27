@@ -44,6 +44,7 @@ import { classifyRuntimeFailure, runtimeFailureMessage } from "@/services/runtim
 import { iconStroke } from "@/theme";
 import { lightColors, lightTypography, lightSpacing, lightSizes, lightRadius } from "@/theme/light";
 import { showAlert } from "../services/alert";
+import { t, useLocale, type MessageKey } from "@/i18n";
 
 const SUPPORTING_BUDGET = 4;
 const NOTICED_BUDGET = 5;
@@ -54,11 +55,11 @@ type SupportingItem =
   | { kind: "running"; event: ProjectEvent }
   | { kind: "market" };
 
-function getGreeting(): string {
+function getGreetingKey(): MessageKey {
   const h = new Date().getHours();
-  if (h < 12) return "Good morning.";
-  if (h < 18) return "Good afternoon.";
-  return "Good evening.";
+  if (h < 12) return "pulse.home.greetingMorning";
+  if (h < 18) return "pulse.home.greetingAfternoon";
+  return "pulse.home.greetingEvening";
 }
 
 // ── real data → companion view models (showcase2 component shapes) ─────────
@@ -67,6 +68,8 @@ const toNeedsYou = (a: PulseAttentionItem): NeedsYouItem => ({
   kind: "needs-you",
   title: a.title,
   why: a.summary ?? "",
+  // domain 标签属数据投影（Market / Coding / Pulse），与 SupportingList 的分组标签
+  // 一起留给第 2 期，本期不动。
   source: a.domain === "market" ? "Market" : a.domain === "coding" ? "Coding" : "Pulse",
   time: formatRelative(a.createdAt),
   reviewTarget: `/attention/${a.id}`,
@@ -134,6 +137,8 @@ function TextAction({ label, onPress, testID }: { label: string; onPress: () => 
 
 export default function PulseScreen() {
   const router = useRouter();
+  // 订阅语言：切换时整屏（含其下所有 sheet）重渲染，渲染期 t() 取到新文案。
+  useLocale();
 
   // ── real data sources (unchanged services) ──────────────────────────────
   const { events, otherProjects, error: projectError, refresh: refreshProjects } = useProjectEvents();
@@ -147,7 +152,8 @@ export default function PulseScreen() {
   } = useSuggestions();
 
   // ── local ui state ──────────────────────────────────────────────────────
-  const [greeting, setGreeting] = useState("");
+  // 问候语只保存「时段 + 用户名」：文案在渲染期取 t()，切换语言即时生效。
+  const [greeting, setGreeting] = useState<{ key: MessageKey; name: string } | null>(null);
   const [suggestionBusyId, setSuggestionBusyId] = useState<string | null>(null);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -164,16 +170,22 @@ export default function PulseScreen() {
   // disagree → render only after mount (React #418 guard, unchanged).
   useEffect(() => {
     (async () => {
-      const g = getGreeting();
       let name = "";
       try {
         name = (await getUsername())?.trim() ?? "";
       } catch {
         /* greeting stays anonymous */
       }
-      setGreeting(name ? `${g.replace(/\.$/, "")}, ${name}.` : g);
+      setGreeting({ key: getGreetingKey(), name });
     })();
   }, []);
+
+  const greetingText =
+    greeting === null
+      ? ""
+      : greeting.name
+        ? t("pulse.home.greetingWithName", { greeting: t(greeting.key), name: greeting.name })
+        : t("pulse.home.greetingAlone", { greeting: t(greeting.key) });
 
   useEffect(() => {
     getRuntimeBaseUrl().then((override) => {
@@ -201,7 +213,11 @@ export default function PulseScreen() {
   const offline = failureKind !== null;
   const presence: PresenceState = offline ? "offline" : openAttentions.length > 0 ? "needs-you" : "attentive";
   // Header presence 文字（mock .presence：label 12/600；offline 灰点灰字）
-  const presenceLabel = offline ? "Offline" : presence === "needs-you" ? "Needs you" : "Attentive";
+  const presenceLabel = offline
+    ? t("pulse.header.presenceOffline")
+    : presence === "needs-you"
+      ? t("pulse.header.presenceNeedsYou")
+      : t("pulse.header.presenceAttentive");
 
   // ── composition ─────────────────────────────────────────────────────────
   const featured = openAttentions[0] ?? null;
@@ -269,12 +285,12 @@ export default function PulseScreen() {
         const m = runtimeFailureMessage(kind);
         showAlert(m.title, m.body);
       } else if (/会话已不可用|404|not found/i.test(msg)) {
-        showAlert("原会话已不存在", "该事项引用的会话已丢失（agent runtime 可能重启过）。", [
-          { text: "取消", style: "cancel" },
-          { text: "去 Talk 默认会话", onPress: () => router.push({ pathname: "/talk" }) },
+        showAlert(t("app.common.sessionGoneTitle"), t("app.common.sessionGoneBody"), [
+          { text: t("app.common.cancel"), style: "cancel" },
+          { text: t("app.common.sessionGoneAction"), onPress: () => router.push({ pathname: "/talk" }) },
         ]);
       } else {
-        showAlert("无法进入 Talk", msg);
+        showAlert(t("app.common.cannotOpenTalk"), msg);
       }
     }
   };
@@ -377,7 +393,7 @@ export default function PulseScreen() {
           </RNText>
           <Pressable
             onPress={() => setSettingsOpen(true)}
-            accessibilityLabel="Settings"
+            accessibilityLabel={t("pulse.header.settings")}
             accessibilityRole="button"
             testID="pulse-settings"
             hitSlop={10}
@@ -390,10 +406,10 @@ export default function PulseScreen() {
         {/* Hero：单行问候（mock .greeting display 26/400）；aiVoice 仅离线渲染（D7） */}
         <AnimatedEntry index={0}>
           <View style={styles.hero} testID="pulse-hero">
-            <RNText style={styles.heroLine}>{greeting}</RNText>
+            <RNText style={styles.heroLine}>{greetingText}</RNText>
             {offline ? (
               <RNText style={styles.aiVoice} testID="pulse-offline-voice">
-                {"I'm having trouble reaching my runtime."}
+                {t("pulse.home.offlineVoice")}
               </RNText>
             ) : null}
           </View>
@@ -451,7 +467,7 @@ export default function PulseScreen() {
         {supportingOverflow > 0 ? (
           <View style={styles.overflowRow}>
             <LightTextAction
-              label={`More (${supportingOverflow})`}
+              label={t("pulse.home.more", { n: supportingOverflow })}
               onPress={() => setOverflowOpen(true)}
               testID="supporting-more"
             />
@@ -463,10 +479,10 @@ export default function PulseScreen() {
             {/* Noticed ghost 卡（mock .card.ghost）：透明底 + 1.5px dashed 绿边 */}
             <View style={styles.section}>
               <View style={styles.sectionHead}>
-                <RNText style={styles.sectionLabel}>Noticed</RNText>
+                <RNText style={styles.sectionLabel}>{t("pulse.noticed.title")}</RNText>
                 {noticedOverflow > 0 ? (
                   <LightTextAction
-                    label="See All"
+                    label={t("pulse.home.seeAll")}
                     onPress={() => setNoticedListOpen(true)}
                     testID="noticed-see-all"
                   />
@@ -480,8 +496,8 @@ export default function PulseScreen() {
         {/* 空态（D7）：aiVoice 全空回归 + 安静提示；离线时整屏 aiVoice 已在 Hero 渲染 */}
         {isEmptyScreen ? (
           <View testID="pulse-empty">
-            <RNText style={styles.aiVoice}>{"All's been calm while you were away."}</RNText>
-            <RNText style={styles.emptyLine}>Nothing needs you right now.</RNText>
+            <RNText style={styles.aiVoice}>{t("pulse.home.emptyVoice")}</RNText>
+            <RNText style={styles.emptyLine}>{t("pulse.digest.allClear")}</RNText>
           </View>
         ) : null}
 
@@ -501,7 +517,7 @@ export default function PulseScreen() {
       {/* Dock（mock .dock）：整颗 pill → /talk，非 TextInput（Pulse 唯一输入 affordance） */}
       <View style={styles.entryDock}>
         <LightDock
-          label="Start New Chat"
+          label={t("pulse.home.startChat")}
           onPress={() => router.push("/talk")}
           testID="conversation-entry"
         />
@@ -536,7 +552,7 @@ export default function PulseScreen() {
       {/* Noticed read-only detail — Discuss is the only way into Talk */}
       {detailStatement ? (
         <DetailSheet
-          label="Noticed"
+          label={t("pulse.noticed.title")}
           body={detailStatement.text}
           meta={formatRelative(detailStatement.occurredAt)}
           onDiscuss={() => {
@@ -551,7 +567,7 @@ export default function PulseScreen() {
       {/* Supporting overflow: full list, same rows, canonical order, no state change */}
       <ListSheet
         visible={overflowOpen}
-        title="More"
+        title={t("pulse.home.moreTitle")}
         onClose={() => setOverflowOpen(false)}
         testID="supporting-overflow-sheet"
       >
@@ -582,7 +598,7 @@ export default function PulseScreen() {
       {/* See All — Noticed list */}
       <ListSheet
         visible={noticedListOpen}
-        title="Noticed"
+        title={t("pulse.noticed.title")}
         onClose={() => setNoticedListOpen(false)}
         testID="noticed-list-sheet"
       >

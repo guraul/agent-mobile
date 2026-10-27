@@ -18,6 +18,7 @@ import { DEFAULT_MODEL, selectModels } from "../../services/model-registry";
 import { filterModels, type ModelPref } from "../../services/filter-models";
 import { opencodeClient } from "../../services/opencode-client";
 import { colors, radius, spacing } from "../../theme";
+import { t, useLocale } from "../../i18n";
 
 interface AgentRow {
   id: string;
@@ -81,6 +82,8 @@ export function SettingsSheet({
   onLogin: () => void;
 }) {
   const router = useRouter();
+  // 订阅语言：切换时 sheet 重渲染，渲染期 t() 取到新文案。
+  useLocale();
   const [username, setUsername] = useState<string | null>(null);
   const [online, setOnline] = useState(false);
   const [addr, setAddr] = useState("");
@@ -160,14 +163,14 @@ export function SettingsSheet({
     <>
       <BottomSheet visible={visible} onClose={onClose} testID="settings-sheet">
         <ScrollView style={{ maxHeight: 520 }} contentContainerStyle={{ gap: spacing.md }}>
-          <Text variant="title" color="ink">Settings</Text>
+          <Text variant="title" color="ink">{t("pulse.header.settings")}</Text>
 
           {/* Responsibilities */}
           <View style={{ gap: spacing.xxs }}>
-            <Text variant="label" color="muted">RESPONSIBILITIES</Text>
+            <Text variant="label" color="muted">{t("pulse.settings.responsibilities")}</Text>
             <SettingsRow
-              label="What I am responsible for"
-              detail="Active / completed / revoked"
+              label={t("pulse.settings.responsibilitiesRow")}
+              detail={t("pulse.settings.responsibilitiesDetail")}
               testID="settings-responsibilities"
               onPress={() => {
                 onClose();
@@ -176,8 +179,8 @@ export function SettingsSheet({
             />
             {/* 只读审计：她替你做过什么（PM §14 可见化第一步；无授权/撤销入口） */}
             <SettingsRow
-              label="What I've been doing"
-              detail="Last 7 days · read-only"
+              label={t("pulse.settings.activityRow")}
+              detail={t("pulse.settings.activityDetail")}
               testID="settings-activity"
               onPress={() => {
                 onClose();
@@ -188,33 +191,45 @@ export function SettingsSheet({
 
           {/* Connection */}
           <View style={{ gap: spacing.xxs }}>
-            <Text variant="label" color="muted">CONNECTION</Text>
+            <Text variant="label" color="muted">{t("pulse.settings.connection")}</Text>
             <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingVertical: spacing.xs }}>
               <StatusDot
                 status={online ? "success" : "idle"}
                 size={8}
                 pulse={false}
-                accessibilityLabel={online ? "在线" : "离线"}
+                accessibilityLabel={online ? t("pulse.settings.online") : t("pulse.settings.offline")}
               />
-              <Text variant="body" color="body">{online ? "在线" : "离线"}</Text>
+              <Text variant="body" color="body">
+                {online ? t("pulse.settings.online") : t("pulse.settings.offline")}
+              </Text>
             </View>
             <View style={{ gap: 2 }}>
-              <Text variant="caption" color="muted">账号</Text>
-              <Text variant="body" color="ink">{username ?? "未登录"}</Text>
+              <Text variant="caption" color="muted">{t("pulse.settings.account")}</Text>
+              <Text variant="body" color="ink">{username ?? t("pulse.settings.notSignedIn")}</Text>
             </View>
             {!username ? (
               <View style={{ marginTop: spacing.xs }}>
-                <Button variant="secondary" label="去登录" onPress={onLogin} testID="settings-login" />
+                <Button
+                  variant="secondary"
+                  label={t("pulse.settings.signIn")}
+                  onPress={onLogin}
+                  testID="settings-login"
+                />
               </View>
             ) : (
               <View style={{ marginTop: spacing.xs }}>
-                <Button variant="ghost" label="登出" onPress={doLogout} testID="settings-logout" />
+                <Button
+                  variant="ghost"
+                  label={t("pulse.settings.signOut")}
+                  onPress={doLogout}
+                  testID="settings-logout"
+                />
               </View>
             )}
             <Pressable
               onPress={() => setAdvancedOpen((o) => !o)}
               accessibilityRole="button"
-              accessibilityLabel="Advanced connection settings"
+              accessibilityLabel={t("pulse.settings.advancedA11y")}
               testID="settings-advanced-toggle"
               style={{ flexDirection: "row", alignItems: "center", gap: spacing.xxs, paddingVertical: spacing.xs }}
             >
@@ -223,13 +238,13 @@ export function SettingsSheet({
               ) : (
                 <Icon icon={ChevronRight} size="xs" color="muted" />
               )}
-              <Text variant="caption" color="muted">Advanced · BFF 地址</Text>
+              <Text variant="caption" color="muted">{t("pulse.settings.advanced")}</Text>
             </Pressable>
             {advancedOpen ? (
               <View style={{ gap: spacing.xs }} testID="settings-advanced">
                 <Text variant="monoCaption" color="muted">
                   {addr}
-                  {custom ? "" : " (默认)"}
+                  {custom ? "" : t("pulse.settings.defaultSuffix")}
                 </Text>
                 <Input
                   value={addr}
@@ -238,11 +253,16 @@ export function SettingsSheet({
                   testID="settings-bff-input"
                 />
                 <View style={{ flexDirection: "row", gap: spacing.sm }}>
-                  <Button label="保存" onPress={saveAddr} testID="settings-bff-save" />
-                  <Button variant="ghost" label="恢复默认" onPress={resetAddr} testID="settings-bff-reset" />
+                  <Button label={t("pulse.settings.save")} onPress={saveAddr} testID="settings-bff-save" />
+                  <Button
+                    variant="ghost"
+                    label={t("pulse.settings.reset")}
+                    onPress={resetAddr}
+                    testID="settings-bff-reset"
+                  />
                 </View>
                 {saved ? (
-                  <Text variant="caption" color="accentBright">ⓘ 保存后重启生效(web 刷新即可)</Text>
+                  <Text variant="caption" color="accentBright">{t("pulse.settings.savedHint")}</Text>
                 ) : null}
               </View>
             ) : null}
@@ -250,7 +270,7 @@ export function SettingsSheet({
 
           {/* Preferences */}
           <View style={{ gap: spacing.xxs }}>
-            <Text variant="label" color="muted">PREFERENCES</Text>
+            <Text variant="label" color="muted">{t("pulse.settings.preferences")}</Text>
             {agents.map((a) => (
               <Pressable
                 key={a.id}
@@ -260,7 +280,7 @@ export function SettingsSheet({
                   setQuery("");
                 }}
                 accessibilityRole="button"
-                accessibilityLabel={`Model preference for ${a.id}`}
+                accessibilityLabel={t("pulse.settings.modelPreferenceFor", { agent: a.id })}
                 style={({ pressed }) => ({
                   flexDirection: "row",
                   alignItems: "center",
@@ -284,10 +304,10 @@ export function SettingsSheet({
 
           {/* What I know */}
           <View style={{ gap: spacing.xxs }}>
-            <Text variant="label" color="muted">WHAT I KNOW</Text>
+            <Text variant="label" color="muted">{t("pulse.settings.whatIKnow")}</Text>
             <SettingsRow
-              label="What I remember"
-              detail="Memory about you and your projects"
+              label={t("pulse.memory.title")}
+              detail={t("pulse.settings.memoryDetail")}
               testID="settings-memory"
               onPress={() => {
                 onClose();
@@ -295,8 +315,8 @@ export function SettingsSheet({
               }}
             />
             <SettingsRow
-              label="Knowledge sources"
-              detail="Search what I can draw on"
+              label={t("pulse.settings.knowledgeRow")}
+              detail={t("pulse.settings.knowledgeDetail")}
               testID="settings-knowledge"
               onPress={() => {
                 onClose();
@@ -313,12 +333,14 @@ export function SettingsSheet({
         testID="settings-model-sheet"
       >
         <View style={{ gap: spacing.xs }}>
-          <Text variant="title" color="ink">为 {pickAgent} 选择 model</Text>
+          <Text variant="title" color="ink">
+            {t("pulse.settings.modelPickerTitle", { agent: pickAgent ?? "" })}
+          </Text>
           <SearchInput
             value={query}
             onChangeText={setQuery}
             onClear={() => setQuery("")}
-            placeholder="搜索 model…"
+            placeholder={t("pulse.settings.modelSearchPlaceholder")}
             testID="settings-model-search"
           />
           <ScrollView style={{ maxHeight: 320 }}>
@@ -343,7 +365,11 @@ export function SettingsSheet({
               );
             })}
           </ScrollView>
-          <Button label="确认" onPress={() => setPickAgent(null)} testID="settings-model-confirm" />
+          <Button
+            label={t("pulse.settings.confirm")}
+            onPress={() => setPickAgent(null)}
+            testID="settings-model-confirm"
+          />
         </View>
       </BottomSheet>
     </>

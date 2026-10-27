@@ -13,6 +13,7 @@ import {
 } from "../../services/memory/client";
 import { colors, spacing } from "../../theme";
 import { showAlert } from "../../services/alert";
+import { t, useLocale } from "../../i18n";
 
 /**
  * MemorySheet — "What I remember" (canonical = memx projection, read-only +
@@ -26,6 +27,8 @@ export function MemorySheet({
   onClose: () => void;
 }) {
   const [groups, setGroups] = useState<MemoryGroup[]>([]);
+  // 订阅语言：切换时 sheet 重渲染，渲染期 t() 取到新文案。
+  useLocale();
   const [source, setSource] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,17 +59,22 @@ export function MemorySheet({
 
   const doForget = (item: { id: string; title: string }) => {
     showAlert(
-      "忘记这条记忆？",
-      `${item.title}\n\nproject 记忆将移入 .trash 并从索引移除；user 记忆将被标记弃用。`,
+      t("pulse.memory.forgetTitle"),
+      t("pulse.memory.forgetBody", { title: item.title }),
       [
-        { text: "取消", style: "cancel" },
+        { text: t("app.common.cancel"), style: "cancel" },
         {
-          text: "忘记",
+          text: t("pulse.memory.forget"),
           style: "destructive",
           onPress: () => {
             forgetMemory(item.id)
               .then(() => reload())
-              .catch((e) => showAlert("Forget 失败", e instanceof Error ? e.message : String(e)));
+              .catch((e) =>
+                showAlert(
+                  t("pulse.memory.forgetFailed"),
+                  e instanceof Error ? e.message : String(e),
+                ),
+              );
           },
         },
       ],
@@ -76,21 +84,21 @@ export function MemorySheet({
   return (
     <BottomSheet visible={visible} onClose={onClose} testID="memory-sheet">
       <View style={{ gap: spacing.xxs, marginBottom: spacing.sm }}>
-        <Text variant="title" color="ink">What I remember</Text>
-        <Text variant="caption" color="muted">
-          Durable understanding about you and your projects. Forgetting acts on the canonical store.
-        </Text>
+        <Text variant="title" color="ink">{t("pulse.memory.title")}</Text>
+        <Text variant="caption" color="muted">{t("pulse.memory.caption")}</Text>
       </View>
       <ScrollView style={{ maxHeight: 420 }} contentContainerStyle={{ gap: spacing.sm }}>
         {loading ? (
-          <Text variant="caption" color="muted" testID="memory-loading">加载中…</Text>
+          <Text variant="caption" color="muted" testID="memory-loading">
+            {t("pulse.memory.loading")}
+          </Text>
         ) : null}
         {!loading && error ? (
           <Text variant="caption" color="error" testID="memory-error">{error}</Text>
         ) : null}
         {!loading && !error && groups.length === 0 ? (
           <Text variant="caption" color="muted" testID="memory-empty">
-            还没有 Memory——memx 会在会话中提炼持久理解。
+            {t("pulse.memory.empty")}
           </Text>
         ) : null}
         {groups.map((g) => (
@@ -120,7 +128,7 @@ export function MemorySheet({
                   onPress={() => doForget(item)}
                   hitSlop={8}
                   testID={`memory-forget-${item.id}`}
-                  accessibilityLabel={`Forget ${item.title}`}
+                  accessibilityLabel={t("pulse.memory.forgetA11y", { title: item.title })}
                 >
                   <Icon icon={Trash2} size="sm" color="error" />
                 </Pressable>
@@ -130,7 +138,7 @@ export function MemorySheet({
         ))}
       </ScrollView>
       {source ? (
-        <Text variant="monoCaption" color="muted">Source: {source}</Text>
+        <Text variant="monoCaption" color="muted">{t("pulse.memory.source", { source })}</Text>
       ) : null}
     </BottomSheet>
   );
