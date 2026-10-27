@@ -6,6 +6,8 @@
 //
 // 红线：纯函数、零 RN 依赖、可单测。
 
+import { t } from "../../i18n";
+
 export const MAX_TARGET_DIRECTORY_LENGTH = 1024;
 
 /** 进不了 chatcode 壳的目录（resolveConversationKind 会判成 chat） */
@@ -26,14 +28,14 @@ export function normalizeDirectory(raw: unknown): string {
 /** 绝对路径 + 不含 `..` + ≤1024 + 不是禁用目录 */
 export function validateTargetDirectory(raw: unknown): TargetValidation {
   const directory = normalizeDirectory(raw);
-  if (!directory) return { ok: false, reason: "填一个目标目录" };
-  if (!directory.startsWith("/")) return { ok: false, reason: "要用绝对路径，以 / 开头" };
-  if (directory.includes("..")) return { ok: false, reason: "路径里不能带 .." };
+  if (!directory) return { ok: false, reason: t("handoff.target.empty") };
+  if (!directory.startsWith("/")) return { ok: false, reason: t("handoff.target.notAbsolute") };
+  if (directory.includes("..")) return { ok: false, reason: t("handoff.target.traversal") };
   if (directory.length > MAX_TARGET_DIRECTORY_LENGTH) {
-    return { ok: false, reason: `路径不能超过 ${MAX_TARGET_DIRECTORY_LENGTH} 个字符` };
+    return { ok: false, reason: t("handoff.target.tooLong", { max: MAX_TARGET_DIRECTORY_LENGTH }) };
   }
   if (FORBIDDEN_TARGET_DIRECTORIES.includes(directory)) {
-    return { ok: false, reason: "这个目录进不了工作台，换一个项目目录" };
+    return { ok: false, reason: t("handoff.target.forbidden") };
   }
   return { ok: true, directory };
 }

@@ -269,6 +269,82 @@ const en = {
   "chat.shell.emptyHint": "Start a new conversation.",
   "chat.shell.sessionGoneBody":
     "That conversation is gone (my runtime may have restarted). Switched to the most recent one.",
+
+  // ── Service 拼句：定时任务确认卡（assignment-card）───────────────────────
+  "assignment.card.schedule.daily": "Every day at {time}",
+  "assignment.card.schedule.tradingDay": "Every trading day at {time}",
+  "assignment.card.schedule.weekend": "Every weekend at {time}",
+  "assignment.card.mode.oneShot": "One-time",
+  "assignment.card.mode.ongoing": "Ongoing",
+  "assignment.card.domain.market": "Market",
+  "assignment.card.domain.personal": "Personal",
+  "assignment.card.condition.target": "Fund {fundCode} reaches its target NAV",
+  "assignment.card.condition.above": "Fund {fundCode} above {value}",
+  "assignment.card.condition.below": "Fund {fundCode} below {value}",
+  "assignment.card.createFailed": "Couldn't create it",
+  "assignment.card.note.createdWithId": "Created · {id}",
+  "assignment.card.note.created": "Created",
+  "assignment.card.note.duplicate": "Same rule already exists",
+  "assignment.card.note.superseded": "Updated — see the new card below",
+  "assignment.card.receipt.createdWithId": 'Set up "{name}" (Assignment: {id})',
+  "assignment.card.receipt.created": 'Set up "{name}"',
+  "assignment.card.proposalPending": "Proposal {proposalId} submitted, waiting for activation",
+
+  // ── Service 拼句：移交卡（handoff）──────────────────────────────────────
+  "handoff.card.errorFallback": "Handoff failed",
+  "handoff.card.note.done": "Handed off — opening the workbench",
+  "handoff.card.note.dismissed": "Cancelled — your chat is still here",
+  "handoff.card.note.superseded": "Updated — see the new card below",
+
+  // ── Service 拼句：移交目标目录校验 ──────────────────────────────────────
+  "handoff.target.empty": "Enter a target directory",
+  "handoff.target.notAbsolute": "Use an absolute path starting with /",
+  "handoff.target.traversal": "Paths can't contain ..",
+  "handoff.target.tooLong": "Path can't be longer than {max} characters",
+  "handoff.target.forbidden": "That directory can't open the workbench. Pick another project directory.",
+
+  // ── Service 拼句：命令回执 / runtime 兜底 ───────────────────────────────
+  "command.failed": "Command failed: {raw}",
+  "runtime.auth.title": "Sign in first",
+  "runtime.auth.body": "Your session expired. Sign in again and retry.",
+  "runtime.other.title": "Something went wrong",
+  "runtime.other.body": "The request didn't go through. Try again in a moment.",
+
+  // ── Service 拼句：assignment 斜杠命令反馈 ───────────────────────────────
+  "assignment.command.invalidTime": "Invalid time {at}",
+  "assignment.command.stateUnknown": "unknown",
+  "assignment.command.fund.responsibilityTarget":
+    "Every trading day at {at}, watch fund {fundCode} for its estimated NAV reaching the target; remind me when it triggers",
+  "assignment.command.fund.responsibilityAbove":
+    "Every trading day at {at}, watch fund {fundCode} for going above {value}; remind me when it triggers",
+  "assignment.command.fund.responsibilityBelow":
+    "Every trading day at {at}, watch fund {fundCode} for going below {value}; remind me when it triggers",
+  "assignment.command.remind.responsibility": "Remind me at {at}: {text}",
+  "assignment.command.fund.duplicate":
+    "A similar monitor is already active ({duplicateOf}). To replace it, run /revoke {duplicateOf} first. This proposal was not created: {proposalId}",
+  "assignment.command.fund.activated": "✓ Activated (low risk, activated directly)\nAssignment: {id}\n{responsibility}",
+  "assignment.command.fund.proposed":
+    "Proposal created (waiting for your confirmation — market monitoring is an ongoing responsibility)\nProposal: {id}\n{responsibility}\n\nReply /confirm {id} to activate, or /reject {id} to discard.",
+  "assignment.command.remind.activated": "✓ Reminder set (low risk, activated directly)\n{responsibility}",
+  "assignment.command.remind.proposed": "Reminder proposal created: {id}\nReply /confirm {id} to activate.",
+  "assignment.command.confirm.activated": "✓ Proposal confirmed, assignment activated: {id}\n{responsibility}",
+  "assignment.command.confirm.pending": "Proposal {id} confirmed (no activation result returned).",
+  "assignment.command.reject": "Proposal rejected: {id}. No assignment was created and nothing will trigger.",
+  "assignment.command.revoke.done": "✓ Revoked: {id}\nFuture triggers stopped; existing reminders stay as they are.",
+  "assignment.command.revoke.notActive": "This assignment is no longer active (currently: {state}) — nothing to revoke.",
+  "assignment.command.repair.failed":
+    "Retry failed again (attempt {attempt}): {error}\nYou can /repair {id} again later.",
+  "assignment.command.repair.done": "✓ Retry succeeded (attempt {attempt}) — responsibility fulfilled.",
+  "assignment.command.compensate.skipRevoked":
+    "✓ One-time responsibility dropped (revoked) — it won't run or catch up.",
+  "assignment.command.compensate.skipped": "Skip recorded (assignment state: {state}).",
+  "assignment.command.compensate.failed":
+    "Catch-up run still failed (attempt {attempt}): {error}\nYou can /repair {id} again later.",
+  "assignment.command.compensate.done": "✓ Catch-up run done (attempt {attempt}) — responsibility fulfilled.",
+  "assignment.command.list.empty": "No active assignments.",
+  "assignment.command.list.header": "Active assignments ({count}):",
+  "assignment.command.list.pending":
+    "compensation pending (missed {at}) — /run-now {id} to run now, or /skip {id} to drop",
 } as const;
 
 type PluralSuffix = "_one" | "_other";
@@ -506,6 +582,70 @@ const zh = {
   "chat.shell.empty": "这个项目还没有会话。",
   "chat.shell.emptyHint": "开始一次新对话。",
   "chat.shell.sessionGoneBody": "该会话已丢失（agent runtime 可能重启过）。已切换到最近的会话。",
+
+  "assignment.card.schedule.daily": "每天 {time}",
+  "assignment.card.schedule.tradingDay": "每个交易日 {time}",
+  "assignment.card.schedule.weekend": "每周末 {time}",
+  "assignment.card.mode.oneShot": "一次性",
+  "assignment.card.mode.ongoing": "持续",
+  "assignment.card.domain.market": "市场",
+  "assignment.card.domain.personal": "个人",
+  "assignment.card.condition.target": "基金 {fundCode} 达到目标净值",
+  "assignment.card.condition.above": "基金 {fundCode} 高于 {value}",
+  "assignment.card.condition.below": "基金 {fundCode} 低于 {value}",
+  "assignment.card.createFailed": "创建失败",
+  "assignment.card.note.createdWithId": "已创建 · {id}",
+  "assignment.card.note.created": "已创建",
+  "assignment.card.note.duplicate": "已有相同规则",
+  "assignment.card.note.superseded": "已更新，请看下面新的卡片",
+  "assignment.card.receipt.createdWithId": "已设定 “{name}”（Assignment: {id}）",
+  "assignment.card.receipt.created": "已设定 “{name}”",
+  "assignment.card.proposalPending": "已提交提案 {proposalId}，等待激活",
+
+  "handoff.card.errorFallback": "移交失败",
+  "handoff.card.note.done": "已移交，正在打开工作台",
+  "handoff.card.note.dismissed": "已取消，聊天的内容都还在",
+  "handoff.card.note.superseded": "已更新，请看下面新的卡片",
+
+  "handoff.target.empty": "填一个目标目录",
+  "handoff.target.notAbsolute": "要用绝对路径，以 / 开头",
+  "handoff.target.traversal": "路径里不能带 ..",
+  "handoff.target.tooLong": "路径不能超过 {max} 个字符",
+  "handoff.target.forbidden": "这个目录进不了工作台，换一个项目目录",
+
+  "command.failed": "命令失败：{raw}",
+  "runtime.auth.title": "请先登录",
+  "runtime.auth.body": "登录已过期，请重新登录后再试。",
+  "runtime.other.title": "出了点问题",
+  "runtime.other.body": "请求没有成功，请稍后重试。",
+
+  "assignment.command.invalidTime": "无效时间 {at}",
+  "assignment.command.stateUnknown": "未知",
+  "assignment.command.fund.responsibilityTarget": "每个交易日 {at} 监控基金 {fundCode} 估净是否达到目标净值；命中时提醒我",
+  "assignment.command.fund.responsibilityAbove": "每个交易日 {at} 监控基金 {fundCode} 是否高于 {value}；命中时提醒我",
+  "assignment.command.fund.responsibilityBelow": "每个交易日 {at} 监控基金 {fundCode} 是否低于 {value}；命中时提醒我",
+  "assignment.command.remind.responsibility": "{at} 提醒我：{text}",
+  "assignment.command.fund.duplicate":
+    "已有正在生效的同类监控（{duplicateOf}）。如需更换，请先 /revoke {duplicateOf}。本次提案未创建：{proposalId}",
+  "assignment.command.fund.activated": "✓ 已激活（低风险直接激活）\nAssignment: {id}\n{responsibility}",
+  "assignment.command.fund.proposed":
+    "已创建提案（等待你的确认——市场监控是持续责任）\nProposal: {id}\n{responsibility}\n\n回复 /confirm {id} 激活，或 /reject {id} 放弃。",
+  "assignment.command.remind.activated": "✓ 提醒已设定（低风险直接激活）\n{responsibility}",
+  "assignment.command.remind.proposed": "已创建提醒提案：{id}\n回复 /confirm {id} 激活。",
+  "assignment.command.confirm.activated": "✓ 提案已确认，Assignment 激活：{id}\n{responsibility}",
+  "assignment.command.confirm.pending": "提案 {id} 已确认（激活结果未返回）。",
+  "assignment.command.reject": "提案已拒绝：{id}。未创建任何 Assignment，不会产生触发。",
+  "assignment.command.revoke.done": "✓ 已撤销：{id}\n未来触发已停止；已有提醒保持不变。",
+  "assignment.command.revoke.notActive": "该 Assignment 已不在 active 状态（当前：{state}），无需重复撤销。",
+  "assignment.command.repair.failed": "重试仍失败（attempt {attempt}）：{error}\n可稍后再 /repair {id}。",
+  "assignment.command.repair.done": "✓ 重试成功（attempt {attempt}）——责任已履行。",
+  "assignment.command.compensate.skipRevoked": "✓ 已放弃该一次性责任（revoked）——不再执行，也不会补跑。",
+  "assignment.command.compensate.skipped": "已记录跳过决定（Assignment 状态：{state}）。",
+  "assignment.command.compensate.failed": "补偿执行仍失败（attempt {attempt}）：{error}\n可稍后再 /repair {id} 重试。",
+  "assignment.command.compensate.done": "✓ 已补偿执行（attempt {attempt}）——责任已履行。",
+  "assignment.command.list.empty": "当前没有生效中的 Assignment。",
+  "assignment.command.list.header": "生效中的 Assignment（{count}）：",
+  "assignment.command.list.pending": "⚠️ 补偿待决（{at} 错过）——/run-now {id} 立即执行，或 /skip {id} 放弃",
 } satisfies MessageDict;
 
 export type MessageVars = Record<string, string | number>;

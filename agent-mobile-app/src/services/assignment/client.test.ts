@@ -1,9 +1,11 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect } from "vitest";
 import {
+  executeAssignmentCommand,
   parseAssignmentCommand,
   timeToCron,
   type AssignmentCommand,
 } from "./client";
+import { setLocale } from "../../i18n";
 
 // 命令解析纯函数测试（不触网）。executeAssignmentCommand 的 API 语义由
 // BFF phase5-assignment.test.ts 覆盖；此处验证 Talk 侧解析与映射。
@@ -81,5 +83,24 @@ describe("command shape coverage", () => {
   it("所有命令 kind 有对应执行分支（类型完整性哨兵）", () => {
     const kinds: Array<AssignmentCommand["kind"]> = ["fund", "remind", "confirm", "reject", "revoke", "repair", "compensate", "list"];
     expect(new Set(kinds).size).toBe(8);
+  });
+});
+
+describe("executeAssignmentCommand 反馈（i18n）", () => {
+  afterEach(() => setLocale("en"));
+
+  // 非法时间在发请求前就返回，不触网
+  it("非法时间 → 默认 en 文案", async () => {
+    const out = await executeAssignmentCommand(
+      { kind: "fund", fundCode: "000001", op: "above", value: 1, at: "25:00" },
+      "ses_test",
+    );
+    expect(out).toBe("Invalid time 25:00");
+  });
+
+  it("zh：非法时间回到原有中文", async () => {
+    setLocale("zh");
+    const out = await executeAssignmentCommand({ kind: "remind", text: "开会", at: "noon" }, "ses_test");
+    expect(out).toBe("无效时间 noon");
   });
 });

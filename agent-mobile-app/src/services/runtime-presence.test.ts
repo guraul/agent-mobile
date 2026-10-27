@@ -1,5 +1,6 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect } from "vitest";
 import { classifyRuntimeFailure, runtimeFailureMessage } from "./runtime-presence";
+import { setLocale } from "../i18n";
 
 // v0.1.1 Runtime Presence：错误分类纯函数测试。
 // 关键红线：不得把一切错误都归为 opcode offline——只有可确认 opencode runtime 不可达才算。
@@ -36,10 +37,35 @@ describe("classifyRuntimeFailure", () => {
 });
 
 describe("runtimeFailureMessage", () => {
+  afterEach(() => setLocale("en"));
+
   it("offline 文案是 companion 的声音（含记忆仍在的安抚），不含状态码", () => {
     const m = runtimeFailureMessage("opencode-offline");
     expect(m.title).toBe("AI is offline");
     expect(m.body).toContain("still available");
     expect(m.body).not.toMatch(/502|ECONNREFUSED/);
+  });
+
+  it("auth / other 兜底（默认 en）", () => {
+    expect(runtimeFailureMessage("auth")).toEqual({
+      title: "Sign in first",
+      body: "Your session expired. Sign in again and retry.",
+    });
+    expect(runtimeFailureMessage("other")).toEqual({
+      title: "Something went wrong",
+      body: "The request didn't go through. Try again in a moment.",
+    });
+  });
+
+  it("zh：auth / other 回到原有中文", () => {
+    setLocale("zh");
+    expect(runtimeFailureMessage("auth")).toEqual({
+      title: "请先登录",
+      body: "登录已过期，请重新登录后再试。",
+    });
+    expect(runtimeFailureMessage("other")).toEqual({
+      title: "出了点问题",
+      body: "请求没有成功，请稍后重试。",
+    });
   });
 });
