@@ -63,6 +63,10 @@
 | `pulse/TodayDigest.tsx` | Pulse 顶部一句话「她今天替你做了什么」（Tier1 先做后报，纯只读）：文案由 `services/activity/digest.buildTodayDigest` 判定（failed > matched > 全正常）；无数据/页满截断/失败均不渲染，AppState active 刷新，失败最多重试 1 次 |
 | 旧组件保留 | ActionChips / ConversationEntry / AIOrb / AIStatus / 旧 BottomSheet（Settings/Memory/Knowledge sheet 用）——待后续批次删 |
 
+## i18n（`src/i18n/`，第 0 期）
+
+零依赖的类型化字典：默认 `en`、`zh` 用 `satisfies` 强制补齐全部 key；`t(key, vars)` 支持 `{name}` 插值与 `_one`/`_other` 复数，`useLocale()` 订阅切换。**第 0 期只建能力、未迁移任何组件**，样板 key 仅 3 条（`pulse.digest.allClear` / `pulse.header.settings` / `pulse.activity.title`）。新增文案：`en` 加 key → `zh` 补齐 → 组件用 `t()`；assignment 标题/记忆正文/项目名/用户数据**不进字典**。详见 `agent-mobile-app/src/i18n/README.md`。
+
 - **BottomSheet/LightSheet web 坑同源**：RN Web 不桥接 `translateY` 插值到 DOM——隐藏必须 `{visible ? ... : null}` 条件渲染（两个 sheet 原语都已内建）。
 
 ## 修改注意事项
