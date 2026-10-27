@@ -24,6 +24,8 @@ import { SettingsSheet } from "@/components/pulse/SettingsSheet";
 import { MemorySheet } from "@/components/pulse/MemorySheet";
 import { KnowledgeSheet } from "@/components/pulse/KnowledgeSheet";
 import { ActivitySheet } from "@/components/pulse/ActivitySheet";
+import { TodayDigest } from "@/components/pulse/TodayDigest";
+import { DEFAULT_ACTIVITY_DAYS } from "@/services/activity/client";
 import { useProjectEvents, type ProjectEvent } from "@/hooks/useProjectEvents";
 import { useL1 } from "@/hooks/useL1";
 import { type L1Statement } from "@/services/l1";
@@ -152,6 +154,7 @@ export default function PulseScreen() {
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [knowledgeOpen, setKnowledgeOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
+  const [activityDays, setActivityDays] = useState(DEFAULT_ACTIVITY_DAYS);
   const [fundsOpen, setFundsOpen] = useState(false);
   const [noticedListOpen, setNoticedListOpen] = useState(false);
   const [overflowOpen, setOverflowOpen] = useState(false);
@@ -402,6 +405,14 @@ export default function PulseScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: lightSpacing.contentBottom }]}
         showsVerticalScrollIndicator={false}
       >
+        {/* 「她今天替你做了什么」一句话（Tier1 先做后报）；无数据/截断/失败均不渲染 */}
+        <TodayDigest
+          onPress={() => {
+            setActivityDays(1);
+            setActivityOpen(true);
+          }}
+        />
+
         {featured ? (
           <AnimatedEntry index={1}>
             <FeaturedItem
@@ -502,7 +513,10 @@ export default function PulseScreen() {
         onClose={() => setSettingsOpen(false)}
         onOpenMemory={() => setMemoryOpen(true)}
         onOpenKnowledge={() => setKnowledgeOpen(true)}
-        onOpenActivity={() => setActivityOpen(true)}
+        onOpenActivity={() => {
+          setActivityDays(DEFAULT_ACTIVITY_DAYS);
+          setActivityOpen(true);
+        }}
         onLogin={() => {
           // D4：登录走独立页
           setSettingsOpen(false);
@@ -516,7 +530,7 @@ export default function PulseScreen() {
         onOpenDoc={openDoc}
         onAskAboutThis={askAboutSource}
       />
-      <ActivitySheet visible={activityOpen} onClose={() => setActivityOpen(false)} />
+      <ActivitySheet visible={activityOpen} days={activityDays} onClose={() => setActivityOpen(false)} />
       <FundSheet visible={fundsOpen} funds={funds} onClose={() => setFundsOpen(false)} />
 
       {/* Noticed read-only detail — Discuss is the only way into Talk */}

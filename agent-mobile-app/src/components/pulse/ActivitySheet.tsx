@@ -14,6 +14,7 @@ import {
   type AgentActivity,
   type AgentActivityOutcome,
 } from "../../services/activity/client";
+import { ACTIVITY_PAGE_LIMIT, filterActivityToToday } from "../../services/activity/digest";
 import { colors, radius, spacing } from "../../theme";
 
 /**
@@ -47,9 +48,12 @@ const OUTCOME_TONE: Record<AgentActivityOutcome, {
 export function ActivitySheet({
   visible,
   onClose,
+  days = DEFAULT_ACTIVITY_DAYS,
 }: {
   visible: boolean;
   onClose: () => void;
+  /** 1 = 「今天」模式（本地日界过滤）；缺省沿用 7 天审计窗口。 */
+  days?: number;
 }) {
   const [activity, setActivity] = useState<AgentActivity | null>(null);
   const [loading, setLoading] = useState(true);
@@ -61,20 +65,22 @@ export function ActivitySheet({
     setActivity(null); // 读不到时不留上一次的旧数字（陈旧摘要比空态更误导）
     try {
       await loadToken();
-      setActivity(await fetchAgentActivity(DEFAULT_ACTIVITY_DAYS));
+      const fetched = await fetchAgentActivity(days, days === 1 ? ACTIVITY_PAGE_LIMIT : undefined);
+      setActivity(days === 1 ? filterActivityToToday(fetched, Date.now()) : fetched);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [days]);
 
   useEffect(() => {
     if (visible) reload();
   }, [visible, reload]);
 
-  const windowDays = activity?.windowDays ?? DEFAULT_ACTIVITY_DAYS;
+  const windowDays = activity?.windowDays ?? days;
   const empty = !loading && !error && (activity?.executions.length ?? 0) === 0;
+  const emptyText = days === 1 ? "今天她没有需要动手的事" : buildActivityEmptyText(windowDays);
 
   return (
     <BottomSheet visible={visible} onClose={onClose} testID="activity-sheet">
@@ -87,7 +93,7 @@ export function ActivitySheet({
 
       {activity ? (
         <Text variant="captionStrong" color="body" testID="activity-summary">
-          {buildActivitySummary(activity)}
+          {buildActivitySummary(activity, days === 1 ? "今天" : undefined)}
         </Text>
       ) : null}
 
@@ -105,7 +111,7 @@ export function ActivitySheet({
 
         {empty ? (
           <Text variant="caption" color="muted" testID="activity-empty">
-            {buildActivityEmptyText(windowDays)}
+            {emptyText}
           </Text>
         ) : null}
 

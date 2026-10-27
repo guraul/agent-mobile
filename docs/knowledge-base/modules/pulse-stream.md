@@ -16,6 +16,8 @@ root（cream #F7F5DC 画布，页面水平 padding 25）
 │   └── Hero：单行问候（display 26/400 lh1.24；本地时间 + 用户名，React #418 guard 保留）；
 │       aiVoice 仅离线渲染（D7 红线）："I'm having trouble reaching my runtime."
 ├── ScrollView 内容区（pt14 / pb128）
+│   ├── TodayDigest（可选一行）：她今天替你做了什么（12/400 #6F6F6F + 低调 chevron）→
+│   │   ActivitySheet（days=1「今天」）；无数据/页满截断/失败都不渲染
 │   ├── Featured（FeaturedItem，≤1）：白卡整卡 Pressable → /attention/[id]（D10：无 lead、
 │   │   无行内 chips——Review/Discuss 收进详情页）；铃铛 16px #D97706 + 标题 17/700 +
 │   │   why 灰底块（15/400 #2A2A2A）+ meta（source · time）
@@ -46,7 +48,7 @@ root（cream #F7F5DC 画布，页面水平 padding 25）
 - **动效**：AnimatedEntry stagger 保留（Reduce Motion 兼容）；呼吸点 reanimated withRepeat（Reduce Motion 兼容）。
 - **预算为硬约束**：Featured ≤1 / Supporting ≤4 / Noticed ≤5。
 - **动作语义红线不变**：查看 ≠ 授权；Confirm/Reject 是 suggestion 唯一推进路径；破坏性动作（Dismiss）弱化 + 二次确认（D9）。
-- **testID 兼容**：pulse-title / pulse-status / pulse-orb / pulse-settings / featured-attention / supporting-ny-/-sg-/-run-/-mkt- / supporting-more / noticed-<id> / noticed-see-all / pulse-empty / pulse-suggestion-error / pulse-error / conversation-entry / fund-row-<code> 全保留；已删：pulse-login-banner、watching-line、supporting-more-projects、attention-detail-main。
+- **testID 兼容**：pulse-title / pulse-status / pulse-orb / pulse-settings / pulse-today-digest / featured-attention / supporting-ny-/-sg-/-run-/-mkt- / supporting-more / noticed-<id> / noticed-see-all / pulse-empty / pulse-suggestion-error / pulse-error / conversation-entry / fund-row-<code> 全保留；已删：pulse-login-banner、watching-line、supporting-more-projects、attention-detail-main。
 
 ## Companion 暗色形态（2026-09-21 引入，迁移前，历史参考）
 
@@ -124,6 +126,7 @@ Pulse 根界面（唯一表面）：问候 + AI 在场状态 + **AI briefing 组
 | `agent-mobile-app/src/components/pulse/AIStatus.tsx` | 状态文字「● Attentive」等（11px 大写 + 1.32 字距）；Talk header 复用 |
 | `agent-mobile-app/src/components/pulse/AnimatedEntry.tsx` | 首渲染 stagger（fade+translateY，Reduce Motion 兼容） |
 | `agent-mobile-app/src/components/pulse/FeaturedItem.tsx` | Featured 卡（≤1）：lead + AlertGlyph tile + why + meta + Review/Discuss |
+| `agent-mobile-app/src/components/pulse/TodayDigest.tsx` | Pulse 顶部一句话（她今天替你做了什么）：只读取数 + AppState active 刷新；无数据/截断/失败不渲染 |
 | `agent-mobile-app/src/components/pulse/SupportingList.tsx` | Supporting 四语义组渲染（组标签 · n + dot 行 + chips）；导出 `RunningRow`/`MarketRow` 类型 |
 | `agent-mobile-app/src/components/pulse/PulseNoticed.tsx` | Noticed 行（dot + fact + 时间，informational） |
 | `agent-mobile-app/src/components/pulse/ActionChips.tsx` | 动作原子：`InlineChip`（neutral/review/discuss）+ `ConfirmPill`（accent 渐变主作动）+ `TextAction`（安静文字） |

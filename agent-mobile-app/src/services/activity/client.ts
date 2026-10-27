@@ -36,8 +36,12 @@ function authHeaders(): Record<string, string> {
 }
 
 /** 只读取数：401 走统一登出处理，其余失败上抛（sheet 显示「暂时读不到记录」+ 重试）。 */
-export async function fetchAgentActivity(days: number = DEFAULT_ACTIVITY_DAYS): Promise<AgentActivity> {
-  const res = await fetch(`${getBaseUrl()}/api/product/agent-activity?days=${encodeURIComponent(String(days))}`, {
+export async function fetchAgentActivity(
+  days: number = DEFAULT_ACTIVITY_DAYS,
+  limit?: number,
+): Promise<AgentActivity> {
+  const limitParam = limit === undefined ? "" : `&limit=${encodeURIComponent(String(limit))}`;
+  const res = await fetch(`${getBaseUrl()}/api/product/agent-activity?days=${encodeURIComponent(String(days))}${limitParam}`, {
     headers: authHeaders(),
   });
   if (res.status === 401) {
@@ -55,11 +59,11 @@ export async function fetchAgentActivity(days: number = DEFAULT_ACTIVITY_DAYS): 
  * 「提醒」取 `matched`（评估命中 = 真的提醒到了你）；`attentionCreated` 是卡片口径，
  * 含未命中/凭据到期等非执行产生的条目，不在这一行混算。失败为 0 时不占位。
  */
-export function buildActivitySummary(activity: AgentActivity): string {
+export function buildActivitySummary(activity: AgentActivity, label?: string): string {
   const { windowDays, counts } = activity;
   const parts = [`执行 ${counts.executions} 次`, `提醒 ${counts.matched} 次`];
   if (counts.failed > 0) parts.push(`失败 ${counts.failed} 次`);
-  return `近 ${windowDays} 天：${parts.join(" · ")}`;
+  return `${label ?? `近 ${windowDays} 天`}：${parts.join(" · ")}`;
 }
 
 /** 空态一句话（不插画）：窗口内她确实没动过手。 */
