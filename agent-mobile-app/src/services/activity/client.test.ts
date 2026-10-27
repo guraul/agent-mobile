@@ -55,6 +55,11 @@ describe("formatActivityTime", () => {
   });
 
   it("falls back to date + time beyond a day", () => {
-    expect(formatActivityTime(Date.parse("2026-10-20T08:05:00+08:00"), now)).toBe("10-20 08:05");
+    // 期望值按本地时区取分量，CI(UTC) 与开发机(+08) 都成立
+    const at = new Date("2026-10-20T08:05:00+08:00");
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const expected = `${pad(at.getMonth() + 1)}-${pad(at.getDate())} ${pad(at.getHours())}:${pad(at.getMinutes())}`;
+    expect(formatActivityTime(at.getTime(), now)).toBe(expected);
+    expect(formatActivityTime(at.getTime(), now)).toMatch(/^\d{2}-\d{2} \d{2}:\d{2}$/);
   });
 });
