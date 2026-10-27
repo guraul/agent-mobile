@@ -33,6 +33,7 @@ import {
 import type { HandoffPayload } from "../../../services/handoff/payload";
 import type { HandoffRequest, HandoffTargetKind } from "../../../services/handoff/client";
 import { opencodeClient, type OpenCodeProject } from "../../../services/opencode-client";
+import { t, useLocale } from "../../../i18n";
 
 type Mode = HandoffTargetKind;
 
@@ -47,6 +48,8 @@ export function HandoffCard({
   /** 确认移交：建 handoff + 建工程会话 + 投首条消息 + consume + 跳 /talk（ChatPanelZ 注入） */
   onHandoff: (req: HandoffRequest) => Promise<{ sessionId: string }>;
 }) {
+  // 订阅语言：卡片文案随 locale 重渲染
+  useLocale();
   const [localPhase, setLocalPhase] = useState<HandoffCardPhase>({ kind: "draft" });
   const phase = supersedeHandoffPhase(localPhase, superseded);
   const [editing, setEditing] = useState(false);
@@ -105,7 +108,7 @@ export function HandoffCard({
 
   return (
     <View style={s.card} testID="handoff-card">
-      <Text variant="lightScheduleTitle" color="lightInk">移交到工作台</Text>
+      <Text variant="lightScheduleTitle" color="lightInk">{t("chat.handoff.title")}</Text>
 
       {editing ? (
         <View style={s.editWrap}>
@@ -113,20 +116,20 @@ export function HandoffCard({
             value={body}
             onChangeText={setBody}
             multiline
-            placeholder="要交接的目标、边界、落点"
+            placeholder={t("chat.handoff.bodyPlaceholder")}
             placeholderTextColor={lightChatColors.inputPlaceholder}
             style={s.bodyInput}
             testID="handoff-card-body-input"
-            accessibilityLabel="交接内容"
+            accessibilityLabel={t("chat.handoff.bodyA11y")}
           />
           <Pressable
             onPress={() => setEditing(false)}
             accessibilityRole="button"
-            accessibilityLabel="收起编辑"
+            accessibilityLabel={t("chat.handoff.editDone")}
             testID="handoff-card-body-done"
             style={s.linkBtn}
           >
-            <Text variant="lightCaption" color="lightAccentDeep">好了</Text>
+            <Text variant="lightCaption" color="lightAccentDeep">{t("chat.handoff.editDone")}</Text>
           </Pressable>
         </View>
       ) : (
@@ -136,38 +139,38 @@ export function HandoffCard({
             onPress={() => setEditing(true)}
             disabled={locked}
             accessibilityRole="button"
-            accessibilityLabel="改一下"
+            accessibilityLabel={t("chat.handoff.edit")}
             testID="handoff-card-edit"
             style={[s.linkBtn, locked && s.disabled]}
           >
-            <Text variant="lightCaption" color="lightAccentDeep">改一下</Text>
+            <Text variant="lightCaption" color="lightAccentDeep">{t("chat.handoff.edit")}</Text>
           </Pressable>
         </View>
       )}
 
-      <Text variant="lightLabel" color="lightGroupLabel">目标</Text>
+      <Text variant="lightLabel" color="lightGroupLabel">{t("chat.handoff.target")}</Text>
       <View style={s.segment} testID="handoff-card-modes">
         <Pressable
           onPress={() => setMode("new")}
           disabled={locked}
           accessibilityRole="button"
-          accessibilityLabel="新建项目"
+          accessibilityLabel={t("chat.handoff.modeNew")}
           accessibilityState={{ selected: mode === "new" }}
           testID="handoff-card-mode-new"
           style={[s.segmentBtn, mode === "new" && s.segmentBtnActive]}
         >
-          <Text variant="lightCaption" color={mode === "new" ? "lightInk" : "lightGray"}>新建项目</Text>
+          <Text variant="lightCaption" color={mode === "new" ? "lightInk" : "lightGray"}>{t("chat.handoff.modeNew")}</Text>
         </Pressable>
         <Pressable
           onPress={openExisting}
           disabled={locked}
           accessibilityRole="button"
-          accessibilityLabel="既有项目"
+          accessibilityLabel={t("chat.handoff.modeExisting")}
           accessibilityState={{ selected: mode === "existing" }}
           testID="handoff-card-mode-existing"
           style={[s.segmentBtn, mode === "existing" && s.segmentBtnActive]}
         >
-          <Text variant="lightCaption" color={mode === "existing" ? "lightInk" : "lightGray"}>既有项目</Text>
+          <Text variant="lightCaption" color={mode === "existing" ? "lightInk" : "lightGray"}>{t("chat.handoff.modeExisting")}</Text>
         </Pressable>
       </View>
 
@@ -183,17 +186,17 @@ export function HandoffCard({
             autoCorrect={false}
             style={s.input}
             testID="handoff-card-path"
-            accessibilityLabel="项目路径"
+            accessibilityLabel={t("chat.handoff.pathA11y")}
           />
           <TextInput
             value={name}
             onChangeText={setName}
             editable={!locked}
-            placeholder="名称（可选，只作会话标题）"
+            placeholder={t("chat.handoff.namePlaceholder")}
             placeholderTextColor={lightChatColors.inputPlaceholder}
             style={s.input}
             testID="handoff-card-name"
-            accessibilityLabel="会话标题"
+            accessibilityLabel={t("chat.handoff.nameA11y")}
           />
           {path.trim() && !target.ok ? (
             <Text variant="lightCaption" color="lightGray">{target.reason}</Text>
@@ -203,21 +206,21 @@ export function HandoffCard({
         <View style={s.fieldWrap} testID="handoff-card-projects">
           {projectsError ? (
             <View style={s.inlineRow}>
-              <Text variant="lightCaption" color="lightGray">项目列表没读到</Text>
+              <Text variant="lightCaption" color="lightGray">{t("chat.handoff.projectsFailed")}</Text>
               <Pressable
                 onPress={() => void loadProjects()}
                 accessibilityRole="button"
-                accessibilityLabel="重新读取项目"
+                accessibilityLabel={t("chat.handoff.projectsRetryA11y")}
                 testID="handoff-card-projects-retry"
                 style={s.linkBtn}
               >
-                <Text variant="lightCaption" color="lightAccentDeep">重试</Text>
+                <Text variant="lightCaption" color="lightAccentDeep">{t("chat.common.retry")}</Text>
               </Pressable>
             </View>
           ) : projects === null ? (
-            <Text variant="lightCaption" color="lightGray">正在读取项目…</Text>
+            <Text variant="lightCaption" color="lightGray">{t("chat.handoff.projectsLoading")}</Text>
           ) : projects.length === 0 ? (
-            <Text variant="lightCaption" color="lightGray">还没有可用的项目目录，用「新建项目」填一个</Text>
+            <Text variant="lightCaption" color="lightGray">{t("chat.handoff.projectsEmpty")}</Text>
           ) : (
             projects.map((p, i) => {
               const active = selected === p.worktree;
@@ -244,7 +247,7 @@ export function HandoffCard({
       )}
 
       {phase.kind === "error" ? (
-        <Text variant="lightCaption" color="lightUpRed" testID="handoff-card-error">移交失败：{phase.message}</Text>
+        <Text variant="lightCaption" color="lightUpRed" testID="handoff-card-error">{t("chat.handoff.failed", { message: phase.message })}</Text>
       ) : note ? (
         <Text variant="lightCaption" color="lightGray" testID="handoff-card-note">{note}</Text>
       ) : null}
@@ -255,23 +258,23 @@ export function HandoffCard({
             <Pressable
               onPress={() => void submit()}
               accessibilityRole="button"
-              accessibilityLabel="重试"
+              accessibilityLabel={t("chat.common.retry")}
               testID="handoff-card-retry"
               style={[s.act, s.actPrimary, !controls.retry && s.disabled]}
             >
-              <Text variant="lightScheduleTitle" color="lightInk">重试</Text>
+              <Text variant="lightScheduleTitle" color="lightInk">{t("chat.common.retry")}</Text>
             </Pressable>
           ) : (
             <Pressable
               onPress={() => void submit()}
               disabled={!controls.submit}
               accessibilityRole="button"
-              accessibilityLabel="移交到工作台"
+              accessibilityLabel={t("chat.handoff.title")}
               testID="handoff-card-submit"
               style={[s.act, s.actPrimary, !controls.submit && s.disabled]}
             >
               <Text variant="lightScheduleTitle" color="lightInk">
-                {controls.busy ? "移交中…" : "移交到工作台"}
+                {controls.busy ? t("chat.handoff.submitting") : t("chat.handoff.title")}
               </Text>
             </Pressable>
           )}
@@ -279,11 +282,11 @@ export function HandoffCard({
             onPress={dismiss}
             disabled={!controls.dismiss}
             accessibilityRole="button"
-            accessibilityLabel="先不要"
+            accessibilityLabel={t("chat.handoff.dismiss")}
             testID="handoff-card-dismiss"
             style={[s.act, s.actQuiet, !controls.dismiss && s.disabled]}
           >
-            <Text variant="lightScheduleTitle" color="lightSubtle">先不要</Text>
+            <Text variant="lightScheduleTitle" color="lightSubtle">{t("chat.handoff.dismiss")}</Text>
           </Pressable>
         </View>
       )}

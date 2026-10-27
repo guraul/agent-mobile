@@ -65,6 +65,7 @@ import { CHAT_AGENT_ID, CHAT_MODEL, type ConversationKind } from "../../../servi
 import { MessageBubbleZ } from "./MessageBubbleZ";
 import { BusyDots } from "./BusyDots";
 import { showAlert } from "../../../services/alert";
+import { t, useLocale } from "../../../i18n";
 
 const PAGE_SIZE = 50;
 // keep a bounded window in memory: SSE events keep appending to the list loaded
@@ -113,6 +114,8 @@ interface ChatPanelProps {
 
 export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false, autoContextText }: ChatPanelProps) {
   const router = useRouter();
+  // 订阅语言：t() 在渲染期取当前语言，切换后本面板重渲染
+  useLocale();
   // #57 chat 伴侣页判据（kind 缺省按 chatcode 处理，行为与改造前一致）
   const isChat = kind === "chat";
   const [messages, setMessages] = useState<OpenCodeMessage[]>([]);
@@ -142,7 +145,7 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
   const [modelList, setModelList] = useState<{ providerID: string; modelID: string }[]>([]);
   // #32 工具输出查看器：LightSheet 挂在组件尾部渲染（LightSheet 无 zIndex 靠渲染顺序压层）
   const [outputViewer, setOutputViewer] = useState<ToolStep | null>(null);
-  const openToolOutput = useCallback((t: ToolStep) => setOutputViewer(t), []);
+  const openToolOutput = useCallback((tool: ToolStep) => setOutputViewer(tool), []);
   // #59 本地回执步（命令族反馈 chip；session 切换由 key remount 重置）
   const [localSteps, setLocalSteps] = useState<DisplayStep[]>([]);
   // #33 交互层：composer 两态（pill 收起 ↔ 展开全高输入）、agent 面板、客户端排队队列
@@ -742,9 +745,9 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
     try {
       // artifact 先有（本会话即 handling 会话），再调 handle；不打到 Agent/不猜 artifact
       const { transitioned } = await handleAttention(attention.id, `handling:${sessionID}`);
-      if (!transitioned) showAlert("已处理过", "该 Attention 已不在 OPEN 状态。");
+      if (!transitioned) showAlert(t("chat.panel.alreadyHandledTitle"), t("chat.panel.alreadyHandledBody"));
     } catch (e) {
-      showAlert("标记失败", e instanceof Error ? e.message : String(e));
+      showAlert(t("chat.panel.markFailedTitle"), e instanceof Error ? e.message : String(e));
     } finally {
       setMarkingHandled(false);
     }
@@ -847,13 +850,13 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
   // [补充]：把补充文字当作新用户消息发回模型（模型重新出卡）；busy 时走队列，不并发。
   // 旧卡由 AssignmentConfirmCard 自身转 superseded（按钮失效）。
   const supplementAssignmentCard = useCallback((_payload: AssignmentCardPayload, text: string) => {
-    const t = text.trim();
-    if (!t) return;
+    const trimmed = text.trim();
+    if (!trimmed) return;
     if (busyLiveRef.current) {
-      setQueue((prev) => enqueueMessage(prev, t, `q-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`));
+      setQueue((prev) => enqueueMessage(prev, trimmed, `q-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`));
       return;
     }
-    void doSend(t);
+    void doSend(trimmed);
   }, [doSend]);
 
   /* ---- #61 移交卡：建 handoff → 建工程会话 → 投首条消息 → consume → 跳 chatcode ---- */
@@ -1045,7 +1048,7 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
   if (loading) {
     return (
       <Box padding="lg">
-        <Text variant="lightBody" color="lightGray">Loading messages…</Text>
+        <Text variant="lightBody" color="lightGray">{t("chat.panel.loadingMessages")}</Text>
       </Box>
     );
   }
@@ -1055,12 +1058,12 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
   const listFooter = busy ? (
     <View style={styles.statusRow}>
       <Bot color={lightColors.amber} size={12} strokeWidth={2} />
-      <Text variant="lightCaption" color="lightGray">运行中…</Text>
+      <Text variant="lightCaption" color="lightGray">{t("chat.panel.running")}</Text>
       <BusyDots testID="busy-dots" />
     </View>
   ) : abortedAt ? (
     <View style={styles.statusRow}>
-      <Text variant="lightCaption" color="lightGray">已停止</Text>
+      <Text variant="lightCaption" color="lightGray">{t("chat.panel.stopped")}</Text>
     </View>
   ) : null;
 
@@ -1085,7 +1088,7 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
           ListHeaderComponent={
             attention ? (
               <View style={styles.attentionCard}>
-                <Text variant="lightLabel" color="lightAccentDeep">📌 处理中：{attention.title}</Text>
+                <Text variant="lightLabel" color="lightAccentDeep">{t("chat.panel.handling", { title: attention.title })}</Text>
                 <Text variant="lightCaption" color="lightGray">{attention.summary}</Text>
               </View>
             ) : null
@@ -1135,12 +1138,12 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
               onPress={markHandled}
               disabled={markingHandled}
               accessibilityRole="button"
-              accessibilityLabel="标记已处理"
+              accessibilityLabel={t("chat.panel.markHandled")}
               testID="attention-mark-handled"
               style={styles.quietPill}
             >
               <Text variant="lightCaption" color={markingHandled ? "lightGray" : "lightInk"}>
-                {markingHandled ? "标记中…" : "标记已处理"}
+                {markingHandled ? t("chat.panel.markingHandled") : t("chat.panel.markHandled")}
               </Text>
             </Pressable>
           </View>
@@ -1162,7 +1165,7 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
                   }}
                   style={styles.qTextWrap}
                   accessibilityRole="button"
-                  accessibilityLabel="编辑排队消息"
+                  accessibilityLabel={t("chat.queue.edit")}
                 >
                   <RNText style={styles.qText} numberOfLines={1}>{q.text}</RNText>
                 </Pressable>
@@ -1171,7 +1174,7 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
                   onPress={() => mutateQueue(moveQueuedUp(queue, q.id))}
                   hitSlop={6}
                   accessibilityRole="button"
-                  accessibilityLabel="上移排队消息"
+                  accessibilityLabel={t("chat.queue.moveUp")}
                   style={styles.qBtn}
                 >
                   <ArrowUp color={i === 0 ? lightColors.grayText : lightChatColors.chipWarmText} size={13} strokeWidth={2.5} />
@@ -1180,7 +1183,7 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
                   onPress={() => mutateQueue(removeQueued(queue, q.id))}
                   hitSlop={6}
                   accessibilityRole="button"
-                  accessibilityLabel="删除排队消息"
+                  accessibilityLabel={t("chat.queue.remove")}
                   style={styles.qBtn}
                 >
                   <X color={lightChatColors.chipWarmText} size={13} strokeWidth={2.5} />
@@ -1199,15 +1202,15 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
               style={styles.composerInput}
               value={input}
               onChangeText={setInput}
-              placeholder="Ask anything..."
+              placeholder={t("chat.composer.placeholder")}
               placeholderTextColor={lightChatColors.inputPlaceholder}
               multiline
               testID="composer-input"
             />
             <View style={styles.composerFooter}>
               <Pressable
-                onPress={() => showAlert("附件", "附件功能即将上线")}
-                accessibilityLabel="Add attachment"
+                onPress={() => showAlert(t("chat.composer.attachmentTitle"), t("chat.composer.attachmentBody"))}
+                accessibilityLabel={t("chat.composer.attachmentA11y")}
                 accessibilityRole="button"
                 style={styles.composerMiniBtn}
                 hitSlop={4}
@@ -1217,8 +1220,8 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
               <RNText style={styles.charCount}>{input.length}</RNText>
               <View style={styles.flexSpacer} />
               <Pressable
-                onPress={() => showAlert("语音", "语音输入即将上线")}
-                accessibilityLabel="Voice input"
+                onPress={() => showAlert(t("chat.composer.voiceTitle"), t("chat.composer.voiceBody"))}
+                accessibilityLabel={t("chat.composer.voiceTitle")}
                 accessibilityRole="button"
                 style={styles.composerMiniBtn}
                 hitSlop={4}
@@ -1229,7 +1232,7 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
                 <Pressable
                   onPress={abort}
                   style={[styles.composerSend, styles.composerSendStop]}
-                  accessibilityLabel="Stop"
+                  accessibilityLabel={t("chat.composer.stop")}
                   accessibilityRole="button"
                 >
                   <Square color={lightColors.ink} size={19} strokeWidth={2.4} />
@@ -1239,7 +1242,7 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
                   onPress={send}
                   disabled={!input.trim()}
                   style={[styles.composerSend, !input.trim() && { opacity: 0.4 }]}
-                  accessibilityLabel="Send"
+                  accessibilityLabel={t("chat.composer.send")}
                   accessibilityRole="button"
                 >
                   <Send color={lightColors.ink} size={19} strokeWidth={2.4} />
@@ -1255,8 +1258,8 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
           <View style={styles.inputPillCol}>
             <View style={styles.pillMain}>
               <Pressable
-                onPress={() => showAlert("附件", "附件功能即将上线")}
-                accessibilityLabel="Add attachment"
+                onPress={() => showAlert(t("chat.composer.attachmentTitle"), t("chat.composer.attachmentBody"))}
+                accessibilityLabel={t("chat.composer.attachmentA11y")}
                 accessibilityRole="button"
                 style={styles.roundBtn}
                 hitSlop={4}
@@ -1267,7 +1270,7 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
                 onPress={() => setComposerExpanded(true)}
                 style={styles.pillPreview}
                 accessibilityRole="button"
-                accessibilityLabel="展开输入"
+                accessibilityLabel={t("chat.composer.expand")}
                 testID="composer-preview"
               >
                 {/* readonly TextInput：渲染为 textarea（e2e 语义"打开工作区含输入框"不破坏），
@@ -1275,7 +1278,7 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
                 <TextInput
                   style={[styles.pillPreviewText, input.trim() ? styles.pillPreviewDraft : null]}
                   value={input}
-                  placeholder="Ask anything..."
+                  placeholder={t("chat.composer.placeholder")}
                   placeholderTextColor={lightChatColors.inputPlaceholder}
                   editable={false}
                   multiline
@@ -1284,8 +1287,8 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
                 />
               </Pressable>
               <Pressable
-                onPress={() => showAlert("语音", "语音输入即将上线")}
-                accessibilityLabel="Voice input"
+                onPress={() => showAlert(t("chat.composer.voiceTitle"), t("chat.composer.voiceBody"))}
+                accessibilityLabel={t("chat.composer.voiceTitle")}
                 accessibilityRole="button"
                 style={styles.roundBtn}
                 hitSlop={4}
@@ -1296,7 +1299,7 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
                 <Pressable
                   onPress={abort}
                   style={[styles.roundBtn, styles.pillStop]}
-                  accessibilityLabel="Stop"
+                  accessibilityLabel={t("chat.composer.stop")}
                   accessibilityRole="button"
                 >
                   <Square color={lightChatColors.diffDel} size={17} strokeWidth={2.4} />
@@ -1305,7 +1308,7 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
                 <Pressable
                   onPress={send}
                   style={[styles.roundBtn, styles.pillSend]}
-                  accessibilityLabel="Send"
+                  accessibilityLabel={t("chat.composer.send")}
                   accessibilityRole="button"
                 >
                   <Send color={lightColors.ink} size={17} strokeWidth={2.4} />
@@ -1325,7 +1328,7 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
                     loadModels();
                     setModelMenuOpen(true);
                   }}
-                  accessibilityLabel="Select model"
+                  accessibilityLabel={t("chat.composer.selectModel")}
                   accessibilityRole="button"
                   style={styles.maBtn}
                 >
@@ -1343,7 +1346,7 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
                   }}
                   onLongPress={() => setAgentMenuOpen(true)}
                   delayLongPress={400}
-                  accessibilityLabel="Switch agent"
+                  accessibilityLabel={t("chat.composer.switchAgent")}
                   accessibilityRole="button"
                   style={styles.maBtn}
                 >
@@ -1358,7 +1361,7 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
       {/* model 面板（#31 机械换肤：LightSheet + light token，provider 前缀 + 双匹配高亮逻辑不变） */}
       <LightSheet visible={modelMenuOpen} onClose={() => setModelMenuOpen(false)} testID="model-sheet">
         <View style={styles.sheetHeader}>
-          <Text variant="lightBodyStrong" color="lightInk">选择模型</Text>
+          <Text variant="lightBodyStrong" color="lightInk">{t("chat.picker.modelTitle")}</Text>
         </View>
         <ScrollView style={styles.sheetScroll}>
           {modelList.map((m, i) => {
@@ -1387,7 +1390,7 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
       {!isChat && (
         <LightSheet visible={agentMenuOpen} onClose={() => setAgentMenuOpen(false)} testID="agent-sheet">
         <View style={styles.sheetHeader}>
-          <Text variant="lightBodyStrong" color="lightInk">选择 Agent</Text>
+          <Text variant="lightBodyStrong" color="lightInk">{t("chat.picker.agentTitle")}</Text>
         </View>
         <ScrollView style={styles.sheetScroll}>
           {agents.map((a, i) => {
@@ -1422,7 +1425,7 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
           <View style={styles.sheetHeader}>
             <Text variant="lightBodyStrong" color="lightInk">
               {pendingQuestion.questions[pendingQuestion.index].header ||
-                `问题 ${pendingQuestion.index + 1}/${pendingQuestion.questions.length}`}
+                t("chat.question.stepOf", { n: pendingQuestion.index + 1, total: pendingQuestion.questions.length })}
             </Text>
           </View>
           <View style={styles.sheetBody}>
@@ -1452,7 +1455,7 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
                 style={styles.sheetInput}
                 value={questionCustom}
                 onChangeText={setQuestionCustom}
-                placeholder="输入自定义答案（可选）"
+                placeholder={t("chat.question.customPlaceholder")}
                 placeholderTextColor={lightChatColors.inputPlaceholder}
               />
             ) : null}
@@ -1463,7 +1466,7 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
                 style={styles.peachPill}
               >
                 <Text variant="lightBodyStrong" color="lightInk">
-                  {pendingQuestion.index < pendingQuestion.questions.length - 1 ? "下一步" : "提交"}
+                  {pendingQuestion.index < pendingQuestion.questions.length - 1 ? t("chat.question.next") : t("chat.question.submit")}
                 </Text>
               </Pressable>
               <Pressable
@@ -1471,7 +1474,7 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
                 accessibilityRole="button"
                 style={styles.quietPillFull}
               >
-                <Text variant="lightBodyStrong" color="lightSubtle">跳过此问题</Text>
+                <Text variant="lightBodyStrong" color="lightSubtle">{t("chat.question.skip")}</Text>
               </Pressable>
             </View>
           </View>
@@ -1481,11 +1484,13 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
       {pendingPermission ? (
         <LightSheet visible onClose={() => replyPermission("reject")} testID="permission-sheet">
           <View style={styles.sheetHeader}>
-            <Text variant="lightBodyStrong" color="lightInk">权限请求</Text>
+            <Text variant="lightBodyStrong" color="lightInk">{t("chat.permission.title")}</Text>
           </View>
           <View style={styles.sheetBody}>
             <Text variant="lightBody" color="lightInk">
-              Agent 请求{pendingPermission.permission === "external_directory" ? "访问外部目录" : `执行 ${pendingPermission.permission}`}
+              {pendingPermission.permission === "external_directory"
+                ? t("chat.permission.askExternalDirectory")
+                : t("chat.permission.askRun", { action: pendingPermission.permission ?? "" })}
             </Text>
             {pendingPermission.patterns?.length ? (
               <Text variant="lightCaption" color="lightGray">
@@ -1503,21 +1508,21 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
                 accessibilityRole="button"
                 style={styles.peachPill}
               >
-                <Text variant="lightBodyStrong" color="lightInk">允许一次</Text>
+                <Text variant="lightBodyStrong" color="lightInk">{t("chat.permission.allowOnce")}</Text>
               </Pressable>
               <Pressable
                 onPress={() => replyPermission("always")}
                 accessibilityRole="button"
                 style={styles.peachPill}
               >
-                <Text variant="lightBodyStrong" color="lightInk">始终允许</Text>
+                <Text variant="lightBodyStrong" color="lightInk">{t("chat.permission.alwaysAllow")}</Text>
               </Pressable>
               <Pressable
                 onPress={() => replyPermission("reject")}
                 accessibilityRole="button"
                 style={styles.quietPillFull}
               >
-                <Text variant="lightBodyStrong" color="lightSubtle">拒绝</Text>
+                <Text variant="lightBodyStrong" color="lightSubtle">{t("chat.permission.reject")}</Text>
               </Pressable>
             </View>
           </View>
@@ -1532,7 +1537,7 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
       >
         <View style={styles.sheetHeader}>
           <Text variant="lightBodyStrong" color="lightInk" numberOfLines={1}>
-            工具输出{outputViewer ? ` · ${outputViewer.tool}` : ""}
+            {outputViewer ? t("chat.tools.outputTitleWithTool", { tool: outputViewer.tool }) : t("chat.tools.outputTitle")}
           </Text>
         </View>
         <ScrollView style={styles.outputScroll} nestedScrollEnabled>
@@ -1541,7 +1546,7 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
               {outputViewer.output}
             </RNText>
           ) : (
-            <Text variant="lightCaption" color="lightGray">（无输出）</Text>
+            <Text variant="lightCaption" color="lightGray">{t("chat.tools.outputEmpty")}</Text>
           )}
         </ScrollView>
       </LightSheet>

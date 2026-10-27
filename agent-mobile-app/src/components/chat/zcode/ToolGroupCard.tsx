@@ -17,6 +17,7 @@ import {
 import { lightColors, lightChatColors, lightChatSizes } from "../../../theme";
 import { langFromPath, parseDiff, type ParsedDiff } from "../../../services/tool-diff";
 import type { ToolStep } from "../../../services/message-merging";
+import { t, useLocale } from "../../../i18n";
 
 const MAX_DIFF_LINES = 400;
 
@@ -27,10 +28,11 @@ function toolIcon(tool: string) {
   return FileText;
 }
 
-const isRunning = (t: ToolStep) => t.status === "running" || t.status === "pending";
+const isRunning = (tool: ToolStep) => tool.status === "running" || tool.status === "pending";
 
 /* 着色 diff 代码卡（mock .code-card：深暖底 + mono 行级红绿底） */
 function CodeDiffCard({ parsed }: { parsed: ParsedDiff }) {
+  useLocale();
   const lang = parsed.file ? langFromPath(parsed.file) : "";
   const shown = parsed.lines.slice(0, MAX_DIFF_LINES);
   const truncated = parsed.lines.length > MAX_DIFF_LINES;
@@ -70,7 +72,7 @@ function CodeDiffCard({ parsed }: { parsed: ParsedDiff }) {
           </View>
         ))}
         {truncated ? (
-          <RNText style={d.truncated}>… 已截断（共 {parsed.lines.length} 行）</RNText>
+          <RNText style={d.truncated}>{t("chat.tools.truncated", { n: parsed.lines.length })}</RNText>
         ) : null}
       </ScrollView>
     </View>
@@ -84,6 +86,7 @@ export function ToolGroupCard({
   tools: ToolStep[];
   onOpenOutput?: (tool: ToolStep) => void;
 }) {
+  useLocale();
   const [open, setOpen] = useState(false);
   const running = tools.some(isRunning);
 
@@ -97,7 +100,7 @@ export function ToolGroupCard({
   );
 
   const single = tools.length === 1 ? tools[0] : null;
-  const headLabel = single ? single.tool : "工具调用";
+  const headLabel = single ? single.tool : t("chat.tools.groupLabel");
 
   return (
     <View>
@@ -106,7 +109,7 @@ export function ToolGroupCard({
           onPress={() => setOpen((o) => !o)}
           style={s.head}
           accessibilityRole="button"
-          accessibilityLabel={`工具调用 ${tools.length} 项`}
+          accessibilityLabel={t("chat.tools.groupA11y", { n: tools.length })}
         >
           <View style={{ transform: [{ rotate: open ? "90deg" : "0deg" }] }}>
             <ChevronRight color="rgba(13,13,13,.45)" size={14} strokeWidth={2} />
@@ -115,7 +118,7 @@ export function ToolGroupCard({
             {headLabel}
             {single && (single.title || single.inputSummary) ? ` · ${single.title ?? single.inputSummary}` : ""}
           </RNText>
-          <RNText style={s.badge}>{tools.length} 项</RNText>
+          <RNText style={s.badge}>{t("chat.tools.badge", { count: tools.length })}</RNText>
           {running ? (
             <Loader color={lightColors.amber} size={14} strokeWidth={2} />
           ) : (
@@ -124,22 +127,22 @@ export function ToolGroupCard({
         </Pressable>
 
         {open
-          ? tools.map((t, i) => {
-              const Icon = toolIcon(t.tool);
-              const target = t.title ?? t.inputSummary;
-              const parsed = t.diffText ? parseDiff(t.diffText) : null;
+          ? tools.map((tool, i) => {
+              const Icon = toolIcon(tool.tool);
+              const target = tool.title ?? tool.inputSummary;
+              const parsed = tool.diffText ? parseDiff(tool.diffText) : null;
               return (
                 <Pressable
-                  key={t.id}
-                  onPress={() => t.output && onOpenOutput?.(t)}
-                  disabled={!t.output}
+                  key={tool.id}
+                  onPress={() => tool.output && onOpenOutput?.(tool)}
+                  disabled={!tool.output}
                   style={[s.row, i > 0 && s.rowDivider]}
-                  accessibilityRole={t.output ? "button" : undefined}
-                  accessibilityLabel={t.output ? `查看 ${t.tool} 输出` : t.tool}
+                  accessibilityRole={tool.output ? "button" : undefined}
+                  accessibilityLabel={tool.output ? t("chat.tools.viewOutput", { tool: tool.tool }) : tool.tool}
                 >
                   <Icon color={lightChatColors.techIcon} size={15} strokeWidth={2} />
                   <RNText style={s.rowName} numberOfLines={1}>
-                    {t.tool}
+                    {tool.tool}
                   </RNText>
                   {target ? (
                     <RNText style={s.rowTarget} numberOfLines={1}>
@@ -153,7 +156,7 @@ export function ToolGroupCard({
                       <RNText style={{ color: lightChatColors.diffDel }}>−{parsed.deletions}</RNText>
                     </RNText>
                   ) : null}
-                  {isRunning(t) ? (
+                  {isRunning(tool) ? (
                     <Loader color={lightColors.amber} size={14} strokeWidth={2} />
                   ) : (
                     <Check color={lightChatColors.greenCheck} size={14} strokeWidth={2.5} />

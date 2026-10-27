@@ -5,6 +5,7 @@ import { Text, Box } from "../index";
 import { colors, radius } from "../../theme";
 import type { DisplayStep } from "../../services/message-merging";
 import { StepChip } from "./StepChip";
+import { t, useLocale } from "../../i18n";
 
 const userMarkdown = {
   body: { color: colors.onAccent, fontSize: 15, lineHeight: 22 },
@@ -26,6 +27,7 @@ const aiMarkdown = {
 };
 
 export const MessageBubble = React.memo(function MessageBubble({ step }: { step: DisplayStep }) {
+  useLocale();
   if (step.kind === "reasoning" || step.kind === "tool" || step.kind === "toolGroup") {
     return <StepChip step={step} />;
   }
@@ -50,7 +52,7 @@ export const MessageBubble = React.memo(function MessageBubble({ step }: { step:
     return (
       <Box marginBottom="sm" style={{ alignItems: "flex-start" }}>
         <Box marginLeft="xxs" marginBottom="xxs">
-          <Text variant="captionStrong" color="error">Pulse · 出错了</Text>
+          <Text variant="captionStrong" color="error">{t("chat.message.errorLabel")}</Text>
         </Box>
         <Box padding="sm" rounded="md" style={{ maxWidth: "92%", backgroundColor: colors.surface[2], borderLeftWidth: 3, borderLeftColor: colors.status.error }}>
           <Text variant="body" color="error">{step.text}</Text>

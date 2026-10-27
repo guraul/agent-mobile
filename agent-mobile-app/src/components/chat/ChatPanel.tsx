@@ -23,6 +23,7 @@ import { loadModelPrefs } from "../../services/model-prefs";
 import { DEFAULT_MODEL, selectModels } from "../../services/model-registry";
 import { MessageBubble } from "./MessageBubble";
 import { showAlert } from "../../services/alert";
+import { t, useLocale } from "../../i18n";
 
 const PAGE_SIZE = 50;
 // keep a bounded window in memory: SSE events keep appending to the list loaded
@@ -54,6 +55,8 @@ interface ChatPanelProps {
 }
 
 export function ChatPanel({ sessionID }: ChatPanelProps) {
+  // 订阅语言：面板文案随 locale 重渲染
+  useLocale();
   const [messages, setMessages] = useState<OpenCodeMessage[]>([]);
   const [display, setDisplay] = useState<DisplayStep[]>([]);
   const [input, setInput] = useState("");
@@ -638,7 +641,7 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
   if (loading) {
     return (
       <Box padding="lg">
-        <Text variant="body" color="muted">Loading messages…</Text>
+        <Text variant="body" color="muted">{t("chat.panel.loadingMessages")}</Text>
       </Box>
     );
   }
@@ -693,7 +696,7 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
             setAgentIdx((idx) => (idx + 1) % agents.length);
             setModel(agents[(agentIdx + 1) % agents.length].model);
           }}
-          accessibilityLabel="Switch agent"
+          accessibilityLabel={t("chat.composer.switchAgent")}
           accessibilityRole="button"
           style={styles.agentPill}
         >
@@ -705,7 +708,7 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
             loadModels();
             setModelMenuOpen(true);
           }}
-          accessibilityLabel="Select model"
+          accessibilityLabel={t("chat.composer.selectModel")}
           accessibilityRole="button"
           style={styles.agentPill}
         >
@@ -715,7 +718,7 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
 
       <BottomSheet visible={modelMenuOpen} onClose={() => setModelMenuOpen(false)}>
         <View style={styles.modelSheetHeader}>
-          <Text variant="body" color="ink">选择模型</Text>
+          <Text variant="body" color="ink">{t("chat.picker.modelTitle")}</Text>
         </View>
         <ScrollView style={styles.modelSheetScroll}>
           {modelList.map((m, i) => (
@@ -746,7 +749,7 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
           <View style={styles.modelSheetHeader}>
             <Text variant="body" color="ink">
               {pendingQuestion.questions[pendingQuestion.index].header ||
-                `问题 ${pendingQuestion.index + 1}/${pendingQuestion.questions.length}`}
+                t("chat.question.stepOf", { n: pendingQuestion.index + 1, total: pendingQuestion.questions.length })}
             </Text>
           </View>
           <Box padding="sm" gap="sm">
@@ -776,17 +779,17 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
                 style={styles.questionCustomInput}
                 value={questionCustom}
                 onChangeText={setQuestionCustom}
-                placeholder="输入自定义答案（可选）"
+                placeholder={t("chat.question.customPlaceholder")}
                 placeholderTextColor={colors.disabled}
               />
             ) : null}
             <Box gap="sm">
               <Button
                 variant="primary"
-                label={pendingQuestion.index < pendingQuestion.questions.length - 1 ? "下一步" : "提交"}
+                label={pendingQuestion.index < pendingQuestion.questions.length - 1 ? t("chat.question.next") : t("chat.question.submit")}
                 onPress={answerCurrentQuestion}
               />
-              <Button variant="ghost" label="跳过此问题" onPress={rejectQuestion} />
+              <Button variant="ghost" label={t("chat.question.skip")} onPress={rejectQuestion} />
             </Box>
           </Box>
         </BottomSheet>
@@ -795,11 +798,13 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
       {pendingPermission ? (
         <BottomSheet visible onClose={() => replyPermission("reject")} testID="permission-sheet">
           <View style={styles.modelSheetHeader}>
-            <Text variant="body" color="ink">权限请求</Text>
+            <Text variant="body" color="ink">{t("chat.permission.title")}</Text>
           </View>
           <Box padding="sm" gap="sm">
             <Text variant="body" color="ink">
-              Agent 请求{pendingPermission.permission === "external_directory" ? "访问外部目录" : `执行 ${pendingPermission.permission}`}
+              {pendingPermission.permission === "external_directory"
+                ? t("chat.permission.askExternalDirectory")
+                : t("chat.permission.askRun", { action: pendingPermission.permission ?? "" })}
             </Text>
             {pendingPermission.patterns?.length ? (
               <Text variant="caption" color="muted">
@@ -812,9 +817,9 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
               </Text>
             ) : null}
             <Box gap="sm">
-              <Button variant="primary" label="允许一次" onPress={() => replyPermission("once")} />
-              <Button variant="primary" label="始终允许" onPress={() => replyPermission("always")} />
-              <Button variant="ghost" label="拒绝" onPress={() => replyPermission("reject")} />
+              <Button variant="primary" label={t("chat.permission.allowOnce")} onPress={() => replyPermission("once")} />
+              <Button variant="primary" label={t("chat.permission.alwaysAllow")} onPress={() => replyPermission("always")} />
+              <Button variant="ghost" label={t("chat.permission.reject")} onPress={() => replyPermission("reject")} />
             </Box>
           </Box>
         </BottomSheet>
@@ -822,8 +827,8 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
 
       <View style={styles.inputRow}>
         <Pressable
-          onPress={() => showAlert("Voice input", "Coming soon.")}
-          accessibilityLabel="Voice input"
+          onPress={() => showAlert(t("chat.composer.voiceTitle"), t("chat.composer.voiceBody"))}
+          accessibilityLabel={t("chat.composer.voiceTitle")}
           accessibilityRole="button"
           style={styles.voiceBtn}
         >
@@ -833,12 +838,12 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
           style={styles.input}
           value={input}
           onChangeText={setInput}
-          placeholder="Message Pulse…"
+          placeholder={t("chat.composer.placeholderMessage")}
           placeholderTextColor={colors.disabled}
           multiline
         />
         {sending ? (
-          <Pressable onPress={abort} style={styles.sendBtn} accessibilityLabel="Stop">
+          <Pressable onPress={abort} style={styles.sendBtn} accessibilityLabel={t("chat.composer.stop")}>
             <Square color={colors.onAccent} size={18} strokeWidth={iconStroke} />
           </Pressable>
         ) : (
@@ -846,7 +851,7 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
             onPress={send}
             disabled={!input.trim()}
             style={[styles.sendBtn, !input.trim() && { opacity: 0.4 }]}
-            accessibilityLabel="Send"
+            accessibilityLabel={t("chat.composer.send")}
           >
             <Send color={colors.onAccent} size={18} strokeWidth={iconStroke} />
           </Pressable>

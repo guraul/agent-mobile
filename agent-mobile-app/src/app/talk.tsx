@@ -14,6 +14,7 @@ import { CHAT_AGENT_ID, CHAT_MODEL, pickBareEntrySession, resolveConversationKin
 import { ProjectChatZ } from "@/components/chat/zcode/ProjectChatZ";
 import type { EngagedAttentionRef } from "@/services/attention/store";
 import { showAlert } from "../services/alert";
+import { t, useLocale } from "@/i18n";
 
 // Talk stack route（v0.1.1 UX correction / Companion migration）：/talk 是
 // contextual conversation workspace，不再是 top-level tab。
@@ -35,6 +36,8 @@ interface ActiveConversation {
 }
 
 export default function TalkScreen() {
+  // 订阅语言：offline / 加载态文案随 locale 重渲染
+  useLocale();
   const router = useRouter();
   const params = useLocalSearchParams<{
     sessionId?: string; projectPath?: string; autoContextText?: string;
@@ -76,7 +79,7 @@ export default function TalkScreen() {
             return;
           }
           // 404/会话已丢失 → 逃生口：降级到默认会话，而不是钉死在错误态
-          showAlert("原会话已不存在", "该会话已丢失（agent runtime 可能重启过）。已切换到最近的会话。");
+          showAlert(t("app.common.sessionGoneTitle"), t("chat.shell.sessionGoneBody"));
         }
       }
       if (params.projectPath) {
@@ -161,7 +164,7 @@ export default function TalkScreen() {
         <View style={s.header}>
           <Pressable
             onPress={close}
-            accessibilityLabel="Back to Pulse"
+            accessibilityLabel={t("chat.shell.backToPulse")}
             accessibilityRole="button"
             testID="talk-back"
             hitSlop={10}
@@ -173,7 +176,7 @@ export default function TalkScreen() {
             <LightPresenceDot online={!offline} />
           </View>
           <View testID="talk-status" style={s.headerText}>
-            <Text variant="lightLabel" color="lightAccentDeep">{offline || bffDown ? "Offline" : "Attentive"}</Text>
+            <Text variant="lightLabel" color="lightAccentDeep">{offline || bffDown ? t("pulse.header.presenceOffline") : t("pulse.header.presenceAttentive")}</Text>
             <Text variant="lightChatTitle" color="lightInk">Pulse</Text>
           </View>
         </View>
@@ -188,17 +191,17 @@ export default function TalkScreen() {
               <Pressable
                 onPress={retry}
                 accessibilityRole="button"
-                accessibilityLabel="Retry"
+                accessibilityLabel={t("chat.common.retry")}
                 testID="talk-retry"
                 style={s.peachBtn}
               >
                 <RefreshCw color={lightColors.ink} size={16} strokeWidth={2} />
-                <Text variant="lightBodyStrong" color="lightInk">Retry</Text>
+                <Text variant="lightBodyStrong" color="lightInk">{t("chat.common.retry")}</Text>
               </Pressable>
             </View>
           ) : (
             <Text variant="lightBody" color="lightGray" testID="talk-loading">
-              {booting ? "Loading…" : (error ?? "")}
+              {booting ? t("chat.common.loading") : (error ?? "")}
             </Text>
           )}
         </View>

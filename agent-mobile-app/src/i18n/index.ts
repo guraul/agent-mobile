@@ -1,7 +1,8 @@
 import { useSyncExternalStore } from "react";
 
 /**
- * 轻量 i18n（第 0 期建能力，第 1 期已迁移 Pulse / Settings / Attention / 各 sheet 的界面文案）。
+ * 轻量 i18n（第 0 期建能力；第 1 期迁移 Pulse / Settings / Attention / 各 sheet；
+ * 第 2 期迁移 chat / chatcode 面板）。
  *
  * - 不引第三方依赖：类型化字典 + `t()` 就是全部。
  * - 默认语言 `en`（当前 UI 的实际语言）；`zh` 保留现有中文文案。
@@ -143,6 +144,131 @@ const en = {
   "attention.detail.dismiss": "Dismiss",
   "attention.detail.dismissTitle": "Dismiss this item?",
   "attention.detail.dismissBody": "This only steps back from the item. The responsibility stays.",
+
+  // ── Chat：通用 ─────────────────────────────────────────────────────────
+  "chat.common.loading": "Loading…",
+  "chat.common.retry": "Retry",
+
+  // ── Chat：面板（状态行 / Attention 上下文卡 / 排队条）──────────────────
+  "chat.panel.loadingMessages": "Loading messages…",
+  "chat.panel.running": "Running…",
+  "chat.panel.stopped": "Stopped",
+  "chat.panel.handling": "Handling: {title}",
+  "chat.panel.markHandled": "Mark handled",
+  "chat.panel.markingHandled": "Marking…",
+  "chat.panel.alreadyHandledTitle": "Already handled",
+  "chat.panel.alreadyHandledBody": "This item is no longer open.",
+  "chat.panel.markFailedTitle": "Couldn't mark as handled",
+  "chat.queue.edit": "Edit queued message",
+  "chat.queue.moveUp": "Move queued message up",
+  "chat.queue.remove": "Remove queued message",
+
+  // ── Chat：输入区 ───────────────────────────────────────────────────────
+  "chat.composer.placeholder": "Ask anything…",
+  "chat.composer.placeholderMessage": "Message Pulse…",
+  "chat.composer.expand": "Expand composer",
+  "chat.composer.attachmentTitle": "Attachments",
+  "chat.composer.attachmentBody": "Attachments are coming soon.",
+  "chat.composer.attachmentA11y": "Add attachment",
+  "chat.composer.voiceTitle": "Voice input",
+  "chat.composer.voiceBody": "Voice input is coming soon.",
+  "chat.composer.send": "Send",
+  "chat.composer.stop": "Stop",
+  "chat.composer.selectModel": "Select model",
+  "chat.composer.switchAgent": "Switch agent",
+
+  // ── Chat：model / agent 选择 sheet ─────────────────────────────────────
+  "chat.picker.modelTitle": "Choose a model",
+  "chat.picker.agentTitle": "Choose an agent",
+
+  // ── Chat：question sheet ───────────────────────────────────────────────
+  "chat.question.stepOf": "Question {n}/{total}",
+  "chat.question.customPlaceholder": "Type your own answer (optional)",
+  "chat.question.next": "Next",
+  "chat.question.submit": "Submit",
+  "chat.question.skip": "Skip this question",
+
+  // ── Chat：permission sheet ─────────────────────────────────────────────
+  "chat.permission.title": "Permission request",
+  "chat.permission.askRun": "The agent wants to run {action}.",
+  "chat.permission.askExternalDirectory": "The agent wants to access a directory outside this project.",
+  "chat.permission.allowOnce": "Allow once",
+  "chat.permission.alwaysAllow": "Always allow",
+  "chat.permission.reject": "Reject",
+
+  // ── Chat：工具输出 / 工具组 / 思考卡 ───────────────────────────────────
+  "chat.tools.outputTitle": "Tool output",
+  "chat.tools.outputTitleWithTool": "Tool output · {tool}",
+  "chat.tools.outputEmpty": "No output.",
+  "chat.tools.groupLabel": "Tool calls",
+  // base key 是缺少 count 时的回退（类型要求存在），与 `_other` 同文案
+  "chat.tools.badge": "{count} calls",
+  "chat.tools.badge_one": "{count} call",
+  "chat.tools.badge_other": "{count} calls",
+  "chat.tools.groupA11y": "Tool calls ({n})",
+  "chat.tools.viewOutput": "View {tool} output",
+  "chat.tools.truncated": "… truncated ({n} lines total)",
+  "chat.tools.running": "Running {tool}…",
+  "chat.tools.runningMany": "Running {n} tools…",
+  "chat.think.label": "Thinking",
+  "chat.think.a11y": "Reasoning",
+  "chat.think.pending": "Thinking…",
+
+  // ── Chat：消息气泡 ─────────────────────────────────────────────────────
+  "chat.message.copy": "Copy message",
+  "chat.message.errorLabel": "Something went wrong",
+
+  // ── Chat：移交卡（HandoffCard）─────────────────────────────────────────
+  "chat.handoff.title": "Hand off to workbench",
+  "chat.handoff.bodyPlaceholder": "Goal, boundaries, where it should land",
+  "chat.handoff.bodyA11y": "Handoff details",
+  "chat.handoff.edit": "Edit",
+  "chat.handoff.editDone": "Done",
+  "chat.handoff.target": "Target",
+  "chat.handoff.modeNew": "New project",
+  "chat.handoff.modeExisting": "Existing project",
+  "chat.handoff.pathA11y": "Project path",
+  "chat.handoff.namePlaceholder": "Name (optional, used as the session title)",
+  "chat.handoff.nameA11y": "Session title",
+  "chat.handoff.projectsFailed": "Couldn't load projects",
+  "chat.handoff.projectsRetryA11y": "Reload projects",
+  "chat.handoff.projectsLoading": "Loading projects…",
+  "chat.handoff.projectsEmpty": "No usable project directories yet. Pick New project to enter one.",
+  "chat.handoff.failed": "Handoff failed: {message}",
+  "chat.handoff.submitting": "Handing off…",
+  "chat.handoff.dismiss": "Not now",
+
+  // ── Chat：定时任务确认卡（AssignmentConfirmCard）────────────────────────
+  "chat.assignment.title": "Scheduled task",
+  "chat.assignment.condition": "When: {condition}",
+  "chat.assignment.failed": "Couldn't create it: {message}",
+  "chat.assignment.confirm": "Confirm",
+  "chat.assignment.creating": "Creating…",
+  "chat.assignment.supplement": "Adjust",
+  "chat.assignment.supplementA11y": "Describe the change",
+  "chat.assignment.supplementPlaceholder": "What should change?",
+  "chat.assignment.send": "Send",
+
+  // ── Chat：Sessions 抽屉 ────────────────────────────────────────────────
+  "chat.sessions.title": "Sessions",
+  "chat.sessions.close": "Close sessions",
+  "chat.sessions.empty": "No sessions yet",
+  "chat.sessions.new": "New session",
+  "chat.sessions.justNow": "just now",
+  "chat.sessions.minutesAgo": "{n} min ago",
+  "chat.sessions.hoursAgo": "{n} h ago",
+
+  // ── Chat：外壳（ProjectChatZ / talk）───────────────────────────────────
+  "chat.shell.titleChat": "Pulse — Chat",
+  "chat.shell.titleCode": "Pulse — Code Chat",
+  "chat.shell.backToPulse": "Back to Pulse",
+  "chat.shell.backToProjects": "Back to projects",
+  "chat.shell.switchSession": "Switch session",
+  "chat.shell.closeSession": "Close session",
+  "chat.shell.empty": "No session yet for this project.",
+  "chat.shell.emptyHint": "Start a new conversation.",
+  "chat.shell.sessionGoneBody":
+    "That conversation is gone (my runtime may have restarted). Switched to the most recent one.",
 } as const;
 
 type PluralSuffix = "_one" | "_other";
@@ -269,6 +395,117 @@ const zh = {
   "attention.detail.dismiss": "退出",
   "attention.detail.dismissTitle": "退出这条事项？",
   "attention.detail.dismissBody": "仅代表显式退出，不影响 responsibility。",
+
+  "chat.common.loading": "加载中…",
+  "chat.common.retry": "重试",
+
+  "chat.panel.loadingMessages": "加载消息…",
+  "chat.panel.running": "运行中…",
+  "chat.panel.stopped": "已停止",
+  "chat.panel.handling": "处理中：{title}",
+  "chat.panel.markHandled": "标记已处理",
+  "chat.panel.markingHandled": "标记中…",
+  "chat.panel.alreadyHandledTitle": "已处理过",
+  "chat.panel.alreadyHandledBody": "该 Attention 已不在 OPEN 状态。",
+  "chat.panel.markFailedTitle": "标记失败",
+  "chat.queue.edit": "编辑排队消息",
+  "chat.queue.moveUp": "上移排队消息",
+  "chat.queue.remove": "删除排队消息",
+
+  "chat.composer.placeholder": "随便问…",
+  "chat.composer.placeholderMessage": "给 Pulse 发消息…",
+  "chat.composer.expand": "展开输入",
+  "chat.composer.attachmentTitle": "附件",
+  "chat.composer.attachmentBody": "附件功能即将上线",
+  "chat.composer.attachmentA11y": "添加附件",
+  "chat.composer.voiceTitle": "语音",
+  "chat.composer.voiceBody": "语音输入即将上线",
+  "chat.composer.send": "发送",
+  "chat.composer.stop": "停止",
+  "chat.composer.selectModel": "选择 model",
+  "chat.composer.switchAgent": "切换 Agent",
+
+  "chat.picker.modelTitle": "选择模型",
+  "chat.picker.agentTitle": "选择 Agent",
+
+  "chat.question.stepOf": "问题 {n}/{total}",
+  "chat.question.customPlaceholder": "输入自定义答案（可选）",
+  "chat.question.next": "下一步",
+  "chat.question.submit": "提交",
+  "chat.question.skip": "跳过此问题",
+
+  "chat.permission.title": "权限请求",
+  "chat.permission.askRun": "Agent 请求执行 {action}。",
+  "chat.permission.askExternalDirectory": "Agent 请求访问外部目录。",
+  "chat.permission.allowOnce": "允许一次",
+  "chat.permission.alwaysAllow": "始终允许",
+  "chat.permission.reject": "拒绝",
+
+  "chat.tools.outputTitle": "工具输出",
+  "chat.tools.outputTitleWithTool": "工具输出 · {tool}",
+  "chat.tools.outputEmpty": "无输出。",
+  "chat.tools.groupLabel": "工具调用",
+  "chat.tools.badge": "{count} 项",
+  "chat.tools.badge_one": "{count} 项",
+  "chat.tools.badge_other": "{count} 项",
+  "chat.tools.groupA11y": "工具调用（{n} 项）",
+  "chat.tools.viewOutput": "查看 {tool} 输出",
+  "chat.tools.truncated": "… 已截断（共 {n} 行）",
+  "chat.tools.running": "正在调用 {tool}…",
+  "chat.tools.runningMany": "正在调用 {n} 个工具…",
+  "chat.think.label": "思考",
+  "chat.think.a11y": "思考过程",
+  "chat.think.pending": "思考中…",
+
+  "chat.message.copy": "复制消息",
+  "chat.message.errorLabel": "出错了",
+
+  "chat.handoff.title": "移交到工作台",
+  "chat.handoff.bodyPlaceholder": "要交接的目标、边界、落点",
+  "chat.handoff.bodyA11y": "交接内容",
+  "chat.handoff.edit": "改一下",
+  "chat.handoff.editDone": "好了",
+  "chat.handoff.target": "目标",
+  "chat.handoff.modeNew": "新建项目",
+  "chat.handoff.modeExisting": "既有项目",
+  "chat.handoff.pathA11y": "项目路径",
+  "chat.handoff.namePlaceholder": "名称（可选，只作会话标题）",
+  "chat.handoff.nameA11y": "会话标题",
+  "chat.handoff.projectsFailed": "项目列表没读到",
+  "chat.handoff.projectsRetryA11y": "重新读取项目",
+  "chat.handoff.projectsLoading": "正在读取项目…",
+  "chat.handoff.projectsEmpty": "还没有可用的项目目录，用「新建项目」填一个",
+  "chat.handoff.failed": "移交失败：{message}",
+  "chat.handoff.submitting": "移交中…",
+  "chat.handoff.dismiss": "先不要",
+
+  "chat.assignment.title": "定时任务",
+  "chat.assignment.condition": "命中条件：{condition}",
+  "chat.assignment.failed": "创建失败：{message}",
+  "chat.assignment.confirm": "确认",
+  "chat.assignment.creating": "创建中…",
+  "chat.assignment.supplement": "补充",
+  "chat.assignment.supplementA11y": "补充说明",
+  "chat.assignment.supplementPlaceholder": "说说要改什么",
+  "chat.assignment.send": "发送",
+
+  "chat.sessions.title": "会话",
+  "chat.sessions.close": "关闭抽屉",
+  "chat.sessions.empty": "暂无会话",
+  "chat.sessions.new": "新建会话",
+  "chat.sessions.justNow": "刚刚",
+  "chat.sessions.minutesAgo": "{n} 分钟前",
+  "chat.sessions.hoursAgo": "{n} 小时前",
+
+  "chat.shell.titleChat": "Pulse — Chat",
+  "chat.shell.titleCode": "Pulse — Code Chat",
+  "chat.shell.backToPulse": "返回 Pulse",
+  "chat.shell.backToProjects": "返回项目",
+  "chat.shell.switchSession": "切换会话",
+  "chat.shell.closeSession": "关闭会话",
+  "chat.shell.empty": "这个项目还没有会话。",
+  "chat.shell.emptyHint": "开始一次新对话。",
+  "chat.shell.sessionGoneBody": "该会话已丢失（agent runtime 可能重启过）。已切换到最近的会话。",
 } satisfies MessageDict;
 
 export type MessageVars = Record<string, string | number>;
