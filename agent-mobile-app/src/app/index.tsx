@@ -393,7 +393,7 @@ export default function PulseScreen() {
             <RNText style={styles.heroLine}>{greeting}</RNText>
             {offline ? (
               <RNText style={styles.aiVoice} testID="pulse-offline-voice">
-                I'm having trouble reaching my runtime.
+                {"I'm having trouble reaching my runtime."}
               </RNText>
             ) : null}
           </View>
@@ -480,7 +480,7 @@ export default function PulseScreen() {
         {/* 空态（D7）：aiVoice 全空回归 + 安静提示；离线时整屏 aiVoice 已在 Hero 渲染 */}
         {isEmptyScreen ? (
           <View testID="pulse-empty">
-            <RNText style={styles.aiVoice}>All's been calm while you were away.</RNText>
+            <RNText style={styles.aiVoice}>{"All's been calm while you were away."}</RNText>
             <RNText style={styles.emptyLine}>Nothing needs you right now.</RNText>
           </View>
         ) : null}
