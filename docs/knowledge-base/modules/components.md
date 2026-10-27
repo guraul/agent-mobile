@@ -59,6 +59,7 @@
 | `pulse/FeaturedItem.tsx` | 整卡 Pressable → /attention/[id]（D10：删 lead/tile/chips，Bell #D97706） |
 | `pulse/SupportingList.tsx` | In motion 绿卡（四组合流，schedule* 偏移 token）；props 兼容（ListSheet 溢出复用） |
 | `pulse/PulseNoticed.tsx` | ghost 卡行浅色（style 透传 divider） |
+| `pulse/ActivitySheet.tsx` | 「她最近做了什么」只读审计 sheet：Settings 入口 → 摘要一行（`近 7 天：执行 N 次 · 提醒 N 次 · 失败 N 次`）/ 相对时间+标题+outcome chip（已命中/已检视/失败）/ 空态一句话 / 失败态「暂时读不到记录」+重试。暗色 `theme` token + 旧 BottomSheet；**无授权/撤销/重跑按钮**；取数走 `services/activity/client.fetchAgentActivity`（`GET /api/product/agent-activity`） |
 | 旧组件保留 | ActionChips / ConversationEntry / AIOrb / AIStatus / 旧 BottomSheet（Settings/Memory/Knowledge sheet 用）——待后续批次删 |
 
 - **BottomSheet/LightSheet web 坑同源**：RN Web 不桥接 `translateY` 插值到 DOM——隐藏必须 `{visible ? ... : null}` 条件渲染（两个 sheet 原语都已内建）。

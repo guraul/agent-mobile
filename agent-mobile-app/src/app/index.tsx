@@ -23,6 +23,7 @@ import { FundSheet } from "@/components/pulse/FundSheet";
 import { SettingsSheet } from "@/components/pulse/SettingsSheet";
 import { MemorySheet } from "@/components/pulse/MemorySheet";
 import { KnowledgeSheet } from "@/components/pulse/KnowledgeSheet";
+import { ActivitySheet } from "@/components/pulse/ActivitySheet";
 import { useProjectEvents, type ProjectEvent } from "@/hooks/useProjectEvents";
 import { useL1 } from "@/hooks/useL1";
 import { type L1Statement } from "@/services/l1";
@@ -150,6 +151,7 @@ export default function PulseScreen() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [knowledgeOpen, setKnowledgeOpen] = useState(false);
+  const [activityOpen, setActivityOpen] = useState(false);
   const [fundsOpen, setFundsOpen] = useState(false);
   const [noticedListOpen, setNoticedListOpen] = useState(false);
   const [overflowOpen, setOverflowOpen] = useState(false);
@@ -500,6 +502,7 @@ export default function PulseScreen() {
         onClose={() => setSettingsOpen(false)}
         onOpenMemory={() => setMemoryOpen(true)}
         onOpenKnowledge={() => setKnowledgeOpen(true)}
+        onOpenActivity={() => setActivityOpen(true)}
         onLogin={() => {
           // D4：登录走独立页
           setSettingsOpen(false);
@@ -513,6 +516,7 @@ export default function PulseScreen() {
         onOpenDoc={openDoc}
         onAskAboutThis={askAboutSource}
       />
+      <ActivitySheet visible={activityOpen} onClose={() => setActivityOpen(false)} />
       <FundSheet visible={fundsOpen} funds={funds} onClose={() => setFundsOpen(false)} />
 
       {/* Noticed read-only detail — Discuss is the only way into Talk */}
