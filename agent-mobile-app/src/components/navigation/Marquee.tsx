@@ -17,7 +17,9 @@ export interface MarqueeProps {
 export function Marquee({ children, speed = 40, style }: MarqueeProps) {
   const { width: screenWidth } = useWindowDimensions();
   const [contentWidth, setContentWidth] = useState(0);
-  const translateX = useRef(new Animated.Value(0)).current;
+  // Animated.Value 只创建一次；用 useState 惰性初始化（渲染期读 ref.current 会被
+  // React Compiler 判为「渲染期访问 ref」）。
+  const [translateX] = useState(() => new Animated.Value(0));
   const animRef = useRef<Animated.CompositeAnimation | null>(null);
 
   // contentWidth = 单份内容宽度（渲染两份之一，onLayout 测的是两份总宽的一半）

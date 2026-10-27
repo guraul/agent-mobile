@@ -58,23 +58,27 @@ export function SessionsDrawer({
   const { width: screenW } = useWindowDimensions();
   const width = Math.min(DRAWER_WIDTH, screenW * 0.84);
   // translateX：0 = 全开，-width = 全关（JS 驱动，web 兼容同 LightSheet 注释）
-  const translate = useRef(new Animated.Value(-width)).current;
-  const scrim = useRef(new Animated.Value(0)).current;
+  // Animated.Value 只创建一次；用 useState 惰性初始化（渲染期读 ref.current 会被
+  // React Compiler 判为「渲染期访问 ref」）。
+  const [translate] = useState(() => new Animated.Value(-width));
+  const [scrim] = useState(() => new Animated.Value(0));
   const [dragging, setDragging] = useState(false);
+  // 最新值镜像在 effect 里同步（渲染期写 ref 同样被编译器判为「渲染期访问 ref」）。
   const visibleRef = useRef(visible);
-  visibleRef.current = visible;
   // PanResponder 只创建一次，handler 里经 ref 读最新 width，避免闭包过期
   const widthRef = useRef(width);
-  widthRef.current = width;
   const animateToRef = useRef<(open: boolean) => void>(() => {});
   const gestureCloseRef = useRef(onGestureClose);
-  gestureCloseRef.current = onGestureClose;
+
+  useEffect(() => { visibleRef.current = visible; }, [visible]);
+  useEffect(() => { widthRef.current = width; }, [width]);
+  useEffect(() => { gestureCloseRef.current = onGestureClose; }, [onGestureClose]);
 
   const animateTo = (open: boolean) => {
     Animated.timing(translate, { toValue: open ? 0 : -widthRef.current, duration: 200, useNativeDriver: false }).start();
     Animated.timing(scrim, { toValue: open ? 1 : 0, duration: 160, useNativeDriver: false }).start();
   };
-  animateToRef.current = animateTo;
+  useEffect(() => { animateToRef.current = animateTo; });
 
   useEffect(() => {
     Animated.timing(translate, { toValue: visible ? 0 : -width, duration: 260, useNativeDriver: false }).start();
@@ -82,7 +86,10 @@ export function SessionsDrawer({
   }, [visible, width, translate, scrim]);
 
   // 抽屉本体拖拽（开态左滑收回）
-  const drawerPan = useRef(
+  // PanResponder 必须渲染期建立（一个实例贯穿组件生命周期），其 config 回调是在
+  // 手势时机才读 ref 的；编译器把整个惰性初始化函数当成渲染期闭包，属误报。
+  // eslint-disable-next-line react-hooks/refs -- 手势回调在事件时机读 ref，非渲染期
+  const [drawerPan] = useState(() =>
     PanResponder.create({
       onMoveShouldSetPanResponder: (_e, g) => isHorizontalDrag(g.dx, g.dy) && g.dx < 0 && visibleRef.current,
       onPanResponderMove: (_e, g) => {
@@ -96,14 +103,16 @@ export function SessionsDrawer({
       },
       onPanResponderTerminate: () => animateToRef.current(true),
     }),
-  ).current;
+  );
 
   // 边缘右滑唤起（关态，从屏幕左缘起手）。
   // onStartShouldSetPanResponder：RN Web 的 move 协商在鼠标路径下不可靠（实测热区命中
   // 却不 grant），热区本身只有 24px 宽且无子元素，down 时直接认领无副作用；
   // 非水平拖拽（纵向滚动）在 move 阶段交还：isHorizontalDrag 不满足则不更新位移，
   // 松手 snap(dx≈0) = close，视觉无扰动。
-  const edgePan = useRef(
+  // 同上：手势回调在事件时机读 ref，非渲染期。
+  // eslint-disable-next-line react-hooks/refs -- 手势回调在事件时机读 ref，非渲染期
+  const [edgePan] = useState(() =>
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_e, g) => isHorizontalDrag(g.dx, g.dy) && g.dx > 0 && !visibleRef.current,
@@ -123,7 +132,7 @@ export function SessionsDrawer({
         animateToRef.current(false);
       },
     }),
-  ).current;
+  );
 
   return (
     <>
