@@ -66,3 +66,23 @@ jobs:
           CODE=$(curl -s -m 10 -o /dev/null -w '%{http_code}' http://106.13.181.13:9928/)
           echo "9928 -> $CODE"
           if [ "$CODE" != "200" ]; then echo "::error::线上验证失败: $CODE"; exit 1; fi
+
+      # 产物已上线（restart + 验收完成）后，同步服务器上那个「只作阅览用」的克隆，
+      # 免得它的 HEAD 一直停在旧提交、只能靠 dist/releases/run-<id>-<sha> 反推线上版本。
+      # 前提：该克隆不允许有本地改动；agent-mobile-app/dist 与 agent-mobile-app/releases/
+      # 都是部署产物、untracked，reset --hard 不会碰它们，所以生效中的 dist symlink 不受影响。
+      # 判脏只看 tracked 改动（--untracked-files=no），否则部署产物本身会让检查永远判脏。
+      # 本步失败不影响部署结论（continue-on-error + ::warning::），产物已经在线上。
+      - name: Sync server clone
+        continue-on-error: true
+        run: |
+          REPO=/root/project/agent-mobile
+          SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new root@106.13.181.13"
+          DIRTY=$($SSH "git -C ${REPO} status --porcelain --untracked-files=no")
+          if [ -n "$DIRTY" ]; then
+            echo "::warning::服务器克隆有本地改动，跳过同步（不覆盖别人的临时改动）: $(echo "$DIRTY" | head -3 | tr '\n' ' ')"
+            exit 0
+          fi
+          $SSH "git -C ${REPO} fetch --prune origin" || { echo "::warning::服务器克隆 fetch 失败，跳过同步"; exit 0; }
+          $SSH "git -C ${REPO} reset --hard origin/main" || { echo "::warning::服务器克隆 reset 失败（产物已上线，不影响本次部署）"; exit 0; }
+          $SSH "git -C ${REPO} log --oneline -1"
