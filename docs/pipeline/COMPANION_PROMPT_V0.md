@@ -63,4 +63,4 @@ body 就写你刚才那两三句（目标 / 边界 / 落点三件事，别塞别
 
 **⚠️ 本机与生产的有意差异**：本机保留白名单 + 单条 allow（最小授权，不开 bash/edit）；生产走 #74 的标准工具集 + 软约束（#82 拍板）。差异是刻意的，别顺手"对齐"掉——对齐=本机 companion 获得工程副作用能力。
 
-**⚠️ v0.6 / v0.7 同步待办**：v0.6 目前**只落仓内真源**。生产 `agents.companion.system` 仍是 v0.5（缺的是本次补的"出卡前先调 `memory_write` 记一条"）；同步需改 `/root/.config/opencode/opencode.json` 后 `systemctl restart opencode-4096`（走上线窗口）。**在同步前，真实聊天里伴侣出移交卡时不会先写这条记忆。**
+**✅ 同步状态（2026-10-27 核实）**：v0.5 → v0.6 → v0.7 均已同步生产 `agents.companion.system`。当前长度 **1583 字符**（v0.6 为 1433，v0.7 增量 +150 字符，内容为"被问托付进度先调 `assignment_history`，查不到就说查不到，回复不提工具名"）。本次同步前的备份：`/root/.config/opencode/opencode.json.bak.1793098547716`（同步后已 `systemctl restart opencode-4096`，实测真问可用）。
