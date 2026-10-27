@@ -18,6 +18,7 @@ import {
 } from "../../services/activity/client";
 import { ACTIVITY_PAGE_LIMIT, filterActivityToToday } from "../../services/activity/digest";
 import { colors, spacing } from "../../theme";
+import { t, useLocale } from "../../i18n";
 
 /**
  * ActivitySheet — "Lately": a read-only record of what I did under your
@@ -44,6 +45,8 @@ export function ActivitySheet({
   days?: number;
 }) {
   const [activity, setActivity] = useState<AgentActivity | null>(null);
+  // 订阅语言：切换时 sheet 重渲染，渲染期 t() 取到新文案。
+  useLocale();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -74,32 +77,37 @@ export function ActivitySheet({
   const windowDays = activity?.windowDays ?? days;
   const empty = !loading && !error && (activity?.executions.length ?? 0) === 0;
   const emptyText =
-    days === 1 ? "Nothing needed doing today" : buildActivityEmptyText(windowDays);
+    days === 1 ? t("pulse.activity.emptyToday") : buildActivityEmptyText(windowDays);
 
   return (
     <BottomSheet visible={visible} onClose={onClose} testID="activity-sheet">
       <View style={{ gap: spacing.xxs, marginBottom: spacing.sm }}>
-        <Text variant="title" color="ink">Lately</Text>
-        <Text variant="caption" color="muted">
-          Read-only record of what I did under your authority. Looking changes nothing.
-        </Text>
+        <Text variant="title" color="ink">{t("pulse.activity.title")}</Text>
+        <Text variant="caption" color="muted">{t("pulse.activity.caption")}</Text>
       </View>
       {activity ? (
         <View style={{ marginBottom: spacing.sm }}>
           <Text variant="captionStrong" color="body" testID="activity-summary">
-            {buildActivitySummary(activity, days === 1 ? "Today" : undefined)}
+            {buildActivitySummary(activity, days === 1 ? t("pulse.activity.today") : undefined)}
           </Text>
         </View>
       ) : null}
       <ScrollView style={{ maxHeight: 420 }} contentContainerStyle={{ gap: spacing.sm }}>
         {loading ? (
-          <Text variant="caption" color="muted" testID="activity-loading">Loading…</Text>
+          <Text variant="caption" color="muted" testID="activity-loading">
+            {t("pulse.activity.loading")}
+          </Text>
         ) : null}
 
         {!loading && error ? (
           <View style={{ gap: spacing.xs }} testID="activity-error">
-            <Text variant="caption" color="error">{"Couldn't load this right now"}</Text>
-            <Button variant="secondary" label="Try again" onPress={reload} testID="activity-retry" />
+            <Text variant="caption" color="error">{t("pulse.activity.loadError")}</Text>
+            <Button
+              variant="secondary"
+              label={t("pulse.activity.retry")}
+              onPress={reload}
+              testID="activity-retry"
+            />
           </View>
         ) : null}
 

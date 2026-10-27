@@ -17,6 +17,7 @@ import {
   AccessibilityInfo,
 } from "react-native";
 import { lightColors, lightRadius, lightSizes, lightShadows } from "../../theme/light";
+import { t, useLocale } from "../../i18n";
 
 export interface LightSheetProps {
   visible: boolean;
@@ -27,6 +28,8 @@ export interface LightSheetProps {
 
 export function LightSheet({ visible, onClose, children, testID }: LightSheetProps) {
   const { height } = useWindowDimensions();
+  // 订阅语言：切换时 scrim 的无障碍文案跟着变。
+  useLocale();
   // Animated.Value 只创建一次；用 useState 惰性初始化（渲染期读 ref.current 会被
   // React Compiler 判为「渲染期访问 ref」）。
   const [slideAnim] = useState(() => new Animated.Value(1));
@@ -119,7 +122,7 @@ export function LightSheet({ visible, onClose, children, testID }: LightSheetPro
       >
         <Pressable
           style={{ flex: 1 }}
-          accessibilityLabel="Close sheet"
+          accessibilityLabel={t("sheet.common.close")}
           accessibilityRole="button"
           onPress={onClose}
         />

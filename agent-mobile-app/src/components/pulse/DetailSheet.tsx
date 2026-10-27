@@ -12,6 +12,7 @@ import { View, Text, StyleSheet } from "react-native";
 import { LightSheet } from "./LightSheet";
 import { LightChip } from "./LightAtoms";
 import { lightColors, lightTypography } from "../../theme/light";
+import { t, useLocale } from "../../i18n";
 
 export function DetailSheet({
   label,
@@ -28,6 +29,8 @@ export function DetailSheet({
   onClose: () => void;
   testID?: string;
 }) {
+  // 订阅语言：切换时 sheet 重渲染，渲染期 t() 取到新文案。
+  useLocale();
   return (
     <LightSheet visible onClose={onClose} testID={testID}>
       <View style={styles.content}>
@@ -37,7 +40,7 @@ export function DetailSheet({
         <View style={styles.actions}>
           {onDiscuss && (
             <LightChip
-              label="Discuss"
+              label={t("pulse.noticed.discuss")}
               kind="review"
               onPress={onDiscuss}
               testID={testID ? `${testID}-discuss` : undefined}

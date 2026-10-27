@@ -3,6 +3,7 @@ import { Text, View, StyleSheet } from "react-native";
 import { LightSheet } from "./LightSheet";
 import type { L1MarketEstimateData } from "../../services/l1";
 import { lightColors, lightTypography, lightRadius } from "../../theme/light";
+import { t, useLocale } from "../../i18n";
 
 /**
  * FundSheet — read-only market estimate detail（RN 迁移 #F 浅色重做）。
@@ -19,19 +20,20 @@ export function FundSheet({
   funds: L1MarketEstimateData[];
   onClose: () => void;
 }) {
+  // 订阅语言：切换时 sheet 重渲染，渲染期 t() 取到新文案。
+  useLocale();
   return (
     <LightSheet visible={visible} onClose={onClose} testID="fund-sheet">
-      <Text style={styles.title}>Market</Text>
-      <Text style={styles.cap}>
-        Estimates I am keeping an eye on. Informational only.
-      </Text>
+      <Text style={styles.title}>{t("pulse.market.title")}</Text>
+      <Text style={styles.cap}>{t("pulse.market.caption")}</Text>
       <View style={styles.list}>
         {funds.map((f) => (
           <View key={f.code} testID={`fund-row-${f.code}`} style={styles.fundRow}>
             <Text style={styles.fundName}>{f.name}</Text>
             <Text style={styles.fundCode}>{f.code}</Text>
             <Text style={[styles.fundLine, f.changePct >= 0 ? styles.up : styles.down]}>
-              {f.estimatedNav.toFixed(4)} · prev {f.prevNav.toFixed(4)} · {f.changePct >= 0 ? "+" : ""}
+              {f.estimatedNav.toFixed(4)} · {t("pulse.market.prev", { nav: f.prevNav.toFixed(4) })} ·{" "}
+              {f.changePct >= 0 ? "+" : ""}
               {f.changePct.toFixed(2)}%
             </Text>
           </View>

@@ -9,6 +9,7 @@ import { Icon } from "../primitives/Icon";
 import { searchKb, type KbHit } from "../../services/memory/client";
 import { loadToken } from "../../services/auth";
 import { colors, radius, spacing } from "../../theme";
+import { t, useLocale } from "../../i18n";
 
 /**
  * KnowledgeSheet — Sources / Knowledge, contextual only.
@@ -28,6 +29,8 @@ export function KnowledgeSheet({
   onAskAboutThis: (hit: KbHit) => void;
 }) {
   const [query, setQuery] = useState("");
+  // 订阅语言：切换时 sheet 重渲染，渲染期 t() 取到新文案。
+  useLocale();
   const [hits, setHits] = useState<KbHit[] | null>(null);
   const [configured, setConfigured] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -69,10 +72,8 @@ export function KnowledgeSheet({
   return (
     <BottomSheet visible={visible} onClose={onClose} testID="knowledge-sheet">
       <View style={{ gap: spacing.xxs, marginBottom: spacing.sm }}>
-        <Text variant="title" color="ink">Knowledge</Text>
-        <Text variant="caption" color="muted">
-          Sources I can draw on. Search, read, or bring one into a conversation.
-        </Text>
+        <Text variant="title" color="ink">{t("pulse.knowledge.title")}</Text>
+        <Text variant="caption" color="muted">{t("pulse.knowledge.caption")}</Text>
       </View>
 
       {selected ? (
@@ -80,12 +81,12 @@ export function KnowledgeSheet({
           <Pressable
             onPress={() => setSelected(null)}
             accessibilityRole="button"
-            accessibilityLabel="Back to search"
+            accessibilityLabel={t("pulse.knowledge.backToSearch")}
             testID="knowledge-preview-back"
             style={{ flexDirection: "row", alignItems: "center", gap: spacing.xxs }}
           >
             <Icon icon={ArrowLeft} size="xs" color="muted" />
-            <Text variant="caption" color="muted">Back to search</Text>
+            <Text variant="caption" color="muted">{t("pulse.knowledge.backToSearch")}</Text>
           </Pressable>
           <Text variant="title" color="ink" numberOfLines={2}>{selected.title}</Text>
           <Text variant="monoCaption" color="muted">{selected.ref}</Text>
@@ -93,13 +94,13 @@ export function KnowledgeSheet({
           <View style={{ flexDirection: "row", gap: spacing.sm, marginTop: spacing.xs }}>
             <Button
               variant="secondary"
-              label="Open"
+              label={t("pulse.knowledge.open")}
               onPress={() => onOpenDoc(selected)}
               testID="knowledge-open"
             />
             <Button
               variant="primary"
-              label="Ask about this"
+              label={t("pulse.knowledge.askAboutThis")}
               onPress={() => onAskAboutThis(selected)}
               testID="knowledge-ask"
             />
@@ -112,12 +113,12 @@ export function KnowledgeSheet({
               <Input
                 value={query}
                 onChangeText={setQuery}
-                placeholder="Search sources…"
+                placeholder={t("pulse.knowledge.searchPlaceholder")}
                 testID="knowledge-input"
               />
             </View>
             <Button
-              label={loading ? "…" : "Search"}
+              label={loading ? "…" : t("pulse.knowledge.search")}
               variant="secondary"
               onPress={runSearch}
               testID="knowledge-search"
@@ -127,11 +128,13 @@ export function KnowledgeSheet({
           {error ? <Text variant="caption" color="error">{error}</Text> : null}
           {hits !== null && !configured ? (
             <Text variant="caption" color="muted" testID="knowledge-unconfigured">
-              知识库 vault 未配置（LLM_WIKI_VAULT）
+              {t("pulse.knowledge.unconfigured")}
             </Text>
           ) : null}
           {hits !== null && configured && hits.length === 0 && !error ? (
-            <Text variant="caption" color="muted" testID="knowledge-empty">无匹配结果</Text>
+            <Text variant="caption" color="muted" testID="knowledge-empty">
+              {t("pulse.knowledge.empty")}
+            </Text>
           ) : null}
 
           {hits && hits.length > 0 ? (

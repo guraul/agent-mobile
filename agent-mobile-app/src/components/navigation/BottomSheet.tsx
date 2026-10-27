@@ -8,6 +8,7 @@ import {
   type ViewStyle,
 } from "react-native";
 import { colors, spacing, radius, motion, shadows } from "../../theme";
+import { t, useLocale } from "../../i18n";
 
 export interface BottomSheetProps {
   visible: boolean;
@@ -25,6 +26,8 @@ export function BottomSheet({
   testID,
 }: BottomSheetProps) {
   const { height } = useWindowDimensions();
+  // 订阅语言：切换时 scrim 的无障碍文案跟着变。
+  useLocale();
   // Animated.Value 只创建一次；用 useState 惰性初始化（渲染期读 ref.current 会被
   // React Compiler 判为「渲染期访问 ref」）。
   const [slideAnim] = useState(() => new Animated.Value(1));
@@ -152,7 +155,7 @@ export function BottomSheet({
       >
         <Pressable
           style={{ flex: 1 }}
-          accessibilityLabel="Close sheet"
+          accessibilityLabel={t("sheet.common.close")}
           accessibilityRole="button"
           onPress={onClose}
         />
