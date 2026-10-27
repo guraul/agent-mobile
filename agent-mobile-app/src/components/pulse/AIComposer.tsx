@@ -38,10 +38,11 @@ export function AIComposer({
 
   const handleSend = () => {
     if (!canSend) return;
-    sendScale.value = withSequence(
+    // Reanimated 4 + React Compiler：写共享值用 .set()（与 .value= 等价，编译器可识别）
+    sendScale.set(withSequence(
       withTiming(1.1, { duration: 125, easing: Easing.out(Easing.ease), reduceMotion: ReduceMotion.System }),
       withTiming(1, { duration: 125, easing: Easing.inOut(Easing.ease), reduceMotion: ReduceMotion.System }),
-    );
+    ));
     onSend(text.trim());
     setText('');
   };

@@ -420,6 +420,14 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
     busyLiveRef.current = busy;
   }, [busy]);
 
+  // #80：程序滚动后短窗忽略自身 scroll 回波——v2 突发 delta 让内容高度大步增长，
+  // scrollToEnd 落定过程中的中间 onScroll（距底 >80px）会把 stickToBottom 翻 false，
+  // 自动跟随从此停止（实测距底一路涨到 1300px+）。
+  const autoScroll = useCallback(() => {
+    if (!stickToBottom.current) return;
+    ignoreScrollUntil.current = Date.now() + 250;
+    listRef.current?.scrollToEnd({ animated: false });
+  }, []);
   useEffect(() => {
     // loadMessages 的 setState 全部发生在 await 之后（补 pending question/permission、
     // 首屏滚到底都在异步段），规则静态分析跨不过 await 边界，属误报。
@@ -1014,14 +1022,6 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
     stickToBottom.current = distanceFromBottom < 80;
   };
 
-  // #80：程序滚动后短窗忽略自身 scroll 回波——v2 突发 delta 让内容高度大步增长，
-  // scrollToEnd 落定过程中的中间 onScroll（距底 >80px）会把 stickToBottom 翻 false，
-  // 自动跟随从此停止（实测距底一路涨到 1300px+）。
-  const autoScroll = useCallback(() => {
-    if (!stickToBottom.current) return;
-    ignoreScrollUntil.current = Date.now() + 250;
-    listRef.current?.scrollToEnd({ animated: false });
-  }, []);
   const handleContentSizeChange = () => {
     // while a reply is actively typing, always chase the latest text so the
     // newest characters are never stranded behind the agent/model row.

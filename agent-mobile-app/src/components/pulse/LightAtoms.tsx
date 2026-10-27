@@ -140,16 +140,17 @@ export function LightPresenceDot({ online = true }: { online?: boolean }) {
 
   React.useEffect(() => {
     if (!online) return;
-    scale.value = withRepeat(
+    // Reanimated 4 + React Compiler：写共享值用 .set()（与 .value= 等价，编译器可识别）
+    scale.set(withRepeat(
       withTiming(1.35, { duration: 1200, easing: Easing.inOut(Easing.ease), reduceMotion: ReduceMotion.System }),
       -1,
       true
-    );
-    halo.value = withRepeat(
+    ));
+    halo.set(withRepeat(
       withTiming(1, { duration: 2400, easing: Easing.inOut(Easing.ease), reduceMotion: ReduceMotion.System }),
       -1,
       false
-    );
+    ));
   }, [online, scale, halo]);
 
   if (!online) {

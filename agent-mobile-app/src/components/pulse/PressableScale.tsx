@@ -29,19 +29,20 @@ export function PressableScale({ scaleTo = 0.97, style, children, ...rest }: Pro
     <AnimatedPressable
       {...rest}
       onPressIn={(e) => {
-        scale.value = withTiming(scaleTo, {
+        // Reanimated 4 + React Compiler：写共享值用 .set()（与 .value= 等价，编译器可识别）
+        scale.set(withTiming(scaleTo, {
           duration: 120,
           easing: Easing.out(Easing.ease),
           reduceMotion: ReduceMotion.System,
-        });
+        }));
         rest.onPressIn?.(e);
       }}
       onPressOut={(e) => {
-        scale.value = withTiming(1, {
+        scale.set(withTiming(1, {
           duration: 120,
           easing: Easing.out(Easing.ease),
           reduceMotion: ReduceMotion.System,
-        });
+        }));
         rest.onPressOut?.(e);
       }}
       style={[styles.base, animStyle, style]}
