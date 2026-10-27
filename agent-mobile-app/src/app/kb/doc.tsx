@@ -24,19 +24,28 @@ export default function KbDocScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    if (!ref) return;
-    setLoading(true);
-    try {
-      await loadToken();
-      setDoc(await fetchKbDoc(ref));
-      setError(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLoading(false);
-    }
+  // 初始态 loading=true，所以挂载首次加载不需要再置 true；手动刷新走 reload。
+  // 取数后用 promise 回调落地 state（effect 同步段不碰 setter）。
+  const load = useCallback(() => {
+    if (!ref) return Promise.resolve();
+    return loadToken()
+      .then(() => fetchKbDoc(ref))
+      .then((d) => {
+        setDoc(d);
+        setError(null);
+      })
+      .catch((e: unknown) => {
+        setError(e instanceof Error ? e.message : String(e));
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, [ref]);
+
+  const reload = useCallback(async () => {
+    setLoading(true);
+    await load();
+  }, [load]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -48,7 +57,7 @@ export default function KbDocScreen() {
         onLeftPress={() => router.back()}
         leftAccessibilityLabel="Back"
         rightIcon={RefreshCw}
-        onRightPress={load}
+        onRightPress={reload}
         rightAccessibilityLabel="Refresh"
         testID="kb-doc-header"
       />

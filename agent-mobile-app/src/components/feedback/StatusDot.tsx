@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Animated, Easing, AccessibilityInfo, type ViewStyle } from "react-native";
 import { colors, motion } from "../../theme";
 
@@ -31,7 +31,9 @@ export function StatusDot({
   accessibilityLabel,
   testID,
 }: StatusDotProps) {
-  const opacityAnim = useRef(new Animated.Value(1)).current;
+  // Animated.Value 只创建一次；用 useState 惰性初始化（渲染期读 ref.current 会被
+  // React Compiler 判为「渲染期访问 ref」）。
+  const [opacityAnim] = useState(() => new Animated.Value(1));
   const isRunning = status === "running" && pulse;
   const [reduceMotion, setReduceMotion] = useState(false);
 

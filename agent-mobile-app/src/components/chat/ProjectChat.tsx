@@ -42,18 +42,22 @@ export function ProjectChat({ projectPath, onBack }: ProjectChatProps) {
     }
   }, [projectPath]);
 
-  const resolve = useCallback(async () => {
-    try {
-      setError(null);
-      const list = await opencodeClient.listSessions(projectPath);
-      const mostRecent = list.length ? [...list].sort(byRecent)[0] : null;
-      setSession(mostRecent);
-      setSessions([...list].sort(byRecent));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setReady(true);
-    }
+  // 解析结果用 promise 回调落地（effect 同步段不碰 setter）。
+  const resolve = useCallback(() => {
+    return opencodeClient
+      .listSessions(projectPath)
+      .then((list) => {
+        const mostRecent = list.length ? [...list].sort(byRecent)[0] : null;
+        setSession(mostRecent);
+        setSessions([...list].sort(byRecent));
+        setError(null);
+      })
+      .catch((e: unknown) => {
+        setError(e instanceof Error ? e.message : String(e));
+      })
+      .finally(() => {
+        setReady(true);
+      });
   }, [projectPath]);
 
   useEffect(() => {

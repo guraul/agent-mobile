@@ -158,7 +158,7 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
 
   const loadMessages = useCallback(async () => {
     try {
-      setLoading(true);
+      // loading 初始值即 true（进入面板即为加载态），这里不再同步置 true
       // fetch only the most recent messages; pull-to-refresh reloads for new ones
       const list = await opencodeClient.listMessages(sessionID, { limit: PAGE_SIZE });
       setMessages(list);
@@ -241,6 +241,9 @@ export function ChatPanel({ sessionID }: ChatPanelProps) {
   }, [sessionID, recomputeDisplay]);
 
   useEffect(() => {
+    // loadMessages 的 setState 全部发生在 await 之后（首屏补 pending question/permission、
+    // 打字机落定都依赖它），规则静态分析跨不过 await 边界，属误报。
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 异步加载：setState 均在 await 之后
     loadMessages();
     const unsub = subscribeToOpenCodeEvents((event) => {
       if (event.type === "message.updated") {

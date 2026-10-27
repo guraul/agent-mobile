@@ -34,14 +34,19 @@ export function KnowledgeSheet({
   const [selected, setSelected] = useState<KbHit | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const reset = useCallback(() => {
+    setQuery("");
+    setHits(null);
+    setSelected(null);
+    setError(null);
+  }, []);
+
   useEffect(() => {
-    if (!visible) {
-      setQuery("");
-      setHits(null);
-      setSelected(null);
-      setError(null);
-    }
-  }, [visible]);
+    // 关闭即清场：改到 onClose/onOpenDoc 回调里 reset 会让退场动画期间闪空内容，
+    // 改到渲染期 reset 会触发 set-state-in-render，故保留关闭后的一次同步清场。
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 退场清场，无可挂的异步来源
+    if (!visible) reset();
+  }, [visible, reset]);
 
   const runSearch = useCallback(async () => {
     const q = query.trim();

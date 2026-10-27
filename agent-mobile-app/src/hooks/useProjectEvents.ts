@@ -102,43 +102,45 @@ export function useProjectEvents(): UseProjectEventsResult {
     setOtherProjects(other);
   }, []);
 
-  const refresh = useCallback(async () => {
-    // Without a login token the BFF would answer 401 — skip silently and
-    // avoid spamming failed requests; pulse.tsx re-invokes refresh() once
-    // the token is loaded or the user logs in.
-    if (!tokenHeader().Authorization) {
-      setLoading(false);
-      return;
-    }
-    try {
-      const projects = await opencodeClient.getProject();
-      const sources: ProjectSource[] = projects
-        .filter((p) => p.id !== "global")
-        .map((p) => ({
-          id: p.id,
-          worktree: p.worktree,
-          updated: (p as { time?: { updated?: number } }).time?.updated ?? 0,
-        }));
-      projectsRef.current = sources;
-
-      const allSessions = await Promise.all(
-        sources.map((p) =>
-          opencodeClient.listSessions(p.worktree).catch(() => []),
-        ),
-      );
-      const sessions = allSessions.flat();
-      sessionsRef.current = sessions;
-
-      const status = await opencodeClient.getSessionStatus();
-      sessionStatusRef.current = status;
-
-      recompute();
-      setError(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLoading(false);
-    }
+  // Without a login token the BFF would answer 401 — skip the request and go
+  // through the same async tail (null) so the effect's sync phase never sets
+  // state; pulse.tsx re-invokes refresh() once the token is loaded.
+  const refresh = useCallback(() => {
+    const authed = Boolean(tokenHeader().Authorization);
+    return (authed ? opencodeClient.getProject() : Promise.resolve(null))
+      .then((projects) => {
+        if (projects === null) return null;
+        const sources: ProjectSource[] = projects
+          .filter((p) => p.id !== "global")
+          .map((p) => ({
+            id: p.id,
+            worktree: p.worktree,
+            updated: (p as { time?: { updated?: number } }).time?.updated ?? 0,
+          }));
+        projectsRef.current = sources;
+        return Promise.all(
+          sources.map((p) =>
+            opencodeClient.listSessions(p.worktree).catch(() => []),
+          ),
+        );
+      })
+      .then((allSessions) => {
+        if (allSessions === null) return null;
+        sessionsRef.current = allSessions.flat();
+        return opencodeClient.getSessionStatus();
+      })
+      .then((status) => {
+        if (status === null) return;
+        sessionStatusRef.current = status;
+        recompute();
+        setError(null);
+      })
+      .catch((e: unknown) => {
+        setError(e instanceof Error ? e.message : String(e));
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, [recompute]);
 
   function handleEvent(event: OpenCodeEvent) {

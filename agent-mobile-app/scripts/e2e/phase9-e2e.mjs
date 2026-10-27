@@ -21,8 +21,23 @@
  * 复用现有认证流：从 BFF .env.local 读凭据登录，token 注入 localStorage。
  * 浏览器：复用 playwright-skill 依赖（chromium headless shell）。
  */
-import pw from '/root/.claude/skills/playwright-skill/node_modules/playwright-core/index.js';
-const { chromium } = pw;
+import { createRequire } from 'node:module';
+const nodeRequire = createRequire(import.meta.url);
+
+// playwright-core 按序解析：本仓 devDependency → 服务器 playwright-skill 路径（静态绝对路径在
+// macOS 本机不存在，且会让 eslint import/no-unresolved 报错，故改为运行时探测）。
+function loadPlaywright() {
+  const candidates = [
+    'playwright-core',
+    '/root/.claude/skills/playwright-skill/node_modules/playwright-core/index.js',
+  ];
+  for (const c of candidates) {
+    try { return nodeRequire(c); } catch { /* next */ }
+  }
+  throw new Error('playwright-core 未找到：先 pnpm add -D playwright-core');
+}
+
+const { chromium } = loadPlaywright();
 
 const E2E_URL = process.env.E2E_URL || 'http://127.0.0.1:9928/';
 const BFF_URL = process.env.E2E_BFF_URL || process.env.EXPO_PUBLIC_OPENCODE_URL || 'http://106.13.181.13:19234';

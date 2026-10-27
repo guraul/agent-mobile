@@ -46,8 +46,9 @@ export default function TalkScreen() {
   const [failureKind, setFailureKind] = useState<ReturnType<typeof classifyRuntimeFailure> | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // 首次进入 booting 初始值即 true；Retry 重试时由 retry 负责点亮 booting，
+  // 这样 boot 本体在 effect 同步段不碰 setter。
   const boot = useCallback(async () => {
-    setBooting(true);
     try {
       await loadToken();
       // Contextual 入口（Pulse/Attention 带 params）→ 直接落到目标会话，
@@ -107,7 +108,18 @@ export default function TalkScreen() {
     }
   }, [params.sessionId, params.projectPath, params.autoContextText, params.attId, params.attTitle, params.attSummary, params.attSubjectId, params.attState, params.autoSendContext]);
 
-  useEffect(() => { boot(); }, [boot]);
+  // Retry（offline 态）需要重新点亮 booting；首次进入由初始值 true 覆盖。
+  const retry = useCallback(() => {
+    setBooting(true);
+    void boot();
+  }, [boot]);
+
+  useEffect(() => {
+    // boot 的 setState 全部在 await loadToken() 之后（路由校验/建会话都属于异步段），
+    // 规则跨不过 await 边界，属误报。
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 异步 boot：setState 均在 await 之后
+    boot();
+  }, [boot]);
 
   // Talk is a stack route (no longer a tab): closing must never strand the user.
   const close = useCallback(() => {
@@ -174,7 +186,7 @@ export default function TalkScreen() {
               </View>
               <Text variant="lightCaption" color="lightGray">{failMsg.body}</Text>
               <Pressable
-                onPress={boot}
+                onPress={retry}
                 accessibilityRole="button"
                 accessibilityLabel="Retry"
                 testID="talk-retry"

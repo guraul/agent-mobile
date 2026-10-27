@@ -30,19 +30,24 @@ export function MemorySheet({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const reload = useCallback(async () => {
-    setLoading(true);
-    try {
-      await loadToken();
-      const projection = await fetchMemories();
-      setGroups(buildMemoryGroups(projection));
-      setSource(projection.source);
-      setError(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLoading(false);
-    }
+  // 打开面板时重拉；状态落地都放在 promise 回调里（effect 同步段不碰 setter）。
+  const reload = useCallback(() => {
+    return loadToken()
+      .then(() => {
+        setLoading(true);
+        return fetchMemories();
+      })
+      .then((projection) => {
+        setGroups(buildMemoryGroups(projection));
+        setSource(projection.source);
+        setError(null);
+      })
+      .catch((e: unknown) => {
+        setError(e instanceof Error ? e.message : String(e));
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, []);
 
   useEffect(() => {

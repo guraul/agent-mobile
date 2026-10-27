@@ -47,19 +47,24 @@ export function ActivitySheet({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const reload = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    setActivity(null); // 读不到时不留上一次的旧数字（陈旧摘要比空态更误导）
-    try {
-      await loadToken();
-      const fetched = await fetchAgentActivity(days, days === 1 ? ACTIVITY_PAGE_LIMIT : undefined);
-      setActivity(days === 1 ? filterActivityToToday(fetched, Date.now()) : fetched);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLoading(false);
-    }
+  // 打开面板时重拉；重置与落地都放在 promise 回调里（effect 同步段不碰 setter）。
+  const reload = useCallback(() => {
+    return loadToken()
+      .then(() => {
+        setLoading(true);
+        setError(null);
+        setActivity(null); // 读不到时不留上一次的旧数字（陈旧摘要比空态更误导）
+        return fetchAgentActivity(days, days === 1 ? ACTIVITY_PAGE_LIMIT : undefined);
+      })
+      .then((fetched) => {
+        setActivity(days === 1 ? filterActivityToToday(fetched, Date.now()) : fetched);
+      })
+      .catch((e: unknown) => {
+        setError(e instanceof Error ? e.message : String(e));
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, [days]);
 
   useEffect(() => {

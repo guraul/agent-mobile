@@ -37,21 +37,21 @@ export function useSuggestions(): UseSuggestionsResult {
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(true);
 
-  const refresh = useCallback(async () => {
-    if (!tokenHeader().Authorization) {
-      setLoading(false);
-      return;
-    }
-    try {
-      const snapshot = await fetchProposals("proposed");
-      if (!mountedRef.current) return;
-      setItems(reconcileSuggestionsFromSnapshot(snapshot));
-      setError(null);
-    } catch (e) {
-      if (mountedRef.current) setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      if (mountedRef.current) setLoading(false);
-    }
+  // 无凭据时不发请求，直接走同一条异步收尾（null 快照）——effect 同步段不碰 setter。
+  const refresh = useCallback(() => {
+    const authed = Boolean(tokenHeader().Authorization);
+    return (authed ? fetchProposals("proposed") : Promise.resolve(null))
+      .then((snapshot) => {
+        if (!mountedRef.current || snapshot === null) return;
+        setItems(reconcileSuggestionsFromSnapshot(snapshot));
+        setError(null);
+      })
+      .catch((e: unknown) => {
+        if (mountedRef.current) setError(e instanceof Error ? e.message : String(e));
+      })
+      .finally(() => {
+        if (mountedRef.current) setLoading(false);
+      });
   }, []);
 
   useEffect(() => {

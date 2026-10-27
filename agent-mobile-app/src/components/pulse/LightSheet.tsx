@@ -8,7 +8,7 @@
  * visible gate render —— RN Web 不桥接 translateY interpolation，见旧文件注释）。
  * 所有颜色/圆角/阴影取自 theme/light.ts。
  */
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Pressable,
@@ -27,8 +27,10 @@ export interface LightSheetProps {
 
 export function LightSheet({ visible, onClose, children, testID }: LightSheetProps) {
   const { height } = useWindowDimensions();
-  const slideAnim = useRef(new Animated.Value(1)).current;
-  const scrimAnim = useRef(new Animated.Value(0)).current;
+  // Animated.Value 只创建一次；用 useState 惰性初始化（渲染期读 ref.current 会被
+  // React Compiler 判为「渲染期访问 ref」）。
+  const [slideAnim] = useState(() => new Animated.Value(1));
+  const [scrimAnim] = useState(() => new Animated.Value(0));
   const [reduceMotion, setReduceMotion] = useState(false);
 
   useEffect(() => {
