@@ -18,7 +18,9 @@ function activity(overrides: Partial<AgentActivity> = {}): AgentActivity {
 
 describe("buildActivitySummary", () => {
   it("renders the one-line summary from counts", () => {
-    expect(buildActivitySummary(activity())).toBe("近 7 天：执行 12 次 · 提醒 3 次 · 失败 1 次");
+    expect(buildActivitySummary(activity())).toBe(
+      "Last 7 days · 12 ran · 3 raised a flag · 1 didn't run",
+    );
   });
 
   it("omits the failed segment when nothing failed", () => {
@@ -26,22 +28,22 @@ describe("buildActivitySummary", () => {
       windowDays: 3,
       counts: { executions: 2, matched: 0, failed: 0, attentionCreated: 0, attentionHandled: 0 },
     });
-    expect(buildActivitySummary(a)).toBe("近 3 天：执行 2 次 · 提醒 0 次");
+    expect(buildActivitySummary(a)).toBe("Last 3 days · 2 ran · 0 raised a flag");
   });
 });
 
 describe("buildActivityEmptyText", () => {
   it("is one sentence, no illustration copy", () => {
-    expect(buildActivityEmptyText()).toBe("这 7 天她没有需要动手的事");
-    expect(buildActivityEmptyText(30)).toBe("这 30 天她没有需要动手的事");
+    expect(buildActivityEmptyText()).toBe("Nothing needed doing in the last 7 days");
+    expect(buildActivityEmptyText(30)).toBe("Nothing needed doing in the last 30 days");
   });
 });
 
 describe("activityOutcomeLabel", () => {
   it("maps every outcome to a chip label", () => {
-    expect(activityOutcomeLabel("matched")).toBe("已命中");
-    expect(activityOutcomeLabel("evaluated")).toBe("已检视");
-    expect(activityOutcomeLabel("failed")).toBe("失败");
+    expect(activityOutcomeLabel("matched")).toBe("Raised a flag");
+    expect(activityOutcomeLabel("evaluated")).toBe("Ran");
+    expect(activityOutcomeLabel("failed")).toBe("Didn't run");
   });
 });
 
@@ -49,9 +51,9 @@ describe("formatActivityTime", () => {
   const now = Date.parse("2026-10-27T12:00:00+08:00");
 
   it("uses relative wording inside a day", () => {
-    expect(formatActivityTime(now - 30_000, now)).toBe("刚刚");
-    expect(formatActivityTime(now - 5 * 60_000, now)).toBe("5 分钟前");
-    expect(formatActivityTime(now - 3 * 3600_000, now)).toBe("3 小时前");
+    expect(formatActivityTime(now - 30_000, now)).toBe("Just now");
+    expect(formatActivityTime(now - 5 * 60_000, now)).toBe("5m ago");
+    expect(formatActivityTime(now - 3 * 3600_000, now)).toBe("3h ago");
   });
 
   it("falls back to date + time beyond a day", () => {

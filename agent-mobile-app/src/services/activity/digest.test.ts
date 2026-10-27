@@ -34,19 +34,19 @@ function activity(executions: AgentActivityExecution[]): AgentActivity {
 describe("buildTodayDigestText", () => {
   it("prefers failed over matched and evaluated", () => {
     expect(buildTodayDigestText({ total: 5, matched: 2, failed: 1 })).toBe(
-      "今天替你看了 5 件事，有 1 件没跑成",
+      "I checked 5 things for you today — 1 didn't run",
     );
   });
 
   it("reports matched when nothing failed", () => {
     expect(buildTodayDigestText({ total: 4, matched: 2, failed: 0 })).toBe(
-      "今天替你看了 4 件事，其中 2 件触发了提醒",
+      "I checked 4 things for you today — 2 raised a flag",
     );
   });
 
-  it("says all normal when everything was only evaluated", () => {
+  it("says all clear when everything was only evaluated", () => {
     expect(buildTodayDigestText({ total: 3, matched: 0, failed: 0 })).toBe(
-      "今天替你看了 3 件事，都正常",
+      "I checked 3 things for you today — all clear",
     );
   });
 });
@@ -87,7 +87,7 @@ describe("today boundary", () => {
     const yesterday = new Date(2026, 9, 26, 23, 59, 59, 999).getTime();
     expect(
       buildTodayDigest(activity([execution(yesterday, "failed"), execution(localNow - 1000, "evaluated")]), localNow),
-    ).toBe("今天替你看了 1 件事，都正常");
+    ).toBe("I checked 1 thing for you today — all clear");
   });
 });
 
