@@ -21,24 +21,29 @@ export default function AssignmentsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  const reload = useCallback(async () => {
-    setLoading(true);
-    try {
-      await loadToken();
-      const [assignments, attentions] = await Promise.all([
-        fetchAssignments(),
-        fetchAttentions(),
-      ]);
-      setGroups(buildAssignmentGroups(assignments, attentions as AttentionItem[]));
-      setError(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLoading(false);
-    }
+  // 取数后用 promise 回调落地 state（effect 同步段不碰 setter）；loading 初始值即 true，
+  // 首次加载无需再置 true，手动刷新/变更后重拉走 reload。
+  const load = useCallback(() => {
+    return loadToken()
+      .then(() => Promise.all([fetchAssignments(), fetchAttentions()]))
+      .then(([assignments, attentions]) => {
+        setGroups(buildAssignmentGroups(assignments, attentions as AttentionItem[]));
+        setError(null);
+      })
+      .catch((e: unknown) => {
+        setError(e instanceof Error ? e.message : String(e));
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, []);
 
-  useEffect(() => { reload(); }, [reload]);
+  const reload = useCallback(() => {
+    setLoading(true);
+    return load();
+  }, [load]);
+
+  useEffect(() => { load(); }, [load]);
 
   const doRevoke = async (a: AssignmentRecord) => {
     setBusyId(a.id);

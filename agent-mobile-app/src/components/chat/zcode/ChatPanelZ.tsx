@@ -264,7 +264,7 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
 
   const loadMessages = useCallback(async () => {
     try {
-      setLoading(true);
+      // loading 初始值即 true（进入面板即为加载态），这里不再同步置 true
       // fetch only the most recent messages; pull-to-refresh reloads for new ones
       const list = await opencodeClient.listMessages(sessionID, { limit: PAGE_SIZE });
       setMessages(list);
@@ -421,6 +421,9 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
   }, [busy]);
 
   useEffect(() => {
+    // loadMessages 的 setState 全部发生在 await 之后（补 pending question/permission、
+    // 首屏滚到底都在异步段），规则静态分析跨不过 await 边界，属误报。
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 异步加载：setState 均在 await 之后
     loadMessages();
     const unsub = subscribeToOpenCodeEvents((event) => {
       // #58 busy 真实信号：任何本 session 的事件流入都算 agent 在跑（先于下面的
@@ -891,6 +894,10 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
     if (busy || queueBlocked || queue.length === 0) return;
     const { next } = dequeueFirst(queue);
     if (!next) return;
+    // 队列 flush 是「busy 翻转 false → 取队首发出」的状态机：出队必须与发送在同一处
+    // 原子发生（否则重入会重复发送）。搬到事件回调要把 queue/doSend 全量镜像进 ref，
+    // 风险高于收益，故保留 effect 内的同步出队。
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 队列状态机：出队与发送必须原子
     setQueue((prev) => prev.slice(1));
     let cancelled = false;
     void doSend(next.text).then((ok) => {

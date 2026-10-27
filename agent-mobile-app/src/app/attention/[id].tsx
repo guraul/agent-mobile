@@ -35,21 +35,29 @@ export default function AttentionDetailScreen() {
   const [renewed, setRenewed] = useState(false);
   const [busy, setBusy] = useState<"retry" | "dismiss" | "renew" | null>(null);
 
-  const reload = useCallback(async () => {
-    if (!id) return;
-    setLoading(true);
-    try {
-      await loadToken();
-      setDetail(await fetchAttentionDetail(id));
-      setError(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLoading(false);
-    }
+  // 取数后用 promise 回调落地 state（effect 同步段不碰 setter）；loading 初始值即 true。
+  const load = useCallback(() => {
+    if (!id) return Promise.resolve();
+    return loadToken()
+      .then(() => fetchAttentionDetail(id))
+      .then((d) => {
+        setDetail(d);
+        setError(null);
+      })
+      .catch((e: unknown) => {
+        setError(e instanceof Error ? e.message : String(e));
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, [id]);
 
-  useEffect(() => { reload(); }, [reload]);
+  const reload = useCallback(() => {
+    setLoading(true);
+    return load();
+  }, [load]);
+
+  useEffect(() => { load(); }, [load]);
 
   const att = detail?.attention;
   const isRepair = att?.provenance?.repairRequest === true;

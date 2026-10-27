@@ -27,7 +27,9 @@ export interface UseL1Result {
  */
 export function useL1(): UseL1Result {
   const [statements, setStatements] = useState<L1Statement[]>([]);
-  const [connected, setConnected] = useState(false);
+  // 订阅在挂载 effect 里同步建立，因此初始即视为已连接（错误回调再置 false），
+  // 避免 effect 同步段 setConnected(true) 造成级联渲染。
+  const [connected, setConnected] = useState(true);
   const [loading, setLoading] = useState(true);
   const mountedRef = useRef(true);
 
@@ -37,18 +39,18 @@ export function useL1(): UseL1Result {
     setLoading(false);
   }, []);
 
-  const refresh = useCallback(async () => {
-    if (!tokenHeader().Authorization) {
-      setLoading(false);
-      return;
-    }
-    try {
-      const items = await fetchL1();
-      if (mountedRef.current) setStatements(items);
-    } catch { /* stream 会覆盖 */ }
-    finally {
-      if (mountedRef.current) setLoading(false);
-    }
+  // 无凭据时不发请求，直接走同一条异步收尾（null 快照）——effect 同步段不碰 setter。
+  const refresh = useCallback(() => {
+    const authed = Boolean(tokenHeader().Authorization);
+    return (authed ? fetchL1() : Promise.resolve(null))
+      .then((items) => {
+        if (!mountedRef.current || items === null) return;
+        setStatements(items);
+      })
+      .catch(() => { /* stream 会覆盖 */ })
+      .finally(() => {
+        if (mountedRef.current) setLoading(false);
+      });
   }, []);
 
   useEffect(() => {
@@ -60,7 +62,6 @@ export function useL1(): UseL1Result {
         if (mountedRef.current) setConnected(false);
       },
     );
-    setConnected(true);
     return () => {
       mountedRef.current = false;
       unsub();

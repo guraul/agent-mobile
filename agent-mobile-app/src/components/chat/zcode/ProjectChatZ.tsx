@@ -62,27 +62,31 @@ export function ProjectChatZ({ projectPath, onBack, kind, attention, initialSess
     }
   }, [projectPath]);
 
-  const resolve = useCallback(async () => {
-    try {
-      setError(null);
-      const list = await opencodeClient.listSessions(projectPath);
-      const sorted = [...list].sort(byRecent);
-      // Attention Resume：优先恢复 Attention 引用的那个 session（同一会话、同一上下文）。
-      // Create 流程刚建的 session 可能还没出现在 listSessions（竞态）→ 构造占位对象，
-      // 不回退到"最近会话"（那会把上下文发进无关会话）；
-      // 仅当完全无 initialSessionId 时才用最近会话。Reconstruct 属 PM §4.2，Phase 4 不自动做。
-      const preferred = initialSessionId
-        ? sorted.find((x) => x.id === initialSessionId)
-          ?? { id: initialSessionId, title: attention?.title, directory: projectPath, time: { created: Date.now(), updated: Date.now() } }
-        : null;
-      const mostRecent = preferred ?? (sorted.length ? sorted[0] : null);
-      setSession(mostRecent);
-      setSessions(sorted);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setReady(true);
-    }
+  // 解析结果用 promise 回调落地（effect 同步段不碰 setter）。
+  const resolve = useCallback(() => {
+    return opencodeClient
+      .listSessions(projectPath)
+      .then((list) => {
+        const sorted = [...list].sort(byRecent);
+        // Attention Resume：优先恢复 Attention 引用的那个 session（同一会话、同一上下文）。
+        // Create 流程刚建的 session 可能还没出现在 listSessions（竞态）→ 构造占位对象，
+        // 不回退到"最近会话"（那会把上下文发进无关会话）；
+        // 仅当完全无 initialSessionId 时才用最近会话。Reconstruct 属 PM §4.2，Phase 4 不自动做。
+        const preferred = initialSessionId
+          ? sorted.find((x) => x.id === initialSessionId)
+            ?? { id: initialSessionId, title: attention?.title, directory: projectPath, time: { created: Date.now(), updated: Date.now() } }
+          : null;
+        const mostRecent = preferred ?? (sorted.length ? sorted[0] : null);
+        setSession(mostRecent);
+        setSessions(sorted);
+        setError(null);
+      })
+      .catch((e: unknown) => {
+        setError(e instanceof Error ? e.message : String(e));
+      })
+      .finally(() => {
+        setReady(true);
+      });
   }, [projectPath, initialSessionId]);
 
   useEffect(() => {

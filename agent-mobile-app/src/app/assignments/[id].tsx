@@ -29,26 +29,30 @@ export default function AssignmentDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<"revoke" | "repair" | "run-now" | "skip" | null>(null);
 
-  const reload = useCallback(async () => {
-    if (!id) return;
-    setLoading(true);
-    try {
-      await loadToken();
-      const [d, h] = await Promise.all([
-        fetchAssignmentDetail(id),
-        fetchAssignmentHistory(id),
-      ]);
-      setDetail(d);
-      setHistory(h);
-      setError(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLoading(false);
-    }
+  // 取数后用 promise 回调落地 state（effect 同步段不碰 setter）；loading 初始值即 true。
+  const load = useCallback(() => {
+    if (!id) return Promise.resolve();
+    return loadToken()
+      .then(() => Promise.all([fetchAssignmentDetail(id), fetchAssignmentHistory(id)]))
+      .then(([d, h]) => {
+        setDetail(d);
+        setHistory(h);
+        setError(null);
+      })
+      .catch((e: unknown) => {
+        setError(e instanceof Error ? e.message : String(e));
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, [id]);
 
-  useEffect(() => { reload(); }, [reload]);
+  const reload = useCallback(() => {
+    setLoading(true);
+    return load();
+  }, [load]);
+
+  useEffect(() => { load(); }, [load]);
 
   if (!id) return null;
   const a = detail?.item;

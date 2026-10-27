@@ -121,6 +121,9 @@ export function SettingsSheet({
   }, []);
 
   useEffect(() => {
+    // reload 没有任何同步 setState（每一步都在 await 之后），规则的静态分析跨不过
+    // await 边界，属误报。
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 全异步加载：setState 均在 await 之后
     if (visible) reload();
   }, [visible, reload]);
 
