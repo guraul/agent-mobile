@@ -27,12 +27,15 @@ function loadPlaywright() {
 const { chromium } = loadPlaywright();
 
 const E2E_URL = process.env.E2E_URL || 'http://127.0.0.1:9928/'; // Pulse 首页 = /（708dc7b 起路由不再是 /pulse）
+// 拼接子路径一律用 E2E_BASE（去掉结尾斜杠），否则 E2E_URL 自带 "/" 时会拼出 "//talk" ——
+// 应用侧 new URL 直接抛 Invalid URL，表现为抽屉/登录两组断言假失败。
+const E2E_BASE = E2E_URL.replace(/\/+$/, '');
 const NO_SEND = !!process.env.E2E_NO_SEND;
 const BFF_URL = process.env.EXPO_PUBLIC_OPENCODE_URL || 'http://106.13.181.13:19234';
 
 // 登录前置：attention/项目 API 需要 JWT（Phase 1 起）。凭据从 BFF 本地 .env.local
 // 读取（dev 默认管理员）或 E2E_USER/E2E_PASS 覆盖——脚本不携带任何凭据。
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 
 function loadDevCreds() {
   if (process.env.E2E_USER && process.env.E2E_PASS) {
@@ -85,14 +88,36 @@ async function obtainToken() {
   }
 }
 
+// 兜底候选（headless shell 未命中时）
 const EXECUTABLE_CANDIDATES = [
-  '/root/.cache/ms-playwright/chromium_headless_shell-1228/chrome-headless-shell-linux64/chrome-headless-shell',
   '/snap/bin/chromium',
   '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', // darwin
 ];
 
+// playwright 缓存目录里的版本号随安装版本变化，故按 chromium_headless_shell-* 扫最新版，
+// 不写死版本号（曾写死 1228，换成 1243 后直接找不到浏览器）。
+const PW_CACHE = process.env.PLAYWRIGHT_BROWSERS_PATH || '/root/.cache/ms-playwright';
+
+function findHeadlessShell() {
+  let dirs;
+  try {
+    dirs = readdirSync(PW_CACHE);
+  } catch {
+    return null; // 非服务器环境（无该缓存目录）→ 走兜底候选
+  }
+  const versioned = dirs
+    .filter((d) => d.startsWith('chromium_headless_shell-'))
+    .map((d) => ({ dir: d, version: Number.parseInt(d.slice('chromium_headless_shell-'.length), 10) || 0 }))
+    .sort((a, b) => b.version - a.version);
+  for (const { dir } of versioned) {
+    const candidate = `${PW_CACHE}/${dir}/chrome-headless-shell-linux64/chrome-headless-shell`;
+    if (existsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
 function resolveExecutable() {
-  return EXECUTABLE_CANDIDATES.find((p) => existsSync(p));
+  return findHeadlessShell() || EXECUTABLE_CANDIDATES.find((p) => existsSync(p));
 }
 
 async function main() {
@@ -131,7 +156,7 @@ async function main() {
   };
 
   // Step 0: 加载页面
-  await page.goto(E2E_URL, { waitUntil: 'load', timeout: 120000 });
+  await page.goto(`${E2E_BASE}/`, { waitUntil: 'load', timeout: 120000 });
   await page.waitForTimeout(15000);
   check('页面加载 (JS bundle + render)', (await page.locator('body').innerText().catch(() => '')).length > 0);
 
@@ -220,7 +245,7 @@ async function main() {
     };
     if (!(await waitComposer())) {
       console.log('[e2e] composer 45s 未就绪，刷新 /talk 重试');
-      await page.goto(E2E_URL + '/talk', { waitUntil: 'load', timeout: 120000 });
+      await page.goto(`${E2E_BASE}/talk`, { waitUntil: 'load', timeout: 120000 });
       await waitComposer();
     }
     hasTextarea = (await page.locator('textarea').count()) > 0;
@@ -338,7 +363,7 @@ async function main() {
     const el = btns[btns.length - 1];
     return el ? el.getBoundingClientRect().x : -1;
   });
-  const chatPage = await page.goto(`${E2E_URL}/talk?projectPath=${encodeURIComponent('/root/project/homebase')}`, { waitUntil: 'load', timeout: 120000 }).then(() => true).catch(() => false);
+  const chatPage = await page.goto(`${E2E_BASE}/talk?projectPath=${encodeURIComponent('/root/project/homebase')}`, { waitUntil: 'load', timeout: 120000 }).then(() => true).catch(() => false);
   let drawerOpened = false;
   let drawerClosed = false;
   let drawerEdge = false;
@@ -385,7 +410,7 @@ async function main() {
     const page2 = await browser.newPage({ viewport: { width: 430, height: 900 }, hasTouch: true });
     const p2errors = [];
     page2.on("pageerror", (e) => p2errors.push(e.message));
-    await page2.goto(E2E_URL + "/", { waitUntil: "load", timeout: 120000 });
+    await page2.goto(`${E2E_BASE}/`, { waitUntil: "load", timeout: 120000 });
     let landed = false;
     try {
       await page2.waitForURL("**/login", { timeout: 20000 });
