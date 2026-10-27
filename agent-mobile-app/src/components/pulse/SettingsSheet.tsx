@@ -173,8 +173,8 @@ export function SettingsSheet({
             />
             {/* 只读审计：她替你做过什么（PM §14 可见化第一步；无授权/撤销入口） */}
             <SettingsRow
-              label="她最近做了什么"
-              detail="近 7 天的执行与提醒 · 只读"
+              label="What I've been doing"
+              detail="Last 7 days · read-only"
               testID="settings-activity"
               onPress={() => {
                 onClose();

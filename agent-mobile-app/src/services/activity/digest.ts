@@ -53,15 +53,12 @@ export function summarizeToday(
   return { total, matched, failed };
 }
 
-/** 文案：失败优先于命中；只有全部 evaluated 才说「都正常」。 */
+/** 文案：失败优先于命中；只有全部 evaluated 才说 all clear。无感叹号 / emoji。 */
 export function buildTodayDigestText(counts: TodayDigestCounts): string {
-  if (counts.failed > 0) {
-    return `今天替你看了 ${counts.total} 件事，有 ${counts.failed} 件没跑成`;
-  }
-  if (counts.matched > 0) {
-    return `今天替你看了 ${counts.total} 件事，其中 ${counts.matched} 件触发了提醒`;
-  }
-  return `今天替你看了 ${counts.total} 件事，都正常`;
+  const head = `I checked ${counts.total} ${counts.total === 1 ? "thing" : "things"} for you today`;
+  if (counts.failed > 0) return `${head} — ${counts.failed} didn't run`;
+  if (counts.matched > 0) return `${head} — ${counts.matched} raised a flag`;
+  return `${head} — all clear`;
 }
 
 /** 端到端入口：本地日界过滤 + 截断检查 + 文案；null = 不渲染。 */

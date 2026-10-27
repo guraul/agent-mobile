@@ -3,6 +3,8 @@ import { ScrollView, View } from "react-native";
 import { BottomSheet } from "../navigation/BottomSheet";
 import { Text } from "../primitives/Text";
 import { Button } from "../primitives/Button";
+import { StatusPill } from "../feedback/StatusPill";
+import type { StatusType } from "../feedback/StatusDot";
 import { loadToken } from "../../services/auth";
 import {
   fetchAgentActivity,
@@ -15,34 +17,20 @@ import {
   type AgentActivityOutcome,
 } from "../../services/activity/client";
 import { ACTIVITY_PAGE_LIMIT, filterActivityToToday } from "../../services/activity/digest";
-import { colors, radius, spacing } from "../../theme";
+import { colors, spacing } from "../../theme";
 
 /**
- * ActivitySheet — 「她最近做了什么」只读审计清单（PM §14 自主性可见化第一步）。
- * 只回答"她替你做了什么"，不做权限调整：没有任何授权 / 撤销 / 重跑按钮。
- * 空窗口不是错误（没有需要动手的事是合法事实），读不到才是错误（+ 重试）。
+ * ActivitySheet — "Lately": a read-only record of what I did under your
+ * authority (PM §14 autonomy made visible, step one). It only answers "what
+ * did I do"; no grant / revoke / re-run control. An empty window is not an
+ * error (nothing needed doing is a legitimate fact); failing to load is
+ * (+ Try again). Layout mirrors MemorySheet: header + ScrollView + token rows.
  */
 
-const OUTCOME_TONE: Record<AgentActivityOutcome, {
-  bg: string;
-  border: string;
-  text: "success" | "muted" | "error";
-}> = {
-  matched: {
-    bg: colors.status.fill.success,
-    border: colors.status.border.success,
-    text: "success",
-  },
-  evaluated: {
-    bg: colors.status.fill.idle,
-    border: colors.status.border.idle,
-    text: "muted",
-  },
-  failed: {
-    bg: colors.status.fill.error,
-    border: colors.status.border.error,
-    text: "error",
-  },
+const OUTCOME_STATUS: Record<AgentActivityOutcome, StatusType> = {
+  matched: "warning",
+  evaluated: "idle",
+  failed: "error",
 };
 
 export function ActivitySheet({
@@ -80,32 +68,33 @@ export function ActivitySheet({
 
   const windowDays = activity?.windowDays ?? days;
   const empty = !loading && !error && (activity?.executions.length ?? 0) === 0;
-  const emptyText = days === 1 ? "今天她没有需要动手的事" : buildActivityEmptyText(windowDays);
+  const emptyText =
+    days === 1 ? "Nothing needed doing today" : buildActivityEmptyText(windowDays);
 
   return (
     <BottomSheet visible={visible} onClose={onClose} testID="activity-sheet">
       <View style={{ gap: spacing.xxs, marginBottom: spacing.sm }}>
-        <Text variant="title" color="ink">她最近做了什么</Text>
+        <Text variant="title" color="ink">Lately</Text>
         <Text variant="caption" color="muted">
-          只读记录：她按你的授权做过什么。查看不会改变任何状态。
+          Read-only record of what I did under your authority. Looking changes nothing.
         </Text>
       </View>
-
       {activity ? (
-        <Text variant="captionStrong" color="body" testID="activity-summary">
-          {buildActivitySummary(activity, days === 1 ? "今天" : undefined)}
-        </Text>
+        <View style={{ marginBottom: spacing.sm }}>
+          <Text variant="captionStrong" color="body" testID="activity-summary">
+            {buildActivitySummary(activity, days === 1 ? "Today" : undefined)}
+          </Text>
+        </View>
       ) : null}
-
-      <ScrollView style={{ maxHeight: 380 }} contentContainerStyle={{ gap: spacing.xs }}>
+      <ScrollView style={{ maxHeight: 420 }} contentContainerStyle={{ gap: spacing.sm }}>
         {loading ? (
-          <Text variant="caption" color="muted" testID="activity-loading">加载中…</Text>
+          <Text variant="caption" color="muted" testID="activity-loading">Loading…</Text>
         ) : null}
 
         {!loading && error ? (
-          <View style={{ gap: spacing.xs, paddingVertical: spacing.xs }} testID="activity-error">
-            <Text variant="caption" color="error">暂时读不到记录</Text>
-            <Button variant="secondary" label="重试" onPress={reload} testID="activity-retry" />
+          <View style={{ gap: spacing.xs }} testID="activity-error">
+            <Text variant="caption" color="error">{"Couldn't load this right now"}</Text>
+            <Button variant="secondary" label="Try again" onPress={reload} testID="activity-retry" />
           </View>
         ) : null}
 
@@ -115,42 +104,30 @@ export function ActivitySheet({
           </Text>
         ) : null}
 
-        {(activity?.executions ?? []).map((item) => {
-          const tone = OUTCOME_TONE[item.outcome] ?? OUTCOME_TONE.evaluated;
-          return (
-            <View
-              key={item.id}
-              testID={`activity-item-${item.id}`}
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                gap: spacing.xs,
-                paddingVertical: spacing.xs,
-                borderTopWidth: 1,
-                borderTopColor: colors.border.subtle,
-              }}
-            >
-              <View style={{ flex: 1, gap: spacing.xxs }}>
-                <Text variant="body" color="ink" numberOfLines={2}>{item.title}</Text>
-                <Text variant="monoCaption" color="muted">{formatActivityTime(item.at)}</Text>
-              </View>
-              <View
-                style={{
-                  paddingHorizontal: spacing.xs,
-                  paddingVertical: spacing.xxs,
-                  borderRadius: radius.xs,
-                  backgroundColor: tone.bg,
-                  borderWidth: 1,
-                  borderColor: tone.border,
-                }}
-              >
-                <Text variant="monoCaption" color={tone.text}>
-                  {activityOutcomeLabel(item.outcome)}
-                </Text>
-              </View>
+        {(activity?.executions ?? []).map((item) => (
+          <View
+            key={item.id}
+            testID={`activity-item-${item.id}`}
+            style={{
+              flexDirection: "row",
+              alignItems: "flex-start",
+              gap: spacing.xs,
+              paddingVertical: spacing.xs,
+              borderTopWidth: 1,
+              borderTopColor: colors.border.subtle,
+            }}
+          >
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text variant="bodyStrong" color="ink" numberOfLines={2}>{item.title}</Text>
+              <Text variant="monoCaption" color="muted">{formatActivityTime(item.at)}</Text>
             </View>
-          );
-        })}
+            <StatusPill
+              status={OUTCOME_STATUS[item.outcome] ?? OUTCOME_STATUS.evaluated}
+              label={activityOutcomeLabel(item.outcome)}
+              testID={`activity-outcome-${item.id}`}
+            />
+          </View>
+        ))}
       </ScrollView>
     </BottomSheet>
   );

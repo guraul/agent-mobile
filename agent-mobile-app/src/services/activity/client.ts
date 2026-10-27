@@ -55,39 +55,39 @@ export async function fetchAgentActivity(
 // ── 展示纯函数（可测；不含颜色/字号，样式仍在组件里走 theme）──
 
 /**
- * 顶部摘要一行：`近 7 天：执行 12 次 · 提醒 3 次 · 失败 1 次`。
- * 「提醒」取 `matched`（评估命中 = 真的提醒到了你）；`attentionCreated` 是卡片口径，
+ * 顶部摘要一行：`Last 7 days · 12 ran · 3 raised a flag · 1 didn't run`。
+ * 「raised a flag」取 `matched`（评估命中 = 真的提醒到了你）；`attentionCreated` 是卡片口径，
  * 含未命中/凭据到期等非执行产生的条目，不在这一行混算。失败为 0 时不占位。
  */
 export function buildActivitySummary(activity: AgentActivity, label?: string): string {
   const { windowDays, counts } = activity;
-  const parts = [`执行 ${counts.executions} 次`, `提醒 ${counts.matched} 次`];
-  if (counts.failed > 0) parts.push(`失败 ${counts.failed} 次`);
-  return `${label ?? `近 ${windowDays} 天`}：${parts.join(" · ")}`;
+  const parts = [`${counts.executions} ran`, `${counts.matched} raised a flag`];
+  if (counts.failed > 0) parts.push(`${counts.failed} didn't run`);
+  return `${label ?? `Last ${windowDays} days`} · ${parts.join(" · ")}`;
 }
 
 /** 空态一句话（不插画）：窗口内她确实没动过手。 */
 export function buildActivityEmptyText(windowDays: number = DEFAULT_ACTIVITY_DAYS): string {
-  return `这 ${windowDays} 天她没有需要动手的事`;
+  return `Nothing needed doing in the last ${windowDays} days`;
 }
 
 const OUTCOME_LABELS: Record<AgentActivityOutcome, string> = {
-  matched: "已命中",
-  evaluated: "已检视",
-  failed: "失败",
+  matched: "Raised a flag",
+  evaluated: "Ran",
+  failed: "Didn't run",
 };
 
 export function activityOutcomeLabel(outcome: AgentActivityOutcome): string {
   return OUTCOME_LABELS[outcome] ?? OUTCOME_LABELS.evaluated;
 }
 
-/** 列表相对时间（过去向）：刚刚 / N 分钟前 / N 小时前 / MM-DD HH:mm。 */
+/** 列表相对时间（过去向）：Just now / Nm ago / Nh ago / MM-DD HH:mm。 */
 export function formatActivityTime(epoch: number, now: number = Date.now()): string {
   const diff = now - epoch;
   if (!Number.isFinite(diff)) return "";
-  if (diff < 60_000) return "刚刚";
-  if (diff < 3600_000) return `${Math.floor(diff / 60_000)} 分钟前`;
-  if (diff < 86_400_000) return `${Math.floor(diff / 3600_000)} 小时前`;
+  if (diff < 60_000) return "Just now";
+  if (diff < 3600_000) return `${Math.floor(diff / 60_000)}m ago`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3600_000)}h ago`;
   const d = new Date(epoch);
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
