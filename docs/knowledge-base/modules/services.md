@@ -174,4 +174,5 @@ auth.ts ──Bearer JWT──► 认证（homebase 用户）       opencode 凭
 | `services/attention/{store,client,context}.ts` | Attention store（needs-you 唯一来源）/ REST+SSE client / engage 上下文 | BFF attention_items |
 | `services/assignment/client.ts` | /assign /confirm /reject /revoke 命令解析 + proposals API | BFF assignments（matrix 把关） |
 | `services/memory/client.ts` | Memory 投影 + Forget + KB search（Memory sheet） | memx 文件 / llm-wiki vault |
+| `services/external/client.ts` | ICS 订阅源 GET/POST/DELETE（`/api/product/external/ics-sources`，url 由 BFF 打码）+ `checkIcsUrl` 前端基本校验 | BFF ics_sources（URL 即凭据，只在服务端） |
 | `services/project-status.ts` | running/idle 中性判定（Phase 3 起 needs-you 移除，见文件头注释） | 运行时计算 |

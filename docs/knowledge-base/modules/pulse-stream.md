@@ -61,7 +61,7 @@ root（cream #F7F5DC 画布，页面水平 padding 25）
 - **More projects (n)**（`supporting-more-projects`）：当天活跃之外的项目（idle）→ Projects sheet（ListSheet 复用，running+idle 全列，点行 → 项目 Talk）。
 - **Noticed**：section micro-label「NOTICED」+ 溢出时「See All」（`noticed-see-all` → ListSheet）；行组件 `PulseNoticed`（dot + fact 单行 + 时间，testID `noticed-<id>`），点击 → `DetailSheet`（只读详情；Discuss 是唯一出口 → `/talk`）。
 - **Conversation Entry**（`ConversationEntry`，底部固定 dock）：**不是 TextInput** —— 整个「+ Talk to Pulse…」胶囊与右侧渐变圆箭头都是 Pressable（"Enter Talk" not Send），→ `/talk`；Pulse 上唯一输入 affordance，真实输入只在 Talk。
-- **Sheets**（全部 contextual，挂在 index.tsx）：`SettingsSheet`、`MemorySheet`（What I remember + Forget）、`KnowledgeSheet`（KB 检索 → OPEN `/kb/doc` / ASK ABOUT THIS）、`BoundariesSheet`（Settings「How we work together」→ 三层自主边界；仅 Acts 层 Nightly retry 有开关）、`FundSheet`（MARKET 行 → 行情详情）、`DetailSheet`（Noticed 详情）、`ListSheet` ×3（Supporting 溢出 More / Projects / Noticed See All）、登录 `BottomSheet`。
+- **Sheets**（全部 contextual，挂在 index.tsx）：`SettingsSheet`、`MemorySheet`（What I remember + Forget）、`KnowledgeSheet`（KB 检索 → OPEN `/kb/doc` / ASK ABOUT THIS）、`BoundariesSheet`（Settings「How we work together」→ 三层自主边界；仅 Acts 层 Nightly retry 有开关）、`CalendarSheet`（Settings「External sources → Calendar」→ ICS 只读订阅：打码 URL + 删除确认 + 底部加源）、`FundSheet`（MARKET 行 → 行情详情）、`DetailSheet`（Noticed 详情）、`ListSheet` ×3（Supporting 溢出 More / Projects / Noticed See All）、登录 `BottomSheet`。
 - **空态**：在线且 featured/supporting/noticed 全空时一句安静提示「Nothing needs you right now.」（`pulse-empty`）。
 - **错误行**：suggestion 错误（`pulse-suggestion-error`）与 project 错误（`pulse-error`，非离线时）内联展示。
 - **动效**：Hero/Featured/Supporting/Noticed 各包一层 `AnimatedEntry`（index 0–3 stagger，fade+translateY，尊重 Reduce Motion）。
@@ -134,7 +134,8 @@ Pulse 根界面（唯一表面）：问候 + AI 在场状态 + **AI briefing 组
 | `agent-mobile-app/src/components/pulse/ConversationEntry.tsx` | 底部「+ Talk to Pulse…」胶囊 + 渐变圆钮，均 Pressable → /talk（**非 TextInput**） |
 | `agent-mobile-app/src/components/pulse/DetailSheet.tsx` | Noticed 只读详情（label/body/meta + Discuss；查看不改产品状态） |
 | `agent-mobile-app/src/components/pulse/ListSheet.tsx` | 共享溢出面（More / Projects / Noticed See All），presentation only |
-| `agent-mobile-app/src/components/pulse/SettingsSheet.tsx` | Settings：Responsibilities / Connection(+Advanced，BFF 地址探测与覆盖) / Preferences(按 agent model 偏好+嵌套 picker，过滤 deepseek、排除 openrouter/siliconflow-cn) / What I remember / Knowledge / Logout |
+| `agent-mobile-app/src/components/pulse/SettingsSheet.tsx` | Settings：Responsibilities / Connection(+Advanced，BFF 地址探测与覆盖) / External sources(Calendar 行：未连/首条 label·打码 URL/n 个) / Preferences(按 agent model 偏好+嵌套 picker，过滤 deepseek、排除 openrouter/siliconflow-cn) / What I remember / Knowledge / Logout |
+| `agent-mobile-app/src/components/pulse/CalendarSheet.tsx` | Calendar（ICS 只读订阅，issue #153 切片 3b）：源列表（打码 URL + `Trash2` 删除，`showAlert` 二次确认）、底部输入框加源（前端 https + `.ics` 基本校验）、错误只占一行（`calendar-error`，不弹窗）；增删后回调 Settings 行刷新摘要 |
 | `agent-mobile-app/src/components/pulse/MemorySheet.tsx` | What I remember（memx projection 只读 + Forget；capability 不是 destination） |
 | `agent-mobile-app/src/components/pulse/KnowledgeSheet.tsx` | KB 检索 → preview → OPEN(`/kb/doc`) / ASK ABOUT THIS(Talk 带上下文) |
 | `agent-mobile-app/src/components/pulse/BoundariesSheet.tsx` | How we work together（Settings 入口）：三层自主边界（Acts, then tells you / Asks first / Never）；层名用 `StatusPill`，逐条「标题 + 当前实际行为」。**唯一可调项** = Acts 层的 Nightly retry（`Switch`，进 sheet 读 `GET /api/scheduler/jobs`，切换乐观更新、失败回滚 + `showAlert`）；其余条目只读 |
@@ -165,7 +166,7 @@ View root（#0B0A12 + companion backgroundGradient + 顶部紫光 topGlow）
 │   ├── pulse-empty（在线且全部为空）
 │   ├── pulse-suggestion-error / pulse-error（条件内联错误行）
 │   └── entryDock：ConversationEntry（conversation-entry，固定底部 → /talk）
-└── Sheets（条件渲染）：SettingsSheet / MemorySheet / KnowledgeSheet / BoundariesSheet / FundSheet
+└── Sheets（条件渲染）：SettingsSheet / MemorySheet / KnowledgeSheet / BoundariesSheet / CalendarSheet / FundSheet
                        / DetailSheet（Noticed 详情） / ListSheet×3（More / Projects / Noticed）
                        / 登录 BottomSheet
 ```
