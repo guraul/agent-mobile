@@ -7,6 +7,7 @@ import { Button } from "../primitives/Button";
 import { Input } from "../primitives/Input";
 import { SearchInput } from "../primitives/SearchInput";
 import { StatusDot } from "../feedback/StatusDot";
+import { StatusPill } from "../feedback/StatusPill";
 import { Text } from "../primitives/Text";
 import { Icon } from "../primitives/Icon";
 import { opencodeConfig, getBaseUrl } from "../../config/opencode";
@@ -17,6 +18,19 @@ import { loadModelPrefs, setModelPref } from "../../services/model-prefs";
 import { DEFAULT_MODEL, selectModels } from "../../services/model-registry";
 import { filterModels, type ModelPref } from "../../services/filter-models";
 import { opencodeClient } from "../../services/opencode-client";
+import {
+  fetchAssignments,
+  fetchProposals,
+  fetchAssignmentHistory,
+  type AssignmentHistoryItem,
+  type AssignmentRecord,
+  type ProposalRow,
+} from "../../services/assignment/client";
+import {
+  buildResponsibilities,
+  lastRunOf,
+  type ResponsibilityRow,
+} from "../../services/assignment/responsibilities";
 import { colors, radius, spacing } from "../../theme";
 import { t, useLocale } from "../../i18n";
 
@@ -25,16 +39,59 @@ interface AgentRow {
   model: ModelPref;
 }
 
+// 一套行样式：Settings 里所有"一行一条信息"的地方（导航行 / 账号行 / 模型行 /
+// 职责行）共用，保证行距、分隔线、字阶与 MemorySheet 一致（paddingVertical xs +
+// 1px border.subtle）。
+const rowStyle = {
+  flexDirection: "row" as const,
+  alignItems: "center" as const,
+  gap: spacing.xs,
+  paddingVertical: spacing.xs,
+  borderTopWidth: 1,
+  borderTopColor: colors.border.subtle,
+};
+
+const rowBodyStyle = { flex: 1, gap: 2 };
+
+/**
+ * 上次执行的相对时间：走 t()（与 SessionsDrawer 同一套词），超过一天用
+ * MM-DD HH:mm（纯数字，中英一致）。不复用 projection.formatRelative 是因为
+ * 它硬编码英文（"today 14:50"），会让中文界面中英混排。
+ */
+function lastRunLabel(epoch: number): string {
+  const mins = Math.round((Date.now() - epoch) / 60_000);
+  if (mins < 1) return t("pulse.settings.lastRunJustNow");
+  if (mins < 60) return t("pulse.settings.lastRunMinutes", { n: mins });
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return t("pulse.settings.lastRunHours", { n: hours });
+  const d = new Date(epoch);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** 分组：label（12/600 字距 0.6，muted）+ 紧贴的行列表，节奏对齐 MemorySheet。 */
+function Section({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <View style={{ gap: spacing.xxs }}>
+      <Text variant="label" color="muted">{label.toUpperCase()}</Text>
+      {children}
+    </View>
+  );
+}
+
 function SettingsRow({
   label,
   detail,
   onPress,
   testID,
+  monoDetail = false,
 }: {
   label: string;
   detail?: string;
   onPress: () => void;
   testID?: string;
+  /** 模型名这类标识用 mono；普通说明用 caption */
+  monoDetail?: boolean;
 }) {
   return (
     <Pressable
@@ -42,19 +99,17 @@ function SettingsRow({
       accessibilityRole="button"
       accessibilityLabel={label}
       testID={testID}
-      style={({ pressed }) => ({
-        flexDirection: "row",
-        alignItems: "center",
-        gap: spacing.xs,
-        paddingVertical: spacing.sm,
-        borderTopWidth: 1,
-        borderTopColor: colors.border.subtle,
-        opacity: pressed ? 0.6 : 1,
-      })}
+      style={({ pressed }) => ({ ...rowStyle, opacity: pressed ? 0.6 : 1 })}
     >
-      <View style={{ flex: 1, gap: 2 }}>
-        <Text variant="body" color="ink">{label}</Text>
-        {detail ? <Text variant="caption" color="muted">{detail}</Text> : null}
+      <View style={rowBodyStyle}>
+        <Text variant="bodyStrong" color="ink">{label}</Text>
+        {detail ? (
+          monoDetail ? (
+            <Text variant="monoCaption" color="muted" numberOfLines={1}>{detail}</Text>
+          ) : (
+            <Text variant="caption" color="body">{detail}</Text>
+          )
+        ) : null}
       </View>
       <Icon icon={ChevronRight} size="sm" color="muted" />
     </Pressable>
@@ -63,8 +118,8 @@ function SettingsRow({
 
 /**
  * SettingsSheet — contextual settings (replaces the Me tab and the dead Bell).
- * Sections: Responsibilities / Connection (+Advanced) / Preferences /
- * What I remember / Knowledge / Logout. Not an application area.
+ * Sections: Responsibilities (live list + management) / Connection (+Advanced) /
+ * Preferences / What I remember / Knowledge. Not an application area.
  */
 export function SettingsSheet({
   visible,
@@ -94,10 +149,15 @@ export function SettingsSheet({
   const [modelList, setModelList] = useState<ModelPref[]>([]);
   const [pickAgent, setPickAgent] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  // 职责区块：只读投影（active assignment + proposed proposal），无写操作。
+  const [responsibilities, setResponsibilities] = useState<ResponsibilityRow[]>([]);
+  // idle = 未登录（不作为、也不声称"没有在跑的事"）；ready 且空才显示空态句。
+  const [respState, setRespState] = useState<"idle" | "loading" | "error" | "ready">("idle");
 
   const reload = useCallback(async () => {
     await loadToken();
-    setUsername(await getUsername());
+    const name = await getUsername();
+    setUsername(name);
     setOnline(await probeBffHealth(getBaseUrl()));
     const runtime = await getRuntimeBaseUrl();
     setCustom(Boolean(runtime));
@@ -121,6 +181,37 @@ export function SettingsSheet({
     // 白名单/排除规则集中在 services/model-registry.ts（与 chat 侧共用同一套）
     const flat: ModelPref[] = selectModels(prov.providers);
     if (flat.length > 0) setModelList(flat);
+
+    // 职责区块：现有两个只读端点（GET /api/product/assignments?state=active、
+    // GET /api/product/assignment-proposals?status=proposed）+ 逐条 history 取上次执行。
+    // 写操作（撤销/确认）一律不在这里做；未登录时不发请求（不冒充空态）。
+    if (!name) {
+      setResponsibilities([]);
+      setRespState("idle");
+      return;
+    }
+    setRespState("loading");
+    try {
+      const [assignments, proposals] = await Promise.all([
+        fetchAssignments("active"),
+        fetchProposals("proposed").catch(() => [] as ProposalRow[]),
+      ]);
+      const histories: AssignmentHistoryItem[][] = await Promise.all(
+        assignments.map((a: AssignmentRecord) =>
+          fetchAssignmentHistory(a.id).catch(() => [] as AssignmentHistoryItem[]),
+        ),
+      );
+      const lastRunByAssignment: Record<string, number | null> = {};
+      assignments.forEach((a, i) => {
+        lastRunByAssignment[a.id] = lastRunOf(histories[i] ?? []);
+      });
+      setResponsibilities(buildResponsibilities(assignments, proposals, lastRunByAssignment));
+      setRespState("ready");
+    } catch {
+      // 读不到就不假装"没有在跑的事"——用一行 error 文案说明（同 MemorySheet），不阻断其它区块。
+      setResponsibilities([]);
+      setRespState("error");
+    }
   }, []);
 
   useEffect(() => {
@@ -133,6 +224,9 @@ export function SettingsSheet({
   const doLogout = async () => {
     await logout();
     setUsername(null);
+    // 职责列表属于账号数据：登出后清空（否则会把上一个账号"她在盯什么"留在屏上）。
+    setResponsibilities([]);
+    setRespState("idle");
   };
 
   const saveAddr = async () => {
@@ -162,12 +256,82 @@ export function SettingsSheet({
   return (
     <>
       <BottomSheet visible={visible} onClose={onClose} testID="settings-sheet">
-        <ScrollView style={{ maxHeight: 520 }} contentContainerStyle={{ gap: spacing.md }}>
+        {/* header：title + caption，与 MemorySheet / KnowledgeSheet 同一套（xxs 间距、
+            sm 底部留白）。放 ScrollView 外，滚动时不跟着走。 */}
+        <View style={{ gap: spacing.xxs, marginBottom: spacing.sm }}>
           <Text variant="title" color="ink">{t("pulse.header.settings")}</Text>
+          <Text variant="caption" color="muted">{t("pulse.settings.caption")}</Text>
+        </View>
 
-          {/* Responsibilities */}
-          <View style={{ gap: spacing.xxs }}>
-            <Text variant="label" color="muted">{t("pulse.settings.responsibilities")}</Text>
+        <ScrollView style={{ maxHeight: 420 }} contentContainerStyle={{ gap: spacing.sm }}>
+          {/* Responsibilities — 实时列表（只读）+ 管理入口 */}
+          <Section label={t("pulse.settings.responsibilities")}>
+            {respState === "loading" ? (
+              <Text variant="caption" color="muted" testID="settings-resp-loading">
+                {t("pulse.settings.responsibilitiesLoading")}
+              </Text>
+            ) : null}
+            {respState === "error" ? (
+              <Text variant="caption" color="error" testID="settings-resp-error">
+                {t("pulse.settings.responsibilitiesError")}
+              </Text>
+            ) : null}
+            {respState === "ready" && responsibilities.length === 0 ? (
+              <Text variant="caption" color="muted" testID="settings-resp-empty">
+                {t("pulse.settings.responsibilitiesEmpty")}
+              </Text>
+            ) : null}
+            {responsibilities.map((r) => {
+              const pillLabel =
+                r.kind === "proposal"
+                  ? t("pulse.settings.responsibilityProposed")
+                  : t("pulse.settings.responsibilityActive");
+              const body = (
+                <>
+                  <View style={rowBodyStyle}>
+                    {/* 标题行：责任原文（flex:1，可换行）+ 状态 chip，与 /assignments 卡片同构 */}
+                    <View style={{ flexDirection: "row", alignItems: "flex-start", gap: spacing.xs }}>
+                      <View style={{ flex: 1 }}>
+                        <Text variant="bodyStrong" color="ink">{r.responsibility}</Text>
+                      </View>
+                      <StatusPill
+                        status={r.tone}
+                        label={pillLabel}
+                        testID={`settings-resp-pill-${r.id}`}
+                      />
+                    </View>
+                    {r.lastRunAt !== null ? (
+                      <Text variant="monoCaption" color="muted">
+                        {t("pulse.settings.responsibilityLastRun", { time: lastRunLabel(r.lastRunAt) })}
+                      </Text>
+                    ) : null}
+                  </View>
+                  {r.kind === "assignment" ? <Icon icon={ChevronRight} size="sm" color="muted" /> : null}
+                </>
+              );
+              // 提案没有详情页（/assignments/[id] 只认 asg_），本区块也不做确认/撤销，
+              // 故提案行只展示、不可点；写操作在详情页与 Pulse 建议卡上。
+              return r.kind === "assignment" ? (
+                <Pressable
+                  key={r.id}
+                  testID={`settings-resp-${r.id}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={t("pulse.settings.responsibilityOpen", { responsibility: r.responsibility })}
+                  onPress={() => {
+                    onClose();
+                    router.push(`/assignments/${r.id}`);
+                  }}
+                  style={({ pressed }) => ({ ...rowStyle, opacity: pressed ? 0.6 : 1 })}
+                >
+                  {body}
+                </Pressable>
+              ) : (
+                <View key={r.id} testID={`settings-resp-${r.id}`} style={rowStyle}>
+                  {body}
+                </View>
+              );
+            })}
+
             <SettingsRow
               label={t("pulse.settings.responsibilitiesRow")}
               detail={t("pulse.settings.responsibilitiesDetail")}
@@ -187,12 +351,11 @@ export function SettingsSheet({
                 onOpenActivity();
               }}
             />
-          </View>
+          </Section>
 
           {/* Connection */}
-          <View style={{ gap: spacing.xxs }}>
-            <Text variant="label" color="muted">{t("pulse.settings.connection")}</Text>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingVertical: spacing.xs }}>
+          <Section label={t("pulse.settings.connection")}>
+            <View style={rowStyle}>
               <StatusDot
                 status={online ? "success" : "idle"}
                 size={8}
@@ -203,35 +366,40 @@ export function SettingsSheet({
                 {online ? t("pulse.settings.online") : t("pulse.settings.offline")}
               </Text>
             </View>
-            <View style={{ gap: 2 }}>
-              <Text variant="caption" color="muted">{t("pulse.settings.account")}</Text>
-              <Text variant="body" color="ink">{username ?? t("pulse.settings.notSignedIn")}</Text>
+            <View style={rowStyle}>
+              <View style={rowBodyStyle}>
+                <Text variant="caption" color="muted">{t("pulse.settings.account")}</Text>
+                <Text variant="bodyStrong" color="ink">{username ?? t("pulse.settings.notSignedIn")}</Text>
+              </View>
             </View>
-            {!username ? (
-              <View style={{ marginTop: spacing.xs }}>
+            <View style={{ marginTop: spacing.xs }}>
+              {!username ? (
                 <Button
                   variant="secondary"
                   label={t("pulse.settings.signIn")}
                   onPress={onLogin}
                   testID="settings-login"
                 />
-              </View>
-            ) : (
-              <View style={{ marginTop: spacing.xs }}>
+              ) : (
                 <Button
                   variant="ghost"
                   label={t("pulse.settings.signOut")}
                   onPress={doLogout}
                   testID="settings-logout"
                 />
-              </View>
-            )}
+              )}
+            </View>
             <Pressable
               onPress={() => setAdvancedOpen((o) => !o)}
               accessibilityRole="button"
               accessibilityLabel={t("pulse.settings.advancedA11y")}
               testID="settings-advanced-toggle"
-              style={{ flexDirection: "row", alignItems: "center", gap: spacing.xxs, paddingVertical: spacing.xs }}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: spacing.xxs,
+                paddingVertical: spacing.xs,
+              }}
             >
               {advancedOpen ? (
                 <Icon icon={ChevronDown} size="xs" color="muted" />
@@ -266,45 +434,27 @@ export function SettingsSheet({
                 ) : null}
               </View>
             ) : null}
-          </View>
+          </Section>
 
           {/* Preferences */}
-          <View style={{ gap: spacing.xxs }}>
-            <Text variant="label" color="muted">{t("pulse.settings.preferences")}</Text>
+          <Section label={t("pulse.settings.preferences")}>
             {agents.map((a) => (
-              <Pressable
+              <SettingsRow
                 key={a.id}
                 testID={`settings-agent-${a.id}`}
+                label={a.id}
+                detail={`${a.model.providerID}:${a.model.modelID}`}
+                monoDetail
                 onPress={() => {
                   setPickAgent(a.id);
                   setQuery("");
                 }}
-                accessibilityRole="button"
-                accessibilityLabel={t("pulse.settings.modelPreferenceFor", { agent: a.id })}
-                style={({ pressed }) => ({
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: spacing.xs,
-                  paddingVertical: spacing.sm,
-                  borderTopWidth: 1,
-                  borderTopColor: colors.border.subtle,
-                  opacity: pressed ? 0.6 : 1,
-                })}
-              >
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text variant="body" color="ink">{a.id}</Text>
-                  <Text variant="monoCaption" color="muted" numberOfLines={1}>
-                    {a.model.providerID}:{a.model.modelID}
-                  </Text>
-                </View>
-                <Icon icon={ChevronRight} size="sm" color="muted" />
-              </Pressable>
+              />
             ))}
-          </View>
+          </Section>
 
           {/* What I know */}
-          <View style={{ gap: spacing.xxs }}>
-            <Text variant="label" color="muted">{t("pulse.settings.whatIKnow")}</Text>
+          <Section label={t("pulse.settings.whatIKnow")}>
             <SettingsRow
               label={t("pulse.memory.title")}
               detail={t("pulse.settings.memoryDetail")}
@@ -323,7 +473,7 @@ export function SettingsSheet({
                 onOpenKnowledge();
               }}
             />
-          </View>
+          </Section>
         </ScrollView>
       </BottomSheet>
 
