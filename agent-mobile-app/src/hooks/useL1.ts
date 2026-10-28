@@ -6,7 +6,7 @@ import {
   type L1Statement,
   type L1MarketEstimateData,
 } from "@/services/l1";
-import { tokenHeader } from "@/services/auth";
+import { tokenHeader, loadToken } from "@/services/auth";
 
 export interface UseL1Result {
   /** 当前生效 L1 statements（无 lifecycle；L1 ≠ Attention） */
@@ -50,9 +50,14 @@ export function useL1(): UseL1Result {
   }, []);
 
   // 无凭据时不发请求，直接走同一条异步收尾（null 快照）——effect 同步段不碰 setter。
+  // 冷启动：子组件 effect 早于父组件的 loadToken()，这里先补一次（幂等），
+  // 否则 snapshot 会被跳过，只在 snapshot 里出现的 retry-report 永远拿不到。
   const refresh = useCallback(() => {
-    const authed = Boolean(tokenHeader().Authorization);
-    return (authed ? fetchL1() : Promise.resolve(null))
+    return Promise.resolve()
+      .then(async () => {
+        if (!tokenHeader().Authorization) await loadToken();
+        return tokenHeader().Authorization ? fetchL1() : null;
+      })
       .then((items) => {
         if (!mountedRef.current || items === null) return;
         setStatements(items);
