@@ -125,7 +125,7 @@ export default function AttentionDetailScreen() {
       const msg = e instanceof Error ? e.message : String(e);
       if (kind === "opencode-offline" || kind === "bff-offline" || kind === "auth") {
         const m = runtimeFailureMessage(kind); showAlert(m.title, m.body);
-      } else if (/会话已不可用|404|not found/i.test(msg)) {
+      } else if (/会话已不可用|no longer available|404|not found/i.test(msg)) {
         // 会话已丢失（runtime 重启等）→ 提供去 Talk 默认会话的逃生口，而不是死胡同
         showAlert(t("app.common.sessionGoneTitle"), t("app.common.sessionGoneBody"), [
           { text: t("app.common.cancel"), style: "cancel" },

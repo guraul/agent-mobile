@@ -2,6 +2,7 @@
 // 不做任何 state 变更、不触网、不复制 canonical 存储。只做分组/描述/授权标签/下一执行等派生。
 import type { AssignmentRecord } from "./client";
 import type { AttentionItem } from "../attention/store";
+import { t } from "../../i18n";
 
 export type AssignmentGroupKey = "needs-attention" | "active" | "completed" | "revoked";
 
@@ -62,7 +63,7 @@ export function authorizationLabel(a: AssignmentRecord): string {
 /** "为什么建议"：observation 来源 → 与相邻 Noticed 卡同族的确定性模板；talk/api 来源 → null（无需 why） */
 export function observationReasonLabel(createdBy: unknown): string | null {
   if (typeof createdBy === "string" && createdBy.startsWith("observation:")) {
-    return "基于近期行情观察（连续 3 个评估点净值走低）";
+    return t("assignment.projection.observationReason");
   }
   return null;
 }
@@ -70,8 +71,11 @@ export function observationReasonLabel(createdBy: unknown): string | null {
 /** "确认后会发生什么"：triggerLabel 派生的效果句 + 撤销出口提示（PM §11：Revocation 永远可用） */
 export function describeProposalEffect(td: { schedule: string; condition: Record<string, unknown> }): string {
   const trigger = describeTrigger(td.schedule);
-  const action = td.condition?.kind === "always" ? "到点提醒你" : "命中条件时提醒你";
-  return `确认后：${trigger} 自动评估，${action}；可随时在 Responsibilities 中撤销。`;
+  const action =
+    td.condition?.kind === "always"
+      ? t("assignment.projection.action.always")
+      : t("assignment.projection.action.condition");
+  return t("assignment.projection.effect", { trigger, action });
 }
 
 // ── 下一执行时刻（next cron occurrence；无外部依赖的简单滚动计算）──

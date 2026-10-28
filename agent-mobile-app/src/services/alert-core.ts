@@ -8,6 +8,7 @@
  * （`class Alert { static alert() {} }`），9928 静态版跑在 web 上 → 全仓 25 处
  * `Alert.alert` 零反馈，表现为"点了没反应"。详见 CONVENTIONS.md 同名条目。
  */
+import { t } from "../i18n";
 
 export interface AlertButton {
   text: string;
@@ -27,7 +28,9 @@ export interface AlertPayload {
  * - 有按钮 → 原样使用（保留 cancel / destructive 样式与各自回调）
  */
 export function resolveAlertButtons(buttons?: AlertButton[]): AlertButton[] {
-  return buttons && buttons.length > 0 ? buttons : [{ text: "知道了", style: "default" }];
+  return buttons && buttons.length > 0
+    ? buttons
+    : [{ text: t("alert.feedback.acknowledge"), style: "default" }];
 }
 
 /** 把 title/message 拼成单行日志文案（错误路径的可观测信号，Web 无原生弹窗时的唯一线索） */

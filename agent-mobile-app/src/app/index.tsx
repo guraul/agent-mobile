@@ -68,9 +68,12 @@ const toNeedsYou = (a: PulseAttentionItem): NeedsYouItem => ({
   kind: "needs-you",
   title: a.title,
   why: a.summary ?? "",
-  // domain 标签属数据投影（Market / Coding / Pulse），与 SupportingList 的分组标签
-  // 一起留给第 2 期，本期不动。
-  source: a.domain === "market" ? "Market" : a.domain === "coding" ? "Coding" : "Pulse",
+  source:
+    a.domain === "market"
+      ? t("pulse.domain.market")
+      : a.domain === "coding"
+        ? t("pulse.domain.coding")
+        : t("pulse.domain.pulse"),
   time: formatRelative(a.createdAt),
   reviewTarget: `/attention/${a.id}`,
   status: "open",
@@ -91,7 +94,7 @@ const toNoticed = (st: L1Statement): NoticedItem => ({
   kind: "noticed",
   fact: st.text,
   time: formatRelative(st.occurredAt),
-  context: "Market",
+  context: t("pulse.domain.market"),
 });
 
 interface SupportingBuckets {
@@ -284,7 +287,7 @@ export default function PulseScreen() {
       if (kind === "opencode-offline" || kind === "bff-offline" || kind === "auth") {
         const m = runtimeFailureMessage(kind);
         showAlert(m.title, m.body);
-      } else if (/会话已不可用|404|not found/i.test(msg)) {
+      } else if (/会话已不可用|no longer available|404|not found/i.test(msg)) {
         showAlert(t("app.common.sessionGoneTitle"), t("app.common.sessionGoneBody"), [
           { text: t("app.common.cancel"), style: "cancel" },
           { text: t("app.common.sessionGoneAction"), onPress: () => router.push({ pathname: "/talk" }) },
