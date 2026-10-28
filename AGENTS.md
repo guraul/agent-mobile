@@ -67,6 +67,11 @@
       - `merge-pr.sh` 的命令执行可委派，但**合并前必须由控制面拿到用户确认**再发（手册 §一 review 约定）。
 12. **子代理模型 = 单一档 `opencode/deepseek-v4.1-flash-free`**（2026-10-25 拍板：原 free 档回退链已废止）⚠️ **角色库不 pin 模型**（`product_roles` 已核实：四角色只有 `provider: "opencode"`，**无 model 字段**；`~/.dsh/product-subagents-registry.json` 也查不到模型）→ **每次委派都要显式传 `model: "opencode/deepseek-v4.1-flash-free"`**，不能指望"已 pin 自动生效"（传参形式与 `prompt_async` 的逐条 model 一致）。
    - **唯一档 `opencode/deepseek-v4.1-flash-free`**（2026-10-25 拍板：glm / mimo / longcat 回退档全部删除）；不可用（429 / 额度 / 地区 / 下架）→ **停下报告**，不挑链外模型、不改配置、不静默降质。opencode 执行面不可用期间，按规则 11 的例外改走 `provider=codebuddy` + `model=deepseek-v4.1-flash`。
+   - 🚫 **禁止惯性沿用 codebuddy（2026-10-28 用户明确要求；已真实发生并被指出）**：
+     - **opencode 额度一恢复，立刻回到默认档**。不得因为"昨晚/上一小时它被打满过"就继续用 codebuddy —— 那是在用**历史状态**代替**当前判断**（2026-10-28 实测：opencode 已恢复（`opencode run` 返回 OK），却仍连续 3 次委派走 codebuddy 且未说明）。
+     - **不预先探活**：直接派 opencode。**只有真的收到额度类错误**（`Free usage limit reached` / 429 / 地区封锁）时，才当场改派 codebuddy，并**在同一条回复里明说**"opencode 额度不可用，已切 codebuddy"。
+     - **可审计**：回复里凡涉及委派，必须让用户能看出用的是哪个 provider（表格列或正文点名）。
+     - 违反本条的典型症状：用户反问"为什么又用 codebuddy"。出现即视为规则失效，须立即切回并说明。
    - ⚠️ **model id 必须写全 `provider/model` 形式**（`opencode/deepseek-v4.1-flash-free`；codebuddy 例外为 `deepseek-v4.1-flash`，其 shim 会剥掉 `codebuddy/` 前缀）。**写裸名会落到会话默认模型**，表现为"指定了但没生效"。
    - **非限流故障**（403 鉴权/地区、模型不存在、报错、无响应）→ 规则 13：**停下报告，不降级**。
    - 作用域 = **DSH 子代理委派**。
