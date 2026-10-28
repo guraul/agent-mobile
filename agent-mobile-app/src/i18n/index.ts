@@ -89,6 +89,13 @@ const en = {
   "pulse.settings.confirm": "Confirm",
   "pulse.settings.boundariesRow": "How we work together",
   "pulse.settings.boundariesDetail": "What I do on my own · what I ask first · what I never do",
+  "pulse.settings.external": "EXTERNAL SOURCES",
+  "pulse.settings.calendarRow": "Calendar",
+  "pulse.settings.calendarNone": "Not connected",
+  "pulse.settings.calendarUnavailable": "Couldn't load right now",
+  "pulse.settings.calendarConnected": "{count} calendars connected",
+  "pulse.settings.calendarConnected_one": "1 calendar connected",
+  "pulse.settings.calendarConnected_other": "{count} calendars connected",
 
   // ── Pulse：How we work together（自主边界 sheet；内容源在
   //    services/agency/boundaries.ts，改边界时两处一起改）─────────────────
@@ -140,6 +147,24 @@ const en = {
   "pulse.memory.forgetFailed": "Couldn't forget this memory",
   "pulse.memory.forgetA11y": "Forget {title}",
   "pulse.memory.source": "Source: {source}",
+
+  // ── Pulse：Calendar sheet（ICS 只读订阅，issue #153 切片 3b）─────────────
+  "pulse.calendar.title": "Calendar",
+  "pulse.calendar.caption":
+    "Read-only .ics subscriptions. The link is the credential, so I only ever show a masked version.",
+  "pulse.calendar.loading": "Loading…",
+  "pulse.calendar.empty": "No calendar connected yet.",
+  "pulse.calendar.signInRequired": "Sign in first — calendars are tied to your account.",
+  "pulse.calendar.addPlaceholder": "https://…/calendar.ics",
+  "pulse.calendar.add": "Add",
+  "pulse.calendar.invalidHttps": "Use an https:// link to an .ics feed.",
+  "pulse.calendar.invalidIcs": "That link doesn't look like an .ics feed.",
+  "pulse.calendar.addFailedLine": "Couldn't add this calendar: {detail}",
+  "pulse.calendar.deleteTitle": "Remove this calendar?",
+  "pulse.calendar.deleteBody": "{label}\n\nCached events are removed with it.",
+  "pulse.calendar.delete": "Remove",
+  "pulse.calendar.deleteA11y": "Remove {label}",
+  "pulse.calendar.deleteFailedLine": "Couldn't remove this calendar: {detail}",
 
   // ── Pulse：Knowledge sheet ─────────────────────────────────────────────
   "pulse.knowledge.title": "Knowledge",
@@ -517,6 +542,13 @@ const zh = {
   "pulse.settings.confirm": "确认",
   "pulse.settings.boundariesRow": "我们怎么一起工作",
   "pulse.settings.boundariesDetail": "我自己会做的 · 我要先问的 · 我绝不做的",
+  "pulse.settings.external": "外部来源",
+  "pulse.settings.calendarRow": "日历",
+  "pulse.settings.calendarNone": "未连接",
+  "pulse.settings.calendarUnavailable": "暂时读不到",
+  "pulse.settings.calendarConnected": "已连 {count} 个日历",
+  "pulse.settings.calendarConnected_one": "已连 1 个日历",
+  "pulse.settings.calendarConnected_other": "已连 {count} 个日历",
 
   "pulse.boundaries.title": "我们怎么一起工作",
   "pulse.boundaries.caption": "我现在实际按这套边界在做事。",
@@ -562,6 +594,23 @@ const zh = {
   "pulse.memory.forgetFailed": "忘记失败",
   "pulse.memory.forgetA11y": "忘记 {title}",
   "pulse.memory.source": "来源：{source}",
+
+  "pulse.calendar.title": "日历",
+  "pulse.calendar.caption":
+    "只读的 .ics 订阅。链接本身就是凭据，所以这里只显示打码后的地址。",
+  "pulse.calendar.loading": "加载中…",
+  "pulse.calendar.empty": "还没有连接日历。",
+  "pulse.calendar.signInRequired": "请先登录——日历跟随你的账号。",
+  "pulse.calendar.addPlaceholder": "https://…/calendar.ics",
+  "pulse.calendar.add": "添加",
+  "pulse.calendar.invalidHttps": "请填 https:// 开头的 .ics 订阅地址。",
+  "pulse.calendar.invalidIcs": "这个地址看起来不是 .ics 订阅。",
+  "pulse.calendar.addFailedLine": "添加失败：{detail}",
+  "pulse.calendar.deleteTitle": "移除这个日历？",
+  "pulse.calendar.deleteBody": "{label}\n\n已缓存的事件会一起删除。",
+  "pulse.calendar.delete": "移除",
+  "pulse.calendar.deleteA11y": "移除 {label}",
+  "pulse.calendar.deleteFailedLine": "移除失败：{detail}",
 
   "pulse.knowledge.title": "知识",
   "pulse.knowledge.caption": "我可以引用的资料。搜索、阅读，或带进一次对话。",

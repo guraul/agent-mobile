@@ -3,6 +3,7 @@ import { Pressable, ScrollView, View } from "react-native";
 import { ChevronDown, ChevronRight } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import { BottomSheet } from "../navigation/BottomSheet";
+import { CalendarSheet } from "./CalendarSheet";
 import { Button } from "../primitives/Button";
 import { Input } from "../primitives/Input";
 import { SearchInput } from "../primitives/SearchInput";
@@ -31,6 +32,10 @@ import {
   lastRunOf,
   type ResponsibilityRow,
 } from "../../services/assignment/responsibilities";
+import {
+  fetchIcsSources,
+  type IcsSourceItem,
+} from "../../services/external/client";
 import { colors, radius, spacing } from "../../theme";
 import { t, useLocale } from "../../i18n";
 
@@ -155,6 +160,21 @@ export function SettingsSheet({
   const [responsibilities, setResponsibilities] = useState<ResponsibilityRow[]>([]);
   // idle = 未登录（不作为、也不声称"没有在跑的事"）；ready 且空才显示空态句。
   const [respState, setRespState] = useState<"idle" | "loading" | "error" | "ready">("idle");
+  // 外部日历（ICS 订阅）：只读源列表，行上只显示数量 / 首条摘录。
+  const [icsSources, setIcsSources] = useState<IcsSourceItem[]>([]);
+  const [icsState, setIcsState] = useState<"idle" | "loading" | "error" | "ready">("idle");
+  const [calendarOpen, setCalendarOpen] = useState(false);
+
+  // 只刷日历一行（sheet 里增删后调用），不连带重拉 agents / 职责。
+  const reloadIcs = useCallback(async () => {
+    try {
+      setIcsSources(await fetchIcsSources());
+      setIcsState("ready");
+    } catch {
+      setIcsSources([]);
+      setIcsState("error");
+    }
+  }, []);
 
   const reload = useCallback(async () => {
     await loadToken();
@@ -190,9 +210,22 @@ export function SettingsSheet({
     if (!name) {
       setResponsibilities([]);
       setRespState("idle");
+      setIcsSources([]);
+      setIcsState("idle");
       return;
     }
     setRespState("loading");
+    // 日历与职责互不阻塞：日历读失败只影响 Calendar 一行（error 文案），不拖垮职责区块。
+    setIcsState("loading");
+    const icsTask = fetchIcsSources()
+      .then((items) => {
+        setIcsSources(items);
+        setIcsState("ready");
+      })
+      .catch(() => {
+        setIcsSources([]);
+        setIcsState("error");
+      });
     try {
       const [assignments, proposals] = await Promise.all([
         fetchAssignments("active"),
@@ -214,6 +247,7 @@ export function SettingsSheet({
       setResponsibilities([]);
       setRespState("error");
     }
+    await icsTask;
   }, []);
 
   useEffect(() => {
@@ -229,6 +263,9 @@ export function SettingsSheet({
     // 职责列表属于账号数据：登出后清空（否则会把上一个账号"她在盯什么"留在屏上）。
     setResponsibilities([]);
     setRespState("idle");
+    // 订阅源同属账号数据（列表是打码值，但也不该留在下一个账号的屏上）。
+    setIcsSources([]);
+    setIcsState("idle");
   };
 
   const saveAddr = async () => {
@@ -254,6 +291,14 @@ export function SettingsSheet({
 
   const filtered = filterModels(modelList, query);
   const current = agents.find((a) => a.id === pickAgent)?.model;
+
+  // Calendar 行摘要：数量优先，单条时直接给 label / 打码 URL（用户能认出是哪个日历）。
+  const calendarDetail = (() => {
+    if (icsState === "error") return t("pulse.settings.calendarUnavailable");
+    if (icsState !== "ready" || icsSources.length === 0) return t("pulse.settings.calendarNone");
+    if (icsSources.length === 1) return icsSources[0].label ?? icsSources[0].url;
+    return t("pulse.settings.calendarConnected", { count: icsSources.length });
+  })();
 
   return (
     <>
@@ -448,6 +493,16 @@ export function SettingsSheet({
             ) : null}
           </Section>
 
+          {/* External sources — 只读订阅（当前只有 Calendar / ICS） */}
+          <Section label={t("pulse.settings.external")}>
+            <SettingsRow
+              label={t("pulse.settings.calendarRow")}
+              detail={calendarDetail}
+              testID="settings-calendar"
+              onPress={() => setCalendarOpen(true)}
+            />
+          </Section>
+
           {/* Preferences */}
           <Section label={t("pulse.settings.preferences")}>
             {agents.map((a) => (
@@ -534,6 +589,12 @@ export function SettingsSheet({
           />
         </View>
       </BottomSheet>
+
+      <CalendarSheet
+        visible={calendarOpen}
+        onClose={() => setCalendarOpen(false)}
+        onChanged={reloadIcs}
+      />
     </>
   );
 }
