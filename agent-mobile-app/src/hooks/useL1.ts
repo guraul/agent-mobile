@@ -33,9 +33,19 @@ export function useL1(): UseL1Result {
   const [loading, setLoading] = useState(true);
   const mountedRef = useRef(true);
 
+  // SSE 每帧是全量替换，但帧里只有内存态 L1（/stream 不含 agent_reports 持久报告）。
+  // 因此把上一状态里未过期的 retry-report 并回去，否则 snapshot 拿到的报告会被下一帧冲掉。
   const apply = useCallback((items: L1Statement[]) => {
     if (!mountedRef.current) return;
-    setStatements(items);
+    setStatements((prev) => {
+      const now = Date.now();
+      const carried = prev.filter(
+        (s) => s.kind === "retry-report" && (s.expiresAt === null || s.expiresAt > now),
+      );
+      if (carried.length === 0) return items;
+      const ids = new Set(items.map((i) => i.id));
+      return [...items, ...carried.filter((r) => !ids.has(r.id))];
+    });
     setLoading(false);
   }, []);
 
