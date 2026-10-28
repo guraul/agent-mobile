@@ -87,6 +87,39 @@ const en = {
   "pulse.settings.modelPickerTitle": "Choose a model for {agent}",
   "pulse.settings.modelSearchPlaceholder": "Search models…",
   "pulse.settings.confirm": "Confirm",
+  "pulse.settings.boundariesRow": "How we work together",
+  "pulse.settings.boundariesDetail": "What I do on my own · what I ask first · what I never do",
+
+  // ── Pulse：How we work together（自主边界 sheet；内容源在
+  //    services/agency/boundaries.ts，改边界时两处一起改）─────────────────
+  "pulse.boundaries.title": "How we work together",
+  "pulse.boundaries.caption": "The boundaries I actually run on right now.",
+  "pulse.boundaries.acts.label": "Acts, then tells you",
+  "pulse.boundaries.acts.caption": "No prompt from you. The result lands where you already look.",
+  "pulse.boundaries.acts.nightlyRetry.title": "Nightly retry",
+  "pulse.boundaries.acts.nightlyRetry.detail":
+    "Failed scheduled tasks are retried at 06:00. What came back, or didn't, shows up in Pulse.",
+  "pulse.boundaries.acts.dailyDigest.title": "Daily digest",
+  "pulse.boundaries.acts.dailyDigest.detail":
+    "One line at the top of Pulse: what I checked for you today. Tap it for the full log.",
+  "pulse.boundaries.asks.label": "Asks first",
+  "pulse.boundaries.asks.caption": "I prepare the action; the trigger stays with you.",
+  "pulse.boundaries.asks.newResponsibility.title": "New scheduled responsibility",
+  "pulse.boundaries.asks.newResponsibility.detail":
+    "It arrives as a proposal. Nothing is scheduled until you confirm the card.",
+  "pulse.boundaries.asks.handoff.title": "Handing work to chatcode",
+  "pulse.boundaries.asks.handoff.detail":
+    "A handoff leaves this app only after you confirm the handoff card.",
+  "pulse.boundaries.never.label": "Never",
+  "pulse.boundaries.never.caption": "No confirmation unlocks these.",
+  "pulse.boundaries.never.funds.title": "Move money",
+  "pulse.boundaries.never.funds.detail": "I never place, transfer, or settle funds.",
+  "pulse.boundaries.never.outbound.title": "Send messages for you",
+  "pulse.boundaries.never.outbound.detail": "No outbound messages in your name.",
+  "pulse.boundaries.never.credentials.title": "Change credentials",
+  "pulse.boundaries.never.credentials.detail": "I don't create, rotate, or modify your credentials.",
+  "pulse.boundaries.footer":
+    "Read-only. These come from one place in the code; ask me in Talk if one should change.",
 
   // ── Pulse：Memory sheet ────────────────────────────────────────────────
   "pulse.memory.title": "What I remember",
@@ -477,6 +510,35 @@ const zh = {
   "pulse.settings.modelPickerTitle": "为 {agent} 选择 model",
   "pulse.settings.modelSearchPlaceholder": "搜索 model…",
   "pulse.settings.confirm": "确认",
+  "pulse.settings.boundariesRow": "我们怎么一起工作",
+  "pulse.settings.boundariesDetail": "我自己会做的 · 我要先问的 · 我绝不做的",
+
+  "pulse.boundaries.title": "我们怎么一起工作",
+  "pulse.boundaries.caption": "我现在实际按这套边界在做事。",
+  "pulse.boundaries.acts.label": "先做后报",
+  "pulse.boundaries.acts.caption": "不用你开口；结果落在你本来就会看的地方。",
+  "pulse.boundaries.acts.nightlyRetry.title": "夜间补跑",
+  "pulse.boundaries.acts.nightlyRetry.detail":
+    "失败的定时任务会在 06:00 重跑一次。补回来没有，都能在 Pulse 看到。",
+  "pulse.boundaries.acts.dailyDigest.title": "每日摘要",
+  "pulse.boundaries.acts.dailyDigest.detail":
+    "Pulse 顶部一句话：今天替你查了什么。点开是完整记录。",
+  "pulse.boundaries.asks.label": "先问再做",
+  "pulse.boundaries.asks.caption": "我准备好动作，扳机留在你手上。",
+  "pulse.boundaries.asks.newResponsibility.title": "新建定时责任",
+  "pulse.boundaries.asks.newResponsibility.detail":
+    "先作为提案出现。你在卡上确认之前，什么都不会被排进定时表。",
+  "pulse.boundaries.asks.handoff.title": "把工作移交给 chatcode",
+  "pulse.boundaries.asks.handoff.detail": "只有你确认移交卡之后，工作才会离开这个应用。",
+  "pulse.boundaries.never.label": "绝不做",
+  "pulse.boundaries.never.caption": "确认也解锁不了这些。",
+  "pulse.boundaries.never.funds.title": "动资金",
+  "pulse.boundaries.never.funds.detail": "不下单、不转账、不做结算。",
+  "pulse.boundaries.never.outbound.title": "代发对外消息",
+  "pulse.boundaries.never.outbound.detail": "不以你的名义对外发任何消息。",
+  "pulse.boundaries.never.credentials.title": "改凭据",
+  "pulse.boundaries.never.credentials.detail": "不新建、不轮换、不修改你的凭据。",
+  "pulse.boundaries.footer": "只读。这些边界只有代码里一处来源；要改，在 Talk 里跟我说。",
 
   "pulse.memory.title": "我记得什么",
   "pulse.memory.caption": "关于你和你的项目的持久理解。忘记会直接作用于权威存储。",

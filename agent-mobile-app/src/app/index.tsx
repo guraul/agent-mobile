@@ -21,6 +21,7 @@ import type {
 import { ListSheet } from "@/components/pulse/ListSheet";
 import { FundSheet } from "@/components/pulse/FundSheet";
 import { SettingsSheet } from "@/components/pulse/SettingsSheet";
+import { BoundariesSheet } from "@/components/pulse/BoundariesSheet";
 import { MemorySheet } from "@/components/pulse/MemorySheet";
 import { KnowledgeSheet } from "@/components/pulse/KnowledgeSheet";
 import { ActivitySheet } from "@/components/pulse/ActivitySheet";
@@ -163,6 +164,7 @@ export default function PulseScreen() {
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [knowledgeOpen, setKnowledgeOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
+  const [boundariesOpen, setBoundariesOpen] = useState(false);
   const [activityDays, setActivityDays] = useState(DEFAULT_ACTIVITY_DAYS);
   const [fundsOpen, setFundsOpen] = useState(false);
   const [noticedListOpen, setNoticedListOpen] = useState(false);
@@ -536,6 +538,7 @@ export default function PulseScreen() {
           setActivityDays(DEFAULT_ACTIVITY_DAYS);
           setActivityOpen(true);
         }}
+        onOpenBoundaries={() => setBoundariesOpen(true)}
         onLogin={() => {
           // D4：登录走独立页
           setSettingsOpen(false);
@@ -550,6 +553,8 @@ export default function PulseScreen() {
         onAskAboutThis={askAboutSource}
       />
       <ActivitySheet visible={activityOpen} days={activityDays} onClose={() => setActivityOpen(false)} />
+      {/* 只读：她现在的自主边界（内容源 services/agency/boundaries.ts） */}
+      <BoundariesSheet visible={boundariesOpen} onClose={() => setBoundariesOpen(false)} />
       <FundSheet visible={fundsOpen} funds={funds} onClose={() => setFundsOpen(false)} />
 
       {/* Noticed read-only detail — Discuss is the only way into Talk */}
