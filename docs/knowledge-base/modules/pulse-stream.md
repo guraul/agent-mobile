@@ -61,7 +61,7 @@ root（cream #F7F5DC 画布，页面水平 padding 25）
 - **More projects (n)**（`supporting-more-projects`）：当天活跃之外的项目（idle）→ Projects sheet（ListSheet 复用，running+idle 全列，点行 → 项目 Talk）。
 - **Noticed**：section micro-label「NOTICED」+ 溢出时「See All」（`noticed-see-all` → ListSheet）；行组件 `PulseNoticed`（dot + fact 单行 + 时间，testID `noticed-<id>`），点击 → `DetailSheet`（只读详情；Discuss 是唯一出口 → `/talk`）。
 - **Conversation Entry**（`ConversationEntry`，底部固定 dock）：**不是 TextInput** —— 整个「+ Talk to Pulse…」胶囊与右侧渐变圆箭头都是 Pressable（"Enter Talk" not Send），→ `/talk`；Pulse 上唯一输入 affordance，真实输入只在 Talk。
-- **Sheets**（全部 contextual，挂在 index.tsx）：`SettingsSheet`、`MemorySheet`（What I remember + Forget）、`KnowledgeSheet`（KB 检索 → OPEN `/kb/doc` / ASK ABOUT THIS）、`FundSheet`（MARKET 行 → 行情详情）、`DetailSheet`（Noticed 详情）、`ListSheet` ×3（Supporting 溢出 More / Projects / Noticed See All）、登录 `BottomSheet`。
+- **Sheets**（全部 contextual，挂在 index.tsx）：`SettingsSheet`、`MemorySheet`（What I remember + Forget）、`KnowledgeSheet`（KB 检索 → OPEN `/kb/doc` / ASK ABOUT THIS）、`BoundariesSheet`（Settings「How we work together」→ 只读三层自主边界）、`FundSheet`（MARKET 行 → 行情详情）、`DetailSheet`（Noticed 详情）、`ListSheet` ×3（Supporting 溢出 More / Projects / Noticed See All）、登录 `BottomSheet`。
 - **空态**：在线且 featured/supporting/noticed 全空时一句安静提示「Nothing needs you right now.」（`pulse-empty`）。
 - **错误行**：suggestion 错误（`pulse-suggestion-error`）与 project 错误（`pulse-error`，非离线时）内联展示。
 - **动效**：Hero/Featured/Supporting/Noticed 各包一层 `AnimatedEntry`（index 0–3 stagger，fade+translateY，尊重 Reduce Motion）。
@@ -137,6 +137,8 @@ Pulse 根界面（唯一表面）：问候 + AI 在场状态 + **AI briefing 组
 | `agent-mobile-app/src/components/pulse/SettingsSheet.tsx` | Settings：Responsibilities / Connection(+Advanced，BFF 地址探测与覆盖) / Preferences(按 agent model 偏好+嵌套 picker，过滤 deepseek、排除 openrouter/siliconflow-cn) / What I remember / Knowledge / Logout |
 | `agent-mobile-app/src/components/pulse/MemorySheet.tsx` | What I remember（memx projection 只读 + Forget；capability 不是 destination） |
 | `agent-mobile-app/src/components/pulse/KnowledgeSheet.tsx` | KB 检索 → preview → OPEN(`/kb/doc`) / ASK ABOUT THIS(Talk 带上下文) |
+| `agent-mobile-app/src/components/pulse/BoundariesSheet.tsx` | How we work together（Settings 入口）：三层自主边界的**只读**呈现（Acts, then tells you / Asks first / Never）；层名用 `StatusPill`，逐条「标题 + 当前实际行为」；无开关、无写操作 |
+| `agent-mobile-app/src/services/agency/boundaries.ts` | 自主边界**唯一事实源**（`BOUNDARY_TIERS`：三层 + 条目 i18n key + tone）。⚠️ 边界变更必须同步此文件；UI 只渲染、不复制内容 |
 | `agent-mobile-app/src/components/pulse/FundSheet.tsx` | Market 行情详情（L1 estimate：estimatedNav · prev · ±%；只读无动作） |
 | `agent-mobile-app/src/components/pulse/showcase-types.ts` | companion 视图层类型（PresenceState/NeedsYouItem/SuggestionItem/NoticedItem 等） |
 | `agent-mobile-app/src/hooks/useAttentions.ts` | Attention hook：snapshot + product SSE attention.* + 重连对账（Featured 数据源） |
@@ -162,7 +164,7 @@ View root（#0B0A12 + companion backgroundGradient + 顶部紫光 topGlow）
 │   ├── pulse-empty（在线且全部为空）
 │   ├── pulse-suggestion-error / pulse-error（条件内联错误行）
 │   └── entryDock：ConversationEntry（conversation-entry，固定底部 → /talk）
-└── Sheets（条件渲染）：SettingsSheet / MemorySheet / KnowledgeSheet / FundSheet
+└── Sheets（条件渲染）：SettingsSheet / MemorySheet / KnowledgeSheet / BoundariesSheet / FundSheet
                        / DetailSheet（Noticed 详情） / ListSheet×3（More / Projects / Noticed）
                        / 登录 BottomSheet
 ```

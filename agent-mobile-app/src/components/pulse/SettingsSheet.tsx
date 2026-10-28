@@ -127,6 +127,7 @@ export function SettingsSheet({
   onOpenMemory,
   onOpenKnowledge,
   onOpenActivity,
+  onOpenBoundaries,
   onLogin,
 }: {
   visible: boolean;
@@ -134,6 +135,7 @@ export function SettingsSheet({
   onOpenMemory: () => void;
   onOpenKnowledge: () => void;
   onOpenActivity: () => void;
+  onOpenBoundaries: () => void;
   onLogin: () => void;
 }) {
   const router = useRouter();
@@ -349,6 +351,16 @@ export function SettingsSheet({
               onPress={() => {
                 onClose();
                 onOpenActivity();
+              }}
+            />
+            {/* 她现在的自主边界（只读）：先做后报 / 先问再做 / 绝不做 */}
+            <SettingsRow
+              label={t("pulse.settings.boundariesRow")}
+              detail={t("pulse.settings.boundariesDetail")}
+              testID="settings-boundaries"
+              onPress={() => {
+                onClose();
+                onOpenBoundaries();
               }}
             />
           </Section>
