@@ -8,7 +8,9 @@ import type { MessageKey } from "../../i18n";
  * UI 只渲染这份列表、不复制内容，否则界面上的承诺会和实际行为分叉。
  *
  * 三层 = 授权从宽到严：先做后报 → 先问再做 → 绝不做。
- * 只读：没有开关、没有写接口，也没有按账号/环境切换的分支。
+ * 例外：「先做后报」里的 nightly-retry（夜间补跑）是**唯一可调项**——sheet 里
+ * 有一个开关读写调度 job 的 enabled（见 `services/agency/scheduler-toggle.ts`）。
+ * 其余条目一律只读：没有写接口，也没有按账号/环境切换的分支。
  */
 export type BoundaryTierId = "actsThenTells" | "asksFirst" | "never";
 

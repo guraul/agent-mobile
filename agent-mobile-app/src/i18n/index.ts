@@ -99,6 +99,11 @@ const en = {
   "pulse.boundaries.acts.nightlyRetry.title": "Nightly retry",
   "pulse.boundaries.acts.nightlyRetry.detail":
     "Failed scheduled tasks are retried at 06:00. What came back, or didn't, shows up in Pulse.",
+  "pulse.boundaries.acts.nightlyRetry.a11y": "Nightly retry",
+  "pulse.boundaries.acts.nightlyRetry.checking": "Checking…",
+  "pulse.boundaries.acts.nightlyRetry.statusFailed": "Couldn't read the current setting.",
+  "pulse.boundaries.acts.nightlyRetry.toggleFailedTitle": "Couldn't change Nightly retry",
+  "pulse.boundaries.acts.nightlyRetry.toggleFailedBody": "Nothing changed. Try again in a moment.",
   "pulse.boundaries.acts.dailyDigest.title": "Daily digest",
   "pulse.boundaries.acts.dailyDigest.detail":
     "One line at the top of Pulse: what I checked for you today. Tap it for the full log.",
@@ -119,7 +124,7 @@ const en = {
   "pulse.boundaries.never.credentials.title": "Change credentials",
   "pulse.boundaries.never.credentials.detail": "I don't create, rotate, or modify your credentials.",
   "pulse.boundaries.footer":
-    "Read-only. These come from one place in the code; ask me in Talk if one should change.",
+    "Only Nightly retry can be switched here. Everything else comes from one place in the code; ask me in Talk if one should change.",
 
   // ── Pulse：Memory sheet ────────────────────────────────────────────────
   "pulse.memory.title": "What I remember",
@@ -520,6 +525,11 @@ const zh = {
   "pulse.boundaries.acts.nightlyRetry.title": "夜间补跑",
   "pulse.boundaries.acts.nightlyRetry.detail":
     "失败的定时任务会在 06:00 重跑一次。补回来没有，都能在 Pulse 看到。",
+  "pulse.boundaries.acts.nightlyRetry.a11y": "夜间补跑",
+  "pulse.boundaries.acts.nightlyRetry.checking": "读取中…",
+  "pulse.boundaries.acts.nightlyRetry.statusFailed": "读取当前设置失败。",
+  "pulse.boundaries.acts.nightlyRetry.toggleFailedTitle": "夜间补跑没能改过来",
+  "pulse.boundaries.acts.nightlyRetry.toggleFailedBody": "设置没有变化，请稍后再试。",
   "pulse.boundaries.acts.dailyDigest.title": "每日摘要",
   "pulse.boundaries.acts.dailyDigest.detail":
     "Pulse 顶部一句话：今天替你查了什么。点开是完整记录。",
@@ -538,7 +548,8 @@ const zh = {
   "pulse.boundaries.never.outbound.detail": "不以你的名义对外发任何消息。",
   "pulse.boundaries.never.credentials.title": "改凭据",
   "pulse.boundaries.never.credentials.detail": "不新建、不轮换、不修改你的凭据。",
-  "pulse.boundaries.footer": "只读。这些边界只有代码里一处来源；要改，在 Talk 里跟我说。",
+  "pulse.boundaries.footer":
+    "这里只有夜间补跑可以切换。其余边界只有代码里一处来源；要改，在 Talk 里跟我说。",
 
   "pulse.memory.title": "我记得什么",
   "pulse.memory.caption": "关于你和你的项目的持久理解。忘记会直接作用于权威存储。",
