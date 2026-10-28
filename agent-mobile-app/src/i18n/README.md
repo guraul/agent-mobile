@@ -1,4 +1,4 @@
-# `src/i18n/` — 轻量 i18n（第 0 期建能力；第 1 期 Pulse / Settings / Attention / sheets；第 2 期 chat；第 3 期 service 拼句）
+# `src/i18n/` — 轻量 i18n（第 0 期建能力；第 1 期 Pulse / Settings / Attention / sheets；第 2 期 chat；第 3 期 service 拼句；第 4 期收尾）
 
 零依赖的类型化字典 + `t()`。默认语言 **`en`**（当前 UI 的实际语言），`zh` 保留现有中文文案。
 
@@ -56,6 +56,13 @@ TodayDigest）与两个 sheet 原语（`navigation/BottomSheet`、`pulse/LightSh
 共 57 条 key（`assignment.card.*` 18 / `assignment.command.*` 25 / `handoff.card.*` 4 / `handoff.target.*` 5 /
 `command.failed` 1 / `runtime.*` 4）。服务端原始错误、基金代码、目录路径、时间、assignment 标题一律插值透传。
 
-**尚未迁移**：`SupportingList`（`In motion` / 分组标签 / `Review` / `Confirm` / `Watching`）、
-`FeaturedItem` 的 `Review:` 无障碍文案、domain 标签（Market / Coding / Pulse）；
-`services/handoff/handoff-message.ts` 拼的是**投喂给 agent 的首条消息**（面向模型，不是界面），有意保留中文。
+**第 4 期已迁移**（收尾）：最后一批真界面文案——`app/assignments/[id].tsx` 撤销确认弹窗（正文 / 取消 /
+撤销）、`services/alert-core.ts` 无按钮兜底、`services/assignment/projection.ts` 的 why / 效果句、
+`components/navigation/FundMarqueeItem.tsx`（无障碍标签 / 昨值）、`services/attention/talk.ts`
+（会话标题前缀 / 会话不可用提示）；同时把第 3 期记录的三类「英文但未进字典」文案收进字典：
+`SupportingList`（标题 / 四个分组标签 / Review / Confirm / Dismiss / Watching / Running / Idle）、
+`FeaturedItem` 的 `Review:` 无障碍文案、domain 标签（Market / Coding / Pulse），共 25 条 key。
+
+**明确不在字典里**：`services/handoff/handoff-message.ts` 拼的是**投喂给 agent 的首条消息**（面向模型，不是界面），
+有意保留中文；`services/attention/context.ts` 与 `app/index.tsx` 的 `autoContextText`（模型上下文）、
+`console.warn` / 内部 throw 兜底同理。

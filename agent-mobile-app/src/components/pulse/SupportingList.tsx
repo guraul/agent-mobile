@@ -14,6 +14,7 @@ import { lightColors, lightTypography, lightRadius, lightSpacing, lightSizes } f
 import { NeedsYouItem, SuggestionItem } from "./showcase-types";
 import { LightChip, LightTextAction } from "./LightAtoms";
 import { PressableScale } from "./PressableScale";
+import { t, useLocale } from "../../i18n";
 
 export interface RunningRow {
   id: string;
@@ -42,11 +43,11 @@ interface Props {
 }
 
 /** 组定义（D7 顺序红线：To review → Suggested → Running → Market） */
-const GROUP_LABELS = {
-  review: "To review",
-  suggested: "Suggested",
-  running: "Running",
-  market: "Market",
+const GROUP_LABEL_KEYS = {
+  review: "pulse.supporting.groupReview",
+  suggested: "pulse.supporting.groupSuggested",
+  running: "pulse.supporting.groupRunning",
+  market: "pulse.supporting.groupMarket",
 } as const;
 
 export function SupportingList({
@@ -62,6 +63,7 @@ export function SupportingList({
   onOpenRunning,
   onOpenMarket,
 }: Props) {
+  useLocale();
   const hasNeedsYou = needsYou.length > 0;
   const hasSuggestions = suggestions.length > 0;
   const hasRunning = running.length > 0;
@@ -73,7 +75,8 @@ export function SupportingList({
     <View style={styles.card}>
       <View style={styles.cardHead}>
         <Text style={styles.cardTitle}>
-          <Text style={styles.bracket}>[</Text> In motion <Text style={styles.bracket}>]</Text>
+          <Text style={styles.bracket}>[</Text> {t("pulse.supporting.title")}{" "}
+          <Text style={styles.bracket}>]</Text>
         </Text>
       </View>
 
@@ -82,7 +85,7 @@ export function SupportingList({
           <View key={item.id} style={styles.item} testID={`supporting-ny-${item.id}`}>
             <View style={styles.itemTime}>
               <Eye size={lightSizes.iconInline} color={lightColors.scheduleInk} strokeWidth={1.6} />
-              <Text style={styles.itemTimeLabel}>{GROUP_LABELS.review}</Text>
+              <Text style={styles.itemTimeLabel}>{t(GROUP_LABEL_KEYS.review)}</Text>
             </View>
             <View style={styles.titleRow}>
               <PressableScale
@@ -96,7 +99,7 @@ export function SupportingList({
                 </Text>
               </PressableScale>
               <LightChip
-                label="Review"
+                label={t("pulse.supporting.review")}
                 kind="review"
                 onPress={() => onReview(item)}
                 testID={`supporting-ny-${item.id}-action`}
@@ -112,7 +115,7 @@ export function SupportingList({
             <View key={item.id} style={styles.item} testID={`supporting-sg-${item.id}`}>
               <View style={styles.itemTime}>
                 <Lightbulb size={lightSizes.iconInline} color={lightColors.scheduleInk} strokeWidth={1.6} />
-                <Text style={styles.itemTimeLabel}>{GROUP_LABELS.suggested}</Text>
+                <Text style={styles.itemTimeLabel}>{t(GROUP_LABEL_KEYS.suggested)}</Text>
               </View>
               <View style={styles.titleRow}>
                 <PressableScale
@@ -126,17 +129,17 @@ export function SupportingList({
                   </Text>
                 </PressableScale>
                 {confirmed ? (
-                  <Text style={styles.watching}>Watching</Text>
+                  <Text style={styles.watching}>{t("pulse.supporting.watching")}</Text>
                 ) : (
                   <View style={styles.rowActions}>
                     <LightChip
-                      label="Confirm"
+                      label={t("pulse.supporting.confirm")}
                       kind="review"
                       onPress={() => onConfirm(item)}
                       testID={`supporting-sg-${item.id}-action`}
                     />
                     <LightTextAction
-                      label="Dismiss"
+                      label={t("pulse.supporting.dismiss")}
                       quiet
                       style={styles.quietInGreen}
                       onPress={() => onDismiss(item)}
@@ -160,13 +163,15 @@ export function SupportingList({
           >
             <View style={styles.itemTime}>
               <Activity size={lightSizes.iconInline} color={lightColors.scheduleInk} strokeWidth={1.6} />
-              <Text style={styles.itemTimeLabel}>{GROUP_LABELS.running}</Text>
+              <Text style={styles.itemTimeLabel}>{t(GROUP_LABEL_KEYS.running)}</Text>
             </View>
             <View style={styles.titleRow}>
               <Text style={styles.itemTitle} numberOfLines={1} ellipsizeMode="tail">
                 {row.name}
               </Text>
-              <Text style={styles.itemMeta}>{row.status === "running" ? "Running" : "Idle"}</Text>
+              <Text style={styles.itemMeta}>
+                {row.status === "running" ? t("pulse.supporting.running") : t("pulse.supporting.idle")}
+              </Text>
             </View>
           </PressableScale>
         ))}
@@ -182,7 +187,7 @@ export function SupportingList({
           >
             <View style={styles.itemTime}>
               <TrendingUp size={lightSizes.iconInline} color={lightColors.scheduleInk} strokeWidth={1.6} />
-              <Text style={styles.itemTimeLabel}>{GROUP_LABELS.market}</Text>
+              <Text style={styles.itemTimeLabel}>{t(GROUP_LABEL_KEYS.market)}</Text>
             </View>
             <View style={styles.titleRow}>
               <Text style={styles.itemTitle} numberOfLines={1} ellipsizeMode="tail">

@@ -1,13 +1,21 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect } from "vitest";
 import { resolveAlertButtons, formatAlertLog } from "./alert-core";
+import { setLocale } from "../i18n";
 
 describe("resolveAlertButtons", () => {
-  it("无按钮时给一个「知道了」（原生 Alert 无按钮时点确定即关闭，语义一致）", () => {
-    expect(resolveAlertButtons(undefined)).toEqual([{ text: "知道了", style: "default" }]);
+  afterEach(() => setLocale("en"));
+
+  it("无按钮时给一个默认确认按钮（原生 Alert 无按钮时点确定即关闭，语义一致）", () => {
+    expect(resolveAlertButtons(undefined)).toEqual([{ text: "OK", style: "default" }]);
   });
 
   it("空数组同样兜底", () => {
-    expect(resolveAlertButtons([])).toEqual([{ text: "知道了", style: "default" }]);
+    expect(resolveAlertButtons([])).toEqual([{ text: "OK", style: "default" }]);
+  });
+
+  it("zh：兜底按钮走字典", () => {
+    setLocale("zh");
+    expect(resolveAlertButtons(undefined)).toEqual([{ text: "知道了", style: "default" }]);
   });
 
   it("有按钮时原样返回（含 cancel / destructive 与回调）", () => {

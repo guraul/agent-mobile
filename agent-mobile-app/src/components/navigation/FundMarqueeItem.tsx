@@ -6,6 +6,7 @@ import { Text } from "../primitives/Text";
 import { StatusPill } from "../feedback/StatusPill";
 import { Marquee } from "./Marquee";
 import type { L1MarketEstimateData } from "../../services/l1";
+import { t, useLocale } from "../../i18n";
 
 export interface FundMarqueeItemProps {
   funds: L1MarketEstimateData[];
@@ -20,6 +21,7 @@ export interface FundMarqueeItemProps {
  * 可点击（onPress，与 EventItem 同 pressed 反馈）。
  */
 export function FundMarqueeItem({ funds, onPress }: FundMarqueeItemProps) {
+  useLocale();
   const containerStyle: ViewStyle = {
     backgroundColor: colors.surface[1],
     borderBottomWidth: 1,
@@ -36,7 +38,7 @@ export function FundMarqueeItem({ funds, onPress }: FundMarqueeItemProps) {
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel="基金行情"
+      accessibilityLabel={t("pulse.market.quotesA11y")}
       style={({ pressed }) => [
         containerStyle,
         pressed && { backgroundColor: colors.surface[2] },
@@ -63,7 +65,8 @@ export function FundMarqueeItem({ funds, onPress }: FundMarqueeItemProps) {
                 variant="captionStrong"
                 color={f.changePct >= 0 ? "success" : "error"}
               >
-                {f.estimatedNav.toFixed(4)} 昨 {f.prevNav.toFixed(4)} {f.changePct >= 0 ? "+" : ""}
+                {f.estimatedNav.toFixed(4)} {t("pulse.market.prev", { nav: f.prevNav.toFixed(4) })}{" "}
+                {f.changePct >= 0 ? "+" : ""}
                 {f.changePct.toFixed(2)}%
               </Text>
             </View>

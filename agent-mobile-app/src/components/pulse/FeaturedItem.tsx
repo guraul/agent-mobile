@@ -10,6 +10,7 @@ import { Bell } from "lucide-react-native";
 import { lightColors, lightTypography, lightRadius, lightSpacing, lightSizes } from "../../theme/light";
 import { PressableScale } from "./PressableScale";
 import { NeedsYouItem } from "./showcase-types";
+import { t, useLocale } from "../../i18n";
 
 interface Props {
   item: NeedsYouItem;
@@ -18,13 +19,14 @@ interface Props {
 }
 
 export function FeaturedItem({ item, onReview, testID }: Props) {
+  useLocale();
   return (
     <PressableScale
       onPress={() => onReview(item)}
       testID={testID}
       style={styles.card}
       accessibilityRole="button"
-      accessibilityLabel={`Review: ${item.title}`}
+      accessibilityLabel={t("pulse.featured.reviewA11y", { title: item.title })}
     >
       <View style={styles.titleRow}>
         <View style={styles.iconWrap}>

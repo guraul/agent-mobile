@@ -43,8 +43,10 @@ describe("toPulseSuggestion", () => {
     expect(s.status).toBe("proposed");
     expect(s.triggerLabel).toBe("Every weekday 14:50");
     expect(s.effectLabel).toContain("Every weekday 14:50");
-    expect(s.effectLabel).toContain("撤销");
-    expect(s.reasonLabel).toBe("基于近期行情观察（连续 3 个评估点净值走低）");
+    expect(s.effectLabel).toContain("revoke it anytime from Responsibilities");
+    expect(s.reasonLabel).toBe(
+      "Based on recent market observations (NAV fell across 3 consecutive checkpoints)",
+    );
     expect(s.expiresAt).toBe(proposalRow().expiresAt);
   });
 
@@ -61,7 +63,7 @@ describe("toPulseSuggestion", () => {
         condition: { kind: "always" }, enabled: true,
       },
     }));
-    expect(always.effectLabel).toContain("到点提醒你");
+    expect(always.effectLabel).toContain("reminds you at the scheduled time");
     expect(always.effectLabel).toContain("Every day 18:00");
   });
 

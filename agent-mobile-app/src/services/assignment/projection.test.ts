@@ -1,11 +1,14 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect } from "vitest";
 import {
   describeTrigger,
   authorizationLabel,
   nextExecutionOf,
   buildAssignmentGroups,
   formatRelative,
+  observationReasonLabel,
+  describeProposalEffect,
 } from "./projection";
+import { setLocale } from "../../i18n";
 import type { AssignmentRecord } from "./client";
 import type { AttentionItem } from "../attention/store";
 
@@ -129,6 +132,31 @@ describe("buildAssignmentGroups", () => {
     const groups = buildAssignmentGroups([active], [baseAttention({ state: "expired" })]);
     expect(groups[0]!.key).toBe("active");
     expect(groups[0]!.items[0]!.attention).toBeUndefined();
+  });
+});
+
+describe("observationReasonLabel / describeProposalEffect", () => {
+  afterEach(() => setLocale("en"));
+
+  it("observation 来源给 why，talk/api 来源为 null", () => {
+    expect(observationReasonLabel("observation:market")).toBe(
+      "Based on recent market observations (NAV fell across 3 consecutive checkpoints)",
+    );
+    expect(observationReasonLabel("talk:abc")).toBeNull();
+  });
+
+  it("效果句带触发时间与动作", () => {
+    expect(describeProposalEffect({ schedule: "50 14 * * 1-5", condition: { kind: "always" } })).toBe(
+      "Once confirmed: runs automatically Every weekday 14:50 and reminds you at the scheduled time; you can revoke it anytime from Responsibilities.",
+    );
+  });
+
+  it("zh：why 与效果句走字典", () => {
+    setLocale("zh");
+    expect(observationReasonLabel("observation:market")).toBe("基于近期行情观察（连续 3 个评估点净值走低）");
+    expect(describeProposalEffect({ schedule: "50 14 * * 1-5", condition: { kind: "fund-nav" } })).toBe(
+      "确认后：Every weekday 14:50 自动评估，命中条件时提醒你；可随时在 Responsibilities 中撤销。",
+    );
   });
 });
 

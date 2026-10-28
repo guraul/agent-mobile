@@ -20,6 +20,9 @@ const en = {
   "app.common.sessionGoneAction": "Open Talk instead",
   "app.common.cannotOpenTalk": "Can't open Talk",
 
+  // ── 全局：Alert 兜底按钮 ───────────────────────────────────────────────
+  "alert.feedback.acknowledge": "OK",
+
   // ── Sheet 原语 ─────────────────────────────────────────────────────────
   "sheet.common.close": "Close sheet",
 
@@ -105,6 +108,28 @@ const en = {
   "pulse.market.title": "Market",
   "pulse.market.caption": "Estimates I am keeping an eye on. Informational only.",
   "pulse.market.prev": "prev {nav}",
+  "pulse.market.quotesA11y": "Fund market quotes",
+
+  // ── Pulse：In motion 绿卡（SupportingList）──────────────────────────────
+  "pulse.supporting.title": "In motion",
+  "pulse.supporting.groupReview": "To review",
+  "pulse.supporting.groupSuggested": "Suggested",
+  "pulse.supporting.groupRunning": "Running",
+  "pulse.supporting.groupMarket": "Market",
+  "pulse.supporting.review": "Review",
+  "pulse.supporting.confirm": "Confirm",
+  "pulse.supporting.dismiss": "Dismiss",
+  "pulse.supporting.watching": "Watching",
+  "pulse.supporting.running": "Running",
+  "pulse.supporting.idle": "Idle",
+
+  // ── Pulse：Featured 卡 ────────────────────────────────────────────────
+  "pulse.featured.reviewA11y": "Review: {title}",
+
+  // ── Pulse：domain 标签（Featured / Noticed 的来源）──────────────────────
+  "pulse.domain.market": "Market",
+  "pulse.domain.coding": "Coding",
+  "pulse.domain.pulse": "Pulse",
 
   // ── Pulse：Noticed（首页分组 / 列表 sheet / 详情 sheet）────────────────
   "pulse.noticed.title": "Noticed",
@@ -144,6 +169,15 @@ const en = {
   "attention.detail.dismiss": "Dismiss",
   "attention.detail.dismissTitle": "Dismiss this item?",
   "attention.detail.dismissBody": "This only steps back from the item. The responsibility stays.",
+
+  // ── Attention：Talk 会话解析（services/attention/talk.ts）───────────────
+  "attention.talk.sessionTitle": "Handling: {title}",
+  "attention.talk.sessionGone": "The conversation for this item is no longer available",
+
+  // ── Assignment：详情屏 ─────────────────────────────────────────────────
+  "assignment.detail.revokeBody":
+    "Stops future runs; existing reminders stay as they are (PM §11).\n\n{responsibility}",
+  "assignment.detail.revoke": "Revoke",
 
   // ── Chat：通用 ─────────────────────────────────────────────────────────
   "chat.common.loading": "Loading…",
@@ -270,6 +304,14 @@ const en = {
   "chat.shell.sessionGoneBody":
     "That conversation is gone (my runtime may have restarted). Switched to the most recent one.",
 
+  // ── Service 拼句：Assignment 投影（projection.ts）────────────────────────
+  "assignment.projection.observationReason":
+    "Based on recent market observations (NAV fell across 3 consecutive checkpoints)",
+  "assignment.projection.effect":
+    "Once confirmed: runs automatically {trigger} and {action}; you can revoke it anytime from Responsibilities.",
+  "assignment.projection.action.always": "reminds you at the scheduled time",
+  "assignment.projection.action.condition": "reminds you when the condition is met",
+
   // ── Service 拼句：定时任务确认卡（assignment-card）───────────────────────
   "assignment.card.schedule.daily": "Every day at {time}",
   "assignment.card.schedule.tradingDay": "Every trading day at {time}",
@@ -363,6 +405,8 @@ const zh = {
   "app.common.sessionGoneAction": "去 Talk 默认会话",
   "app.common.cannotOpenTalk": "无法进入 Talk",
 
+  "alert.feedback.acknowledge": "知道了",
+
   "sheet.common.close": "关闭面板",
 
   "pulse.header.settings": "设置",
@@ -437,6 +481,25 @@ const zh = {
   "pulse.market.title": "市场",
   "pulse.market.caption": "我在关注的估算。仅供参考。",
   "pulse.market.prev": "前值 {nav}",
+  "pulse.market.quotesA11y": "基金行情",
+
+  "pulse.supporting.title": "进行中",
+  "pulse.supporting.groupReview": "待处理",
+  "pulse.supporting.groupSuggested": "建议",
+  "pulse.supporting.groupRunning": "运行中",
+  "pulse.supporting.groupMarket": "市场",
+  "pulse.supporting.review": "审阅",
+  "pulse.supporting.confirm": "确认",
+  "pulse.supporting.dismiss": "忽略",
+  "pulse.supporting.watching": "关注中",
+  "pulse.supporting.running": "运行中",
+  "pulse.supporting.idle": "空闲",
+
+  "pulse.featured.reviewA11y": "审阅：{title}",
+
+  "pulse.domain.market": "市场",
+  "pulse.domain.coding": "编程",
+  "pulse.domain.pulse": "Pulse",
 
   "pulse.noticed.title": "注意到",
   "pulse.noticed.discuss": "讨论",
@@ -471,6 +534,12 @@ const zh = {
   "attention.detail.dismiss": "退出",
   "attention.detail.dismissTitle": "退出这条事项？",
   "attention.detail.dismissBody": "仅代表显式退出，不影响 responsibility。",
+
+  "attention.talk.sessionTitle": "处理：{title}",
+  "attention.talk.sessionGone": "该事项的会话已不可用",
+
+  "assignment.detail.revokeBody": "停止未来执行；已有提醒保留（PM §11）。\n\n{responsibility}",
+  "assignment.detail.revoke": "撤销",
 
   "chat.common.loading": "加载中…",
   "chat.common.retry": "重试",
@@ -582,6 +651,11 @@ const zh = {
   "chat.shell.empty": "这个项目还没有会话。",
   "chat.shell.emptyHint": "开始一次新对话。",
   "chat.shell.sessionGoneBody": "该会话已丢失（agent runtime 可能重启过）。已切换到最近的会话。",
+
+  "assignment.projection.observationReason": "基于近期行情观察（连续 3 个评估点净值走低）",
+  "assignment.projection.effect": "确认后：{trigger} 自动评估，{action}；可随时在 Responsibilities 中撤销。",
+  "assignment.projection.action.always": "到点提醒你",
+  "assignment.projection.action.condition": "命中条件时提醒你",
 
   "assignment.card.schedule.daily": "每天 {time}",
   "assignment.card.schedule.tradingDay": "每个交易日 {time}",
