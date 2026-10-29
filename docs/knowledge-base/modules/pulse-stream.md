@@ -108,6 +108,8 @@ root（cream #F7F5DC 画布，页面水平 padding 25）
 - **legacy 退役（mobile 侧）**：`fund-events.ts` / `useFundEvents.ts` 已删除；跑马灯改读 L1（`services/l1.ts` + `hooks/useL1.ts`）。
 - **点击路由**：permission Attention → GET session → 项目会话（现有 Talk path）；market Attention → 行情 sheet + Ignore（dismiss）。
 - 查看不改 state：viewed/opened 只写 interaction（PM §17）。
+- **冷启动时序（2026-10-30，#167）**：`hooks/useAttentions.ts` 挂载时若 `tokenHeader()` 为空，先 `loadToken()`（幂等）再拉一次 snapshot
+  —— 旧实现直接跳过且不重试，刷新后 Pulse 可能空白。拉取失败**只重试一次**（`services/attention/cold-start.ts`，上限 2 次），**不轮询**。
 
 ## 模块职责
 
@@ -146,6 +148,7 @@ Pulse 根界面（唯一表面）：问候 + AI 在场状态 + **AI briefing 组
 | `agent-mobile-app/src/components/pulse/FundSheet.tsx` | Market 行情详情（L1 estimate：estimatedNav · prev · ±%；只读无动作） |
 | `agent-mobile-app/src/components/pulse/showcase-types.ts` | companion 视图层类型（PresenceState/NeedsYouItem/SuggestionItem/NoticedItem 等） |
 | `agent-mobile-app/src/hooks/useAttentions.ts` | Attention hook：snapshot + product SSE attention.* + 重连对账（Featured 数据源） |
+| `agent-mobile-app/src/services/attention/cold-start.ts` | Attention 冷启动快照纯函数：`shouldFetchAttentions`（无 token 不拉）+ `loadAttentionSnapshot`（等 token + 失败重试一次） |
 | `agent-mobile-app/src/hooks/useSuggestions.ts` | Suggestion hook：proposed 快照 + product SSE proposal.* + confirm/reject 转发 |
 | `agent-mobile-app/src/hooks/useL1.ts` | L1 hook：snapshot + SSE + reconciliation；`funds`=行情投影、`noticed`=observation |
 | `agent-mobile-app/src/hooks/useProjectEvents.ts` | 聚合 opencode 项目 + 会话 + 状态 + SSE 实时（RUNNING 行数据源） |

@@ -11,7 +11,8 @@ import {
   engageAttention as engageAttentionApi,
   subscribeToAttentionEvents,
 } from "@/services/attention/client";
-import { tokenHeader } from "@/services/auth";
+import { loadAttentionSnapshot } from "@/services/attention/cold-start";
+import { tokenHeader, loadToken } from "@/services/auth";
 
 export interface UseAttentionsResult {
   /** Pulse actionable：state==='open' 的 Attention（视图模型） */
@@ -38,10 +39,14 @@ export function useAttentions(): UseAttentionsResult {
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(true);
 
-  // 无凭据时不发请求，直接走同一条异步收尾（null 快照）——effect 同步段不碰 setter。
+  // 冷启动：子组件 effect 早于父组件的 loadToken()，token 未就绪时先补一次（幂等）再拉，
+  // 否则 snapshot 被跳过且永不重试（刷新后 Pulse 空白）。失败重试一次，不轮询。
   const refresh = useCallback(() => {
-    const authed = Boolean(tokenHeader().Authorization);
-    return (authed ? fetchAttentions() : Promise.resolve(null))
+    return loadAttentionSnapshot({
+      readToken: () => tokenHeader().Authorization,
+      ensureToken: loadToken,
+      fetchSnapshot: fetchAttentions,
+    })
       .then((snapshot) => {
         if (!mountedRef.current || snapshot === null) return;
         setItems(reconcileFromSnapshot(snapshot));
