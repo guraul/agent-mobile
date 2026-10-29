@@ -51,7 +51,8 @@ export function MarketGroupItem({ group, onOpenMember, variant = "featured", tes
       ? group.members
       : group.members.slice(0, MAX_VISIBLE_MEMBERS)
     : [];
-  const hiddenCount = group.members.length - visibleMembers.length;
+  // 折叠态不报溢出：开关本身已写明 "Show 3 details"，再加 "+3 more" 是同一件事说两遍
+  const hiddenCount = expanded ? group.members.length - visibleMembers.length : 0;
   const toggleLabel = expanded
     ? t("pulse.marketGroup.collapse")
     : t("pulse.marketGroup.expand", { count: group.count });
