@@ -81,3 +81,64 @@ export function buildPulseUnits(items: PulseAttentionItem[]): PulseUnit[] {
     return { ...slot, members, count: members.length };
   });
 }
+
+/** 一组被合并的 market Attention（纯数据；不含渲染字段） */
+export interface MarketAttentionGroup {
+  /** 合并键，market:<creationReasonRef>:<expiresAt> */
+  key: string;
+  reasonRef: string;
+  expiresAt: number;
+  /** 成员按时间升序（旧在前） */
+  items: PulseAttentionItem[];
+}
+
+export interface MarketAttentionGrouping {
+  /** 仅 N≥2 的组合；按合并键首次出现的顺序 */
+  groups: MarketAttentionGroup[];
+  /** 未成组条目（非 market / 无授权 / 无有效窗 / 组内只有 1 条），保持输入顺序 */
+  singles: PulseAttentionItem[];
+}
+
+/**
+ * 按「域 ∧ 创建授权 ∧ 有效窗」把 market Attention 分组合并。
+ *
+ * - 只合并 `domain === "market"` 且 `creationReasonRef`、`expiresAt` 均有效的条目
+ * - 跨 creationReasonRef / 跨 expiresAt / 跨 domain 一律不合并
+ * - N=1 不合并，原样进 singles
+ * - 组内按 createdAt 升序；不修改输入数组与条目
+ */
+export function groupMarketAttentions(items: PulseAttentionItem[]): MarketAttentionGrouping {
+  const buckets = new Map<string, PulseAttentionItem[]>();
+  const meta = new Map<string, { reasonRef: string; expiresAt: number }>();
+
+  for (const item of items) {
+    const key = marketGroupKey(item);
+    if (key === null || item.expiresAt === null) continue;
+    const bucket = buckets.get(key);
+    if (bucket) {
+      bucket.push(item);
+      continue;
+    }
+    buckets.set(key, [item]);
+    meta.set(key, { reasonRef: item.creationReasonRef, expiresAt: item.expiresAt });
+  }
+
+  const groups: MarketAttentionGroup[] = [];
+  for (const [key, members] of buckets) {
+    if (members.length < 2) continue;
+    const info = meta.get(key)!;
+    groups.push({
+      key,
+      reasonRef: info.reasonRef,
+      expiresAt: info.expiresAt,
+      items: [...members].sort((a, b) => a.createdAt - b.createdAt),
+    });
+  }
+
+  const singles = items.filter((item) => {
+    const key = marketGroupKey(item);
+    return key === null || (buckets.get(key)?.length ?? 0) < 2;
+  });
+
+  return { groups, singles };
+}
