@@ -40,6 +40,7 @@ import {
   nextRevealChars,
 } from "../../../services/message-reducer";
 import { mergeMessages, groupToolSteps, type DisplayStep, type ToolStep } from "../../../services/message-merging";
+import { needsMessageRefetch } from "../../../services/message-refetch";
 import { loadModelPrefs } from "../../../services/model-prefs";
 import { DEFAULT_MODEL, selectModels } from "../../../services/model-registry";
 import { buildAttentionContext } from "../../../services/attention/context";
@@ -340,15 +341,44 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
   // #53（E1 v2）：回合结束（execution.*）或重连（stream.resync）时静默 refetch 消息列表。
   // 不挂在 tool.*/step.* 上：中途 refetch 会用真 parts 换掉流式占位（合成 partID），
   // 打字机 reveal 目标失配导致整块弹出。工具卡由此在回合结束才出现（chatcode 侧可接受）。
+  //
+  // #167：最后一条 assistant 停在 finish="tool-calls" 且没有 text part 时，再静默重拉一次
+  // （纯读自愈）。同一条消息只重拉一次（refetchOnceRef 记 message id），仍无 text 就保持现状。
+  const refetchOnceRef = useRef<string | null>(null);
+  const applyMessages = useCallback(
+    (list: OpenCodeMessage[]) => {
+      setMessages(list);
+      recomputeDisplay(list);
+    },
+    [recomputeDisplay],
+  );
+  const refetchTailOnce = useCallback(async () => {
+    try {
+      applyMessages(await opencodeClient.listMessages(sessionID, { limit: PAGE_SIZE }));
+    } catch {
+      // 重拉失败：保持现状（不报错、不弹窗），下一次事件/重连自然会再拉
+    }
+  }, [sessionID, applyMessages]);
+  const maybeRefetchTail = useCallback(
+    (list: OpenCodeMessage[]) => {
+      // 列表是 chronological（旧在前），最后一条才是最新
+      const last = list[list.length - 1];
+      if (!last || !needsMessageRefetch(last)) return;
+      if (refetchOnceRef.current === last.info.id) return;
+      refetchOnceRef.current = last.info.id;
+      void refetchTailOnce();
+    },
+    [refetchTailOnce],
+  );
   const silentReload = useCallback(async () => {
     try {
       const list = await opencodeClient.listMessages(sessionID, { limit: PAGE_SIZE });
-      setMessages(list);
-      recomputeDisplay(list);
+      applyMessages(list);
+      maybeRefetchTail(list);
     } catch {
       // 下一次事件/重连会再试
     }
-  }, [sessionID, recomputeDisplay]);
+  }, [sessionID, applyMessages, maybeRefetchTail]);
   const lastReloadRef = useRef(0);
   const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scheduleSilentReload = useCallback(() => {
@@ -422,6 +452,13 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
   useEffect(() => {
     busyLiveRef.current = busy;
   }, [busy]);
+
+  // #167：会话 idle（busy 落回 false）时检查尾巴——最后一条 assistant 以工具调用收尾却没有
+  // text 时补拉一次（与 execution.* 的 silentReload 共用 refetchOnceRef，同一条消息只拉一次）。
+  useEffect(() => {
+    if (busy) return;
+    maybeRefetchTail(messages);
+  }, [busy, messages, maybeRefetchTail]);
 
   // #80：程序滚动后短窗忽略自身 scroll 回波——v2 突发 delta 让内容高度大步增长，
   // scrollToEnd 落定过程中的中间 onScroll（距底 >80px）会把 stickToBottom 翻 false，

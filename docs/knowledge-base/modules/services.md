@@ -42,6 +42,7 @@ auth.ts ──Bearer JWT──► 认证（homebase 用户）       opencode 凭
 | `agent-mobile-app/src/services/opencode-events.ts` | BFF stream 订阅（delta 事件 + sessionID 过滤 + 退避重连） |
 | `agent-mobile-app/src/services/busy-signal.ts` | #58 busy 真实信号纯函数（事件流入=busy + 静默超时；不碰 messages/part） |
 | `agent-mobile-app/src/services/message-reducer.ts` | `applyMessageUpdated/applyPartUpdated/applyMessageRemoved/applyPartDelta` 增量 patch |
+| `agent-mobile-app/src/services/message-refetch.ts` | #167 `needsMessageRefetch(lastAssistant)`：尾巴停在 `finish="tool-calls"` 且无 text → 一次性兜底重拉判据（纯函数） |
 | `agent-mobile-app/src/services/message-merging.ts` | `mergeMessages`：step 级消息 → 对话气泡 |
 | `agent-mobile-app/src/services/project-status.ts` | `determineProjectStatus`：项目状态判定 |
 
@@ -159,6 +160,8 @@ auth.ts ──Bearer JWT──► 认证（homebase 用户）       opencode 凭
 - **`probeBffHealth` 必须用 OPTIONS**：BFF 只对 OPTIONS 预检回 CORS 头（`corsOptionsResponse`），HEAD 会 405 且无 CORS 头——web 静态版（9928）浏览器里 fetch 被拦 → 永远误判离线（2026-08-30 踩坑）。且 BFF `lib/cors.ts` 允许列表只含 9928 三个 origin。
 - **除 Pulse 外的页面直开/刷新必须自行 `loadToken()`**：token 恢复逻辑只在 Pulse（index.tsx）启动 effect 里，`opencodeConfig.token` 是内存态——可直开的 contextual 路由（`talk.tsx` / `assignments/[id].tsx` / `attention/[id].tsx` / `kb/doc.tsx`）已各自处理，今后新增直开路由照做，否则 authed 请求裸奔 401。
 - **消息数组必须保持 chronological**（`listMessages` 真实顺序），任何排序/插入逻辑以 `time.created` 为准。
+- **`GET /session/{id}/message` 的 `.data[]` 是倒序（首元素最新）**：不要拿 `.data[0]` 当最早、`.data[last]` 当最新，更不能按"取最后一条"判断会话是否结束——`listMessages` 已在客户端按 `time.created` 升序排好（`order=desc` 拉最近一页再排序），判断"最后一条"一律基于这个排序后的列表。
+- **#167 尾巴自愈**：`ChatPanelZ` 在回合结束（execution.* / silentReload）与 session idle（`busy` 落回 false）时，用 `needsMessageRefetch(lastAssistant)` 判断最后一条 assistant 是否 `finish="tool-calls"` 且无 text part；命中则**再静默重拉一次**（同一条 message id 只拉一次，仍无 text 保持现状、不报错不弹窗）。改这段别把重拉挂进无限循环。
 - **SSE 事件属性是 `Record<string, unknown>`**：事件处理处需自行 cast（如 `props.info`、`props.part`、delta 的 `properties`），有拼写风险。
 - **BFF 强制覆盖 Authorization 为 opencode Basic**：手机端 JWT 不传 upstream（BFF `lib/opencode.ts` `proxyRequest`）。
 - **`/session/status` 只含活跃会话**：补 idle 是调用方职责（useProjectEvents 中处理）。

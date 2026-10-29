@@ -61,6 +61,9 @@ export interface OpenCodeMessage {
     // Model-call failure carried on the message envelope. At runtime this is
     // a NamedError object ({ name, data }), not a string.
     error?: unknown;
+    // #167：assistant 结束原因（v2 assistant 消息顶层 finish）——"tool-calls" 表示
+    // 本步以工具调用收尾，正常后面还应有一段 text。用于兜底重拉判据（message-refetch.ts）。
+    finish?: string;
   };
   parts: OpenCodePart[];
 }
@@ -150,6 +153,8 @@ export interface V2Message {
   // #69 跟进：持久化的用户消息文本在顶层 text 字段（v2 实测——content/payload 都不是）
   text?: string;
   error?: unknown;
+  // assistant 消息的结束原因（stop / length / tool-calls / content-filter / error / unknown）
+  finish?: string;
 }
 
 export function mapV2Message(m: V2Message): OpenCodeMessage {
@@ -165,7 +170,14 @@ export function mapV2Message(m: V2Message): OpenCodeMessage {
     return { id, type: c.type, text: c.text } as OpenCodePart;
   });
   return {
-    info: { id: m.id, role, sessionID: m.sessionID ?? "", time: { created: m.time?.created ?? 0 } },
+    info: {
+      id: m.id,
+      role,
+      sessionID: m.sessionID ?? "",
+      time: { created: m.time?.created ?? 0 },
+      // #167：只在 assistant 消息上带 finish（用户消息没有该字段）
+      ...(m.finish ? { finish: m.finish } : {}),
+    },
     parts,
   };
 }
