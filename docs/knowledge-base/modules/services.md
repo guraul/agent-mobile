@@ -1,6 +1,7 @@
 # modules/services.md —— opencode 对接服务层
 
 > 最后更新：2026-10-11 · E1 opencode v2 契约改造（issue #53；BFF PR#15 + App PR#68/#70/#72）
+> 2026-10-29：补 `services/agency/*`、`services/external/*`、`services/activity/*` 事实登记，见文末「agency / external / activity」。
 > ⚠️ **v2 要点**：REST `{data}` 信封（client 解包）；消息列表仅元数据+单条拉 content；agent/model **建会话定**（chat 侧 companion+deepseek-v4.1-flash-free，常量在 conversation-kind.ts；chatcode 切换走 switchAgent/switchModel）；事件流无 message.updated（text.started 占位→delta→text.ended→execution.*/stream.resync 节流 refetch）；question→form；busy 白名单见 busy-signal.ts（v2 事件名）。详见 [API.md](../API.md) 2026-10-11 块。
 > 上一版：2026-10-10 · commit：`feat(chat): busy 真实信号（#58）`（新增 `busy-signal.ts` 纯函数 + 单测；ChatPanelZ 状态行判据由 `sending` 改为事件驱动 busy）
 > 上一版：2026-10-10 · commit：`feat(chat): chat 页强制 agent=companion（#57 E3-a 客户端半边）`（chat 侧三处 `sendMessageAsync` 固定 `agent:"companion"`）
@@ -176,3 +177,30 @@ auth.ts ──Bearer JWT──► 认证（homebase 用户）       opencode 凭
 | `services/memory/client.ts` | Memory 投影 + Forget + KB search（Memory sheet） | memx 文件 / llm-wiki vault |
 | `services/external/client.ts` | ICS 订阅源 GET/POST/DELETE（`/api/product/external/ics-sources`，url 由 BFF 打码）+ `checkIcsUrl` 前端基本校验 | BFF ics_sources（URL 即凭据，只在服务端） |
 | `services/project-status.ts` | running/idle 中性判定（Phase 3 起 needs-you 移除，见文件头注释） | 运行时计算 |
+
+## agency / external / activity（2026-10-29 事实登记）
+
+| service | 职责 |
+|---|---|
+| `services/agency/boundaries.ts` | 自主边界唯一事实源：`BOUNDARY_TIERS` 三层（actsThenTells / asksFirst / never）+ 每条 `id` / i18n key / tone；UI 只渲染、不复制内容 |
+| `services/agency/scheduler-toggle.ts` | 只碰 `nightly-retry` 一个 job：读 `enabled`、start/stop、乐观更新 + 失败回滚 |
+| `services/external/client.ts` | ICS 只读订阅源 GET/POST/DELETE + `checkIcsUrl` 前端基本校验 |
+| `services/activity/client.ts` | Agent activity 只读取数 + 展示纯函数（摘要句 / 空态句 / outcome 标签 / 相对时间） |
+| `services/activity/digest.ts` | 「她今天替你做了什么」纯函数（本地日界过滤 + 截断检查 + 一句话文案） |
+
+- **agency 三层条目（顺序即展示顺序）**：actsThenTells = `nightly-retry` / `daily-digest`；asksFirst = `new-responsibility` / `handoff-to-chatcode`；never = `move-money` / `send-messages` / `change-credentials`。
+- **agency 唯一可调项** = actsThenTells 层的 `nightly-retry`；其余条目无写接口、无按账号/环境分支，一律只读。
+- **agency 边界变更流程**：先改 `boundaries.ts` 与对应 i18n key，再改实现；UI 不复制文案。
+- **scheduler-toggle 端点**：`GET /api/scheduler/jobs` 取 `name=nightly-retry` 的 `enabled`；`POST /api/scheduler/nightly-retry/start|stop` 切换。
+- **scheduler-toggle 读失败语义**：jobs 里找不到 `nightly-retry` 同样按失败抛出（UI 据此禁用开关）。
+- **scheduler-toggle 无缓存**：每次进 `BoundariesSheet` 现读 `enabled`，成功用服务端返回值校准乐观值。
+- **external 契约**：`GET` → `{items}`（`url` 已打码）、`POST` → 201 `{item}`（body `{url,label?}`）、`DELETE /:id` → 200 `{ok,deleted,events}` / 404 `{error:"not_found"}`。
+- **external 不持有原始 URL**：新增只提交一次，之后列表只显示打码值。
+- **checkIcsUrl 判据**：必须 `https:` 且 path/query 含 `.ics` / `ical`；只做点 Add 前的一句提示，不替代服务端复核。
+- **activity 端点**：`GET /api/product/agent-activity?days=<n>&limit=<n>`（`DEFAULT_ACTIVITY_DAYS = 7`）；401 → `handleUnauthorized()`，其余失败上抛由调用方展示。
+- **activity 字段**：`executions[{id,title,at,outcome}]`，`outcome` ∈ `matched` / `evaluated` / `failed`（标签 Raised a flag / Ran / Didn't run）。
+- **activity 两个计数口径不混用**：`buildActivitySummary` 的「raised a flag」= `counts.matched`；`counts.attentionCreated` 是卡片口径，不进摘要行。
+- **digest 常量**：`ACTIVITY_PAGE_LIMIT = 50`（与 BFF `AGENT_ACTIVITY_MAX_LIMIT` 一致），取满即视为可能截断 → `summarizeToday` 返回 `null`。
+- **digest 时区**：`startOfLocalDay(now)` 按客户端本地时区切日（服务端窗口是滚动 24h）；`dayStart` 由调用方传入，测试不依赖运行环境时区。
+- **digest 文案**：`I checked N thing(s) for you today — X didn't run / X raised a flag / all clear`（失败优先，无感叹号与 emoji）。
+- **digest 的 Sheet 复用**：`filterActivityToToday(activity, now)` 给 `ActivitySheet days={1}`，保留本地当天且计入 outcome 的行并重算 counts。
