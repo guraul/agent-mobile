@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
   attentionUnit,
-  buildPulseUnits,
   groupMarketAttentions,
   marketGroupKey,
+  unitsFromGrouping,
   type PulseMarketGroupUnit,
 } from "./grouping";
 import type { PulseAttentionItem } from "./store";
@@ -27,7 +27,11 @@ function item(over: Partial<PulseAttentionItem> & { id: string }): PulseAttentio
   };
 }
 
-const groupsOf = (units: ReturnType<typeof buildPulseUnits>) =>
+/** Pulse 渲染路径：先分组，再落成渲染单元（app/index.tsx 同款调用） */
+const unitsOf = (items: PulseAttentionItem[]) =>
+  unitsFromGrouping(groupMarketAttentions(items), items);
+
+const groupsOf = (units: ReturnType<typeof unitsFromGrouping>) =>
   units.filter((u): u is PulseMarketGroupUnit => u.kind === "market-group");
 
 describe("marketGroupKey（合并键 = domain ∧ creationReasonRef ∧ expiresAt）", () => {
@@ -42,9 +46,9 @@ describe("marketGroupKey（合并键 = domain ∧ creationReasonRef ∧ expiresA
   });
 });
 
-describe("buildPulseUnits", () => {
+describe("unitsFromGrouping＋groupMarketAttentions（Pulse 渲染单元）", () => {
   it("≥2 条同类 → 合成一组，成员一条不丢、计数正确", () => {
-    const units = buildPulseUnits([item({ id: "a" }), item({ id: "b" }), item({ id: "c" })]);
+    const units = unitsOf([item({ id: "a" }), item({ id: "b" }), item({ id: "c" })]);
     expect(units).toHaveLength(1);
     const [group] = groupsOf(units);
     expect(group.count).toBe(3);
@@ -56,14 +60,14 @@ describe("buildPulseUnits", () => {
 
   it("单条不套壳：退化为普通条目且位置不变", () => {
     const before = item({ id: "solo" });
-    const units = buildPulseUnits([item({ id: "other", domain: "coding" }), before]);
+    const units = unitsOf([item({ id: "other", domain: "coding" }), before]);
     expect(units.map((u) => u.kind)).toEqual(["attention", "attention"]);
     expect(units[1]).toEqual(attentionUnit(before));
     expect(groupsOf(units)).toHaveLength(0);
   });
 
   it("同组只剩 1 条时不合并（另一条被跨窗/跨授权排除）", () => {
-    const units = buildPulseUnits([
+    const units = unitsOf([
       item({ id: "a" }),
       item({ id: "b", expiresAt: WINDOW + 86_400_000 }),
     ]);
@@ -71,7 +75,7 @@ describe("buildPulseUnits", () => {
   });
 
   it("跨 creationReasonRef 不合并（不跨创建授权）", () => {
-    const units = buildPulseUnits([
+    const units = unitsOf([
       item({ id: "a" }),
       item({ id: "b", creationReasonRef: "market.target-nav-threshold" }),
     ]);
@@ -79,7 +83,7 @@ describe("buildPulseUnits", () => {
   });
 
   it("跨 expiresAt 不合并（不跨有效窗）", () => {
-    const units = buildPulseUnits([
+    const units = unitsOf([
       item({ id: "a" }),
       item({ id: "b", expiresAt: WINDOW + 1 }),
     ]);
@@ -87,7 +91,7 @@ describe("buildPulseUnits", () => {
   });
 
   it("跨域不合并（market 只与 market 合并）", () => {
-    const units = buildPulseUnits([
+    const units = unitsOf([
       item({ id: "a" }),
       item({ id: "b", domain: "coding" }),
       item({ id: "c", domain: "personal" }),
@@ -97,7 +101,7 @@ describe("buildPulseUnits", () => {
   });
 
   it("同名窗但无 expiresAt 的条目永不合并（无窗无法判定同一窗口）", () => {
-    const units = buildPulseUnits([
+    const units = unitsOf([
       item({ id: "a", expiresAt: null }),
       item({ id: "b", expiresAt: null }),
     ]);
@@ -105,7 +109,7 @@ describe("buildPulseUnits", () => {
   });
 
   it("两组不同键并存，各自计数独立", () => {
-    const units = buildPulseUnits([
+    const units = unitsOf([
       item({ id: "a" }),
       item({ id: "x", creationReasonRef: "rule-b" }),
       item({ id: "b" }),
@@ -117,7 +121,7 @@ describe("buildPulseUnits", () => {
   });
 
   it("组占最新成员的位置，其余条目顺序不变（不把组顶到最前）", () => {
-    const units = buildPulseUnits([
+    const units = unitsOf([
       item({ id: "ny-1", domain: "coding" }),
       item({ id: "m-new", createdAt: 3000 }),
       item({ id: "ny-2", domain: "personal" }),
@@ -131,7 +135,7 @@ describe("buildPulseUnits", () => {
   });
 
   it("成员按时间序（createdAt 降序，与 Pulse 列表一致）", () => {
-    const units = buildPulseUnits([
+    const units = unitsOf([
       item({ id: "old", createdAt: 1000 }),
       item({ id: "new", createdAt: 3000 }),
       item({ id: "mid", createdAt: 2000 }),
@@ -142,7 +146,7 @@ describe("buildPulseUnits", () => {
   });
 
   it("不做基金集合匹配：subjectId 不同不影响成组，相同也不会跨键合并", () => {
-    const units = buildPulseUnits([
+    const units = unitsOf([
       item({ id: "a", subjectId: "same-fund" }),
       item({ id: "b", subjectId: "same-fund" }),
     ]);
@@ -151,7 +155,7 @@ describe("buildPulseUnits", () => {
   });
 
   it("单元 key 唯一（React key 可直接用）", () => {
-    const units = buildPulseUnits([
+    const units = unitsOf([
       item({ id: "a" }),
       item({ id: "b" }),
       item({ id: "c", domain: "coding" }),
@@ -160,7 +164,36 @@ describe("buildPulseUnits", () => {
   });
 
   it("空列表 → 空单元列表", () => {
-    expect(buildPulseUnits([])).toEqual([]);
+    expect(unitsOf([])).toEqual([]);
+  });
+
+  it("singles 原样渲染：内容与输入顺序都不变", () => {
+    const units = unitsOf([
+      item({ id: "a", domain: "coding" }),
+      item({ id: "b" }),
+      item({ id: "c", domain: "personal" }),
+    ]);
+    expect(units.map((u) => (u.kind === "attention" ? u.item.id : `group:${u.count}`))).toEqual([
+      "a",
+      "b",
+      "c",
+    ]);
+    expect(units.every((u) => u.kind === "attention")).toBe(true);
+  });
+
+  it("单元数 = 组数 + 单条数：条目一条不丢（首屏预算按单元计）", () => {
+    const input = [
+      item({ id: "a1", createdAt: 1000 }),
+      item({ id: "ny", domain: "coding" }),
+      item({ id: "a2", createdAt: 2000 }),
+      item({ id: "a3", createdAt: 3000 }),
+      item({ id: "solo", creationReasonRef: "rule-c" }),
+    ];
+    const units = unitsOf(input);
+    expect(units).toHaveLength(3); // 1 组 + 2 单条
+    const members = units.flatMap((u) => (u.kind === "market-group" ? u.members : [u.item]));
+    expect(members).toHaveLength(input.length);
+    expect(new Set(members.map((m) => m.id)).size).toBe(input.length);
   });
 });
 

@@ -50,7 +50,7 @@ root（cream #F7F5DC 画布，页面水平 padding 25）
 - **动效**：AnimatedEntry stagger 保留（Reduce Motion 兼容）；呼吸点 reanimated withRepeat（Reduce Motion 兼容）。
 - **预算为硬约束**：Featured ≤1 / Supporting ≤4 / Noticed ≤5。
 - **动作语义红线不变**：查看 ≠ 授权；Confirm/Reject 是 suggestion 唯一推进路径；破坏性动作（Dismiss）弱化 + 二次确认（D9）。
-- **testID 兼容**：pulse-title / pulse-status / pulse-orb / pulse-settings / pulse-today-digest / featured-attention / supporting-ny-/-sg-/-run-/-mkt-/-mg- / supporting-more / noticed-<id> / noticed-see-all / pulse-empty / pulse-suggestion-error / pulse-error / conversation-entry / fund-row-<code> 全保留；已删：pulse-login-banner、watching-line、supporting-more-projects、attention-detail-main。
+- **testID 兼容**：pulse-title / pulse-status / pulse-orb / pulse-settings / pulse-today-digest / featured-attention / supporting-ny-/-sg-/-run-/-mkt-/-mg- / pulse-market-group（组容器）/ pulse-market-group-item（展开项）/ supporting-more / noticed-<id> / noticed-see-all / pulse-empty / pulse-suggestion-error / pulse-error / conversation-entry / fund-row-<code> 全保留；已删：pulse-login-banner、watching-line、supporting-more-projects、attention-detail-main。
 
 ## Companion 暗色形态（2026-09-21 引入，迁移前，历史参考）
 
@@ -194,10 +194,10 @@ View root（#0B0A12 + companion backgroundGradient + 顶部紫光 topGlow）
 
 - **合并是视图，不是新产品对象**：`attention_items` 仍是 N 行、无迁移、无 API 变更、不写 Event（施工卡 `docs/pipeline/MARKET_ALERT_GROUPING_CARD.md` §3）。
 - **合并键**：`domain=market` ∧ `creationReasonRef` 相同 ∧ `expiresAt` 相同 → `market:{reasonRef}:{expiresAt}`（不跨授权、不跨窗口、不跨域；`expiresAt=null` 永不合并）。
-- **纯函数**：`services/attention/grouping.ts` 的 `buildPulseUnits(items) → PulseUnit[]`（`attention` | `market-group`，组带 `count` / `members`）。N=1 退化为普通条目；组占**最新成员**的位置；成员按 `createdAt` 降序。
+- **纯函数**：`services/attention/grouping.ts` 分两层——`groupMarketAttentions(items) → { groups, singles }`（分组语义，纯数据：`key` / `reasonRef` / `expiresAt` / `items`，组内 `createdAt` 升序）+ `unitsFromGrouping(grouping, order) → PulseUnit[]`（渲染单元，`attention` | `market-group`，组带 `count` / `members`）。N=1 不进 groups、原样留在 singles；组占**最新成员**的位置；单元内成员按 `createdAt` 降序。
 - **`PulseAttentionItem` 新增 `expiresAt`**（`services/attention/store.ts`）：分组需要窗口；视图模型其他字段不变。
-- **预算按单元计**：`index.tsx` 先 `buildPulseUnits` 再排队，Featured ≤1 / Supporting ≤4 数的是**渲染单元**，这才是"腾首屏位子"的来源。分组抛错 → fail-open 退回原条目（合并永远不能吃掉条目）。
-- **组件**：`components/pulse/MarketGroupItem.tsx`，`variant="featured"`（白卡 + 琥珀铃铛）/ `"supporting"`（绿卡内条目）；testID `featured-attention`（组在 Featured 位时）/ `supporting-mg-<groupKey>`，成员 `-member-<id>`、展开开关 `-toggle`、溢出 `-more`。
+- **预算按单元计**：`index.tsx` 的 `units` memo 先 `groupMarketAttentions(openAttentions)` 再 `unitsFromGrouping(...)` 排队，Featured ≤1 / Supporting ≤4 数的是**渲染单元**，这才是"腾首屏位子"的来源。分组抛错 → fail-open 退回 `openAttentions.map(attentionUnit)`（合并永远不能吃掉条目）。
+- **组件**：`components/pulse/MarketGroupItem.tsx`，`variant="featured"`（白卡 + 琥珀铃铛）/ `"supporting"`（绿卡内条目）；testID `featured-attention`（组在 Featured 位时）/ `supporting-mg-<groupKey>`，成员 `-member-<id>`、展开开关 `-toggle`、溢出 `-more`。**e2e 稳定钩子**：组容器 `pulse-market-group`、展开项 `pulse-market-group-item`（与上面按实例派生的 testID 并存，互不影响）。
 - **文案**：标题 `{count} funds crossed the targets you set.`（计数在标题里，永不说 "one"）/ 副标题 `Today's check — kept together.` / `Show {count} details` / `+{count} more` / a11y `Review {count} market alerts from today's check`（`i18n` key 前缀 `pulse.marketGroup.`）。**不出现 "I merged"**。
 - **只展开，不做批量动作**：无组级 Dismiss / Handle（PM §17 生命周期仍 per-item）。展开前 5 条 + `+N more`，一条不丢。
 
