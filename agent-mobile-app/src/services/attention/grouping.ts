@@ -42,44 +42,43 @@ export function attentionUnit(item: PulseAttentionItem): PulseAttentionUnit {
 }
 
 /**
- * 把 Pulse 条目折成渲染单元。
+ * 把 `groupMarketAttentions` 的结果落成 Pulse 渲染单元。
  *
  * - 组占**最新成员**的位置（不把它顶到最前，也不改其余条目顺序）
- * - N=1 不套壳：退化为普通条目，位置不变
+ * - singles 原样、按输入顺序
  * - 成员顺序 = createdAt 降序（与 openPulseItems 一致）
+ *
+ * `order` 是分组前的原始列表（即 `groupMarketAttentions` 的输入）：只用来定位
+ * 组该落在哪一行，成员本身仍取自分组结果。
  */
-export function buildPulseUnits(items: PulseAttentionItem[]): PulseUnit[] {
-  const groups = new Map<string, PulseMarketGroupUnit>();
-  const slots: PulseUnit[] = [];
+export function unitsFromGrouping(
+  grouping: MarketAttentionGrouping,
+  order: PulseAttentionItem[],
+): PulseUnit[] {
+  const byKey = new Map(grouping.groups.map((group) => [group.key, group]));
+  const placed = new Set<string>();
+  const units: PulseUnit[] = [];
 
-  for (const item of items) {
+  for (const item of order) {
     const groupKey = marketGroupKey(item);
-    if (groupKey === null) {
-      slots.push(attentionUnit(item));
+    const group = groupKey === null ? undefined : byKey.get(groupKey);
+    if (group === undefined) {
+      units.push(attentionUnit(item));
       continue;
     }
-    const existing = groups.get(groupKey);
-    if (existing) {
-      existing.members.push(item);
-      continue;
-    }
-    const group: PulseMarketGroupUnit = {
+    if (placed.has(group.key)) continue;
+    placed.add(group.key);
+    const members = [...group.items].sort((a, b) => b.createdAt - a.createdAt);
+    units.push({
       kind: "market-group",
-      key: groupKey,
-      groupKey,
-      members: [item],
-      count: 1,
-    };
-    groups.set(groupKey, group);
-    slots.push(group);
+      key: group.key,
+      groupKey: group.key,
+      members,
+      count: members.length,
+    });
   }
 
-  return slots.map((slot) => {
-    if (slot.kind !== "market-group") return slot;
-    if (slot.members.length < 2) return attentionUnit(slot.members[0]);
-    const members = [...slot.members].sort((a, b) => b.createdAt - a.createdAt);
-    return { ...slot, members, count: members.length };
-  });
+  return units;
 }
 
 /** 一组被合并的 market Attention（纯数据；不含渲染字段） */

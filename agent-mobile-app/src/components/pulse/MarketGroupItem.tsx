@@ -58,78 +58,83 @@ export function MarketGroupItem({ group, onOpenMember, variant = "featured", tes
     : t("pulse.marketGroup.expand", { count: group.count });
 
   return (
-    <View style={featured ? styles.card : styles.row} testID={testID}>
-      <PressableScale
-        onPress={() => setExpanded((v) => !v)}
-        scaleTo={0.99}
-        style={featured ? styles.head : styles.headInline}
-        accessibilityRole="button"
-        accessibilityLabel={t("pulse.marketGroup.a11y", { count: group.count })}
-        testID={testID ? `${testID}-head` : undefined}
-      >
-        {featured ? (
-          <View style={styles.titleRow}>
-            <View style={styles.iconWrap}>
-              <Bell size={lightSizes.iconFeatured} color={lightColors.amberDeep} strokeWidth={2} />
-            </View>
-            <Text style={styles.title} numberOfLines={2}>
-              {title}
-            </Text>
-          </View>
-        ) : (
-          <>
-            <View style={styles.labelRow}>
-              <Bell size={lightSizes.iconInline} color={lightColors.scheduleInk} strokeWidth={1.6} />
-              <Text style={styles.label}>{t("pulse.supporting.groupReview")}</Text>
-            </View>
-            <Text style={styles.rowTitle} numberOfLines={2}>
-              {title}
-            </Text>
-          </>
-        )}
-
-        <View style={featured ? styles.subtitleWrap : styles.subtitleWrapInline}>
-          <Text style={featured ? styles.subtitle : styles.rowSubtitle}>{subtitle}</Text>
-        </View>
-
-        <Text style={featured ? styles.meta : styles.rowMeta}>{meta}</Text>
-      </PressableScale>
-
-      <View style={styles.toggleRow}>
-        <LightTextAction
-          label={toggleLabel}
-          quiet={featured}
-          style={featured ? undefined : styles.rowAction}
+    // 稳定钩子：e2e 用 `pulse-market-group` / `pulse-market-group-item` 数组成行与展开项；
+    // 内层 testID（featured-attention / supporting-mg-*）保持原样不动。
+    <View testID="pulse-market-group">
+      <View style={featured ? styles.card : styles.row} testID={testID}>
+        <PressableScale
           onPress={() => setExpanded((v) => !v)}
-          testID={testID ? `${testID}-toggle` : undefined}
-        />
-        {hiddenCount > 0 ? (
+          scaleTo={0.99}
+          style={featured ? styles.head : styles.headInline}
+          accessibilityRole="button"
+          accessibilityLabel={t("pulse.marketGroup.a11y", { count: group.count })}
+          testID={testID ? `${testID}-head` : undefined}
+        >
+          {featured ? (
+            <View style={styles.titleRow}>
+              <View style={styles.iconWrap}>
+                <Bell size={lightSizes.iconFeatured} color={lightColors.amberDeep} strokeWidth={2} />
+              </View>
+              <Text style={styles.title} numberOfLines={2}>
+                {title}
+              </Text>
+            </View>
+          ) : (
+            <>
+              <View style={styles.labelRow}>
+                <Bell size={lightSizes.iconInline} color={lightColors.scheduleInk} strokeWidth={1.6} />
+                <Text style={styles.label}>{t("pulse.supporting.groupReview")}</Text>
+              </View>
+              <Text style={styles.rowTitle} numberOfLines={2}>
+                {title}
+              </Text>
+            </>
+          )}
+
+          <View style={featured ? styles.subtitleWrap : styles.subtitleWrapInline}>
+            <Text style={featured ? styles.subtitle : styles.rowSubtitle}>{subtitle}</Text>
+          </View>
+
+          <Text style={featured ? styles.meta : styles.rowMeta}>{meta}</Text>
+        </PressableScale>
+
+        <View style={styles.toggleRow}>
           <LightTextAction
-            label={t("pulse.marketGroup.more", { count: hiddenCount })}
+            label={toggleLabel}
             quiet={featured}
             style={featured ? undefined : styles.rowAction}
-            onPress={() => setShowAll(true)}
-            testID={testID ? `${testID}-more` : undefined}
+            onPress={() => setExpanded((v) => !v)}
+            testID={testID ? `${testID}-toggle` : undefined}
           />
-        ) : null}
-      </View>
+          {hiddenCount > 0 ? (
+            <LightTextAction
+              label={t("pulse.marketGroup.more", { count: hiddenCount })}
+              quiet={featured}
+              style={featured ? undefined : styles.rowAction}
+              onPress={() => setShowAll(true)}
+              testID={testID ? `${testID}-more` : undefined}
+            />
+          ) : null}
+        </View>
 
-      {visibleMembers.map((item) => (
-        <PressableScale
-          key={item.id}
-          onPress={() => onOpenMember(item)}
-          scaleTo={0.99}
-          style={styles.member}
-          accessibilityRole="button"
-          accessibilityLabel={t("pulse.featured.reviewA11y", { title: item.title })}
-          testID={testID ? `${testID}-member-${item.id}` : `market-group-member-${item.id}`}
-        >
-          <Text style={styles.memberTitle} numberOfLines={2}>
-            {item.title}
-          </Text>
-          {item.summary !== "" ? <Text style={styles.memberSummary}>{item.summary}</Text> : null}
-        </PressableScale>
-      ))}
+        {visibleMembers.map((item) => (
+          <View key={item.id} testID="pulse-market-group-item">
+            <PressableScale
+              onPress={() => onOpenMember(item)}
+              scaleTo={0.99}
+              style={styles.member}
+              accessibilityRole="button"
+              accessibilityLabel={t("pulse.featured.reviewA11y", { title: item.title })}
+              testID={testID ? `${testID}-member-${item.id}` : `market-group-member-${item.id}`}
+            >
+              <Text style={styles.memberTitle} numberOfLines={2}>
+                {item.title}
+              </Text>
+              {item.summary !== "" ? <Text style={styles.memberSummary}>{item.summary}</Text> : null}
+            </PressableScale>
+          </View>
+        ))}
+      </View>
     </View>
   );
 }

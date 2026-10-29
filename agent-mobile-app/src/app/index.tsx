@@ -35,7 +35,8 @@ import { useAttentions } from "@/hooks/useAttentions";
 import { type PulseAttentionItem } from "@/services/attention/store";
 import {
   attentionUnit,
-  buildPulseUnits,
+  groupMarketAttentions,
+  unitsFromGrouping,
   type PulseMarketGroupUnit,
   type PulseUnit,
 } from "@/services/attention/grouping";
@@ -236,12 +237,12 @@ export default function PulseScreen() {
       : t("pulse.header.presenceAttentive");
 
   // ── composition ─────────────────────────────────────────────────────────
-  // market 同类合并（#140）：先折成渲染单元，再按单元排队——Featured / Supporting
-  // 的预算都按**单元**计，合并因此真的腾出首屏位子。fail-open：分组抛错就退回原条目，
-  // 合并永远不能吃掉条目（施工卡 §5）。
+  // market 同类合并（#140）：先用 `groupMarketAttentions` 分成 groups + singles，
+  // 再落成渲染单元——Featured / Supporting 的预算都按**单元**计，合并因此真的腾出首屏位子。
+  // fail-open：分组抛错就退回原条目，合并永远不能吃掉条目（施工卡 §5）。
   const units: PulseUnit[] = useMemo(() => {
     try {
-      return buildPulseUnits(openAttentions);
+      return unitsFromGrouping(groupMarketAttentions(openAttentions), openAttentions);
     } catch {
       return openAttentions.map(attentionUnit);
     }
