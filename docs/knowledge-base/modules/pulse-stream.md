@@ -1,6 +1,7 @@
 # modules/pulse-stream.md —— Pulse 根界面（AI 伴侣 briefing 单表面）
 
 > 最后更新：2026-09-28 · **RN 浅色迁移（epic #7）A-G 完成、H 详情重做完成**（基准 `docs/pipeline/RN_MIGRATION_BRIEF.md`，D1-D10 决策）。当前形态以本节为准；下方 Companion 段及更早内容为历史参考。
+> 2026-10-29：补 Noticed 两类（observation / retry-report）/ TodayDigest / Settings 三入口事实登记，见下方「事实登记（2026-10-29）」。
 
 ## 当前形态（2026-09-28 浅色 Companion，PR #16-#23）
 
@@ -134,7 +135,7 @@ Pulse 根界面（唯一表面）：问候 + AI 在场状态 + **AI briefing 组
 | `agent-mobile-app/src/components/pulse/ConversationEntry.tsx` | 底部「+ Talk to Pulse…」胶囊 + 渐变圆钮，均 Pressable → /talk（**非 TextInput**） |
 | `agent-mobile-app/src/components/pulse/DetailSheet.tsx` | Noticed 只读详情（label/body/meta + Discuss；查看不改产品状态） |
 | `agent-mobile-app/src/components/pulse/ListSheet.tsx` | 共享溢出面（More / Projects / Noticed See All），presentation only |
-| `agent-mobile-app/src/components/pulse/SettingsSheet.tsx` | Settings：Responsibilities / Connection(+Advanced，BFF 地址探测与覆盖) / External sources(Calendar 行：未连/首条 label·打码 URL/n 个) / Preferences(按 agent model 偏好+嵌套 picker，过滤 deepseek、排除 openrouter/siliconflow-cn) / What I remember / Knowledge / Logout |
+| `agent-mobile-app/src/components/pulse/SettingsSheet.tsx` | Settings：Responsibilities(只读投影列表 + `/assignments` 管理入口；同区块另有 What I've been doing / How we work together 两行) / Connection(+Advanced，BFF 地址探测与覆盖) / External sources(Calendar 行：未连/首条 label·打码 URL/n 个) / Preferences(按 agent model 偏好+嵌套 picker，过滤 deepseek、排除 openrouter/siliconflow-cn) / What I remember / Knowledge / Logout |
 | `agent-mobile-app/src/components/pulse/CalendarSheet.tsx` | Calendar（ICS 只读订阅，issue #153 切片 3b）：源列表（打码 URL + `Trash2` 删除，`showAlert` 二次确认）、底部输入框加源（前端 https + `.ics` 基本校验）、错误只占一行（`calendar-error`，不弹窗）；增删后回调 Settings 行刷新摘要 |
 | `agent-mobile-app/src/components/pulse/MemorySheet.tsx` | What I remember（memx projection 只读 + Forget；capability 不是 destination） |
 | `agent-mobile-app/src/components/pulse/KnowledgeSheet.tsx` | KB 检索 → preview → OPEN(`/kb/doc`) / ASK ABOUT THIS(Talk 带上下文) |
@@ -177,8 +178,26 @@ View root（#0B0A12 + companion backgroundGradient + 顶部紫光 topGlow）
 |---|---|---|
 | Featured | `useAttentions()` | 最高优先级 attention（≤1） |
 | Supporting | `useAttentions()` + `useSuggestions()` + `useProjectEvents()` + `useL1().funds` | NEEDS YOU → SUGGESTED → RUNNING → MARKET（≤4） |
-| Noticed | `useL1().noticed` | observation L1（≤5） |
+| Noticed | `useL1().noticed` | L1 `observation` + `retry-report`（≤5） |
 | Hero watching | `useProjectEvents()` / assignments | `Watching N` 行 |
+
+### 事实登记（2026-10-29）：Noticed 两类 / TodayDigest / Settings 三入口
+
+- **Noticed 只收两种 L1 kind**：`observation` 与 `retry-report`（`hooks/useL1.ts` 的 `noticed` 过滤）。
+- **`retry-report` 只在 L1 snapshot 里出现**：它是 homebase `agent_reports` 的持久化夜间补跑报告，SSE `/api/product/l1/stream` 全量帧不含。
+- **SSE 帧必须并回未过期的 `retry-report`**：`useL1.apply` 把上一状态里 `expiresAt === null || expiresAt > now` 的 retry-report 并回全量帧，否则下一帧就把它冲掉（#146）。
+- **冷启动先补 `loadToken()` 再拉 snapshot**：`useL1.refresh` 自己补一次 token，否则首帧无 token 跳过 snapshot，只在 snapshot 出现的 retry-report 永远拿不到（#148）。
+- **retry-report 文案由 BFF 生成**：`homebase packages/web/lib/product/l1-rules.ts` 的 nightlyRetry rule，App 原样透传、不拼句。
+- **BFF 还有第三类 L1 `kind: "calendar"`**（`ics-sync` handler 每 30 分钟产「今天剩余事件」，35 分钟 TTL，内存态不落库）；`agent-mobile-app/src/services/l1.ts` 的 `L1Kind` 尚未纳入、`noticed` 过滤不含它 → **Pulse 当前不渲染 calendar**（缺口，勿写成已上线）。
+- **TodayDigest 位置/入口**：`components/pulse/TodayDigest.tsx`，Pulse ScrollView 第一行（Hero 之下），testID `pulse-today-digest`；点击 → `ActivitySheet` 的 `days={1}`「今天」模式。
+- **TodayDigest 取数**：`fetchAgentActivity(1, 50)`（`GET /api/product/agent-activity?days=1&limit=50`），只读，不改任何执行权。
+- **TodayDigest 口径**：本地时区当天 00:00 起、outcome ∈ {`evaluated`,`matched`,`failed`}；文案失败优先 → 命中 → all clear（`buildTodayDigestText`）。
+- **TodayDigest 渲染门槛**：`buildTodayDigest` 返回 `null` 就整行不渲染——一页取满 50 条（可能被截断）或今天没有可计执行，均不占位。
+- **TodayDigest 失败静默**：读失败最多再试 1 次（800ms 后），仍失败保持不渲染；`AppState` 变 `active` 时重刷。
+- **Settings「Responsibilities」区块**：只读投影 `buildResponsibilities(assignments, proposals, lastRunByAssignment)`（active assignment + proposed proposal）；`settings-responsibilities` 行 → `/assignments` 管理页，assignment 行 → `/assignments/[id]`，提案行不可点（详情页只认 `asg_`）。
+- **Settings「How we work together」入口**：`settings-boundaries` 行 → `BoundariesSheet`（三层边界；唯一可调项 Nightly retry）。
+- **Settings「Calendar」入口**：External sources 区块的 `settings-calendar` 行 → `CalendarSheet`（ICS 只读订阅）；行摘要 = 未连 / 首条 label·打码 URL / n 个 / 读失败「暂时读不到」。
+- **日历与职责互不阻塞**：ICS 读失败只影响 Calendar 一行；增删后 `reloadIcs()` 只刷日历一行，不重拉 agents / 职责。
 
 ## Supporting 构成（SupportingList）
 
