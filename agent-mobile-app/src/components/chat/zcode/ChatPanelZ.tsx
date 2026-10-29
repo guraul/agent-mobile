@@ -708,7 +708,7 @@ export function ChatPanelZ({ sessionID, kind, attention, autoSendContext = false
     const ctx = buildAttentionContext({
       id: attention.id, domain: "market", title: attention.title, summary: attention.summary,
       subjectKind: "fund", subjectId: attention.subjectId, creationReasonRef: "market.target-nav-threshold",
-      sessionId: sessionID, createdAt: Date.now(), state: attention.state,
+      sessionId: sessionID, createdAt: Date.now(), expiresAt: null, state: attention.state,
     });
     opencodeClient
       .sendMessageAsync(sessionID, {

@@ -12,6 +12,7 @@ const item: PulseAttentionItem = {
   creationReasonRef: "market.target-nav-threshold",
   sessionId: null,
   createdAt: 1000,
+  expiresAt: null,
   state: "open",
 };
 

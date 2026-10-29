@@ -8,6 +8,7 @@ import { LightPresenceDot } from "@/components/pulse/LightAtoms";
 import { LightDock } from "@/components/pulse/LightAtoms";
 import { LightTextAction } from "@/components/pulse/LightAtoms";
 import { FeaturedItem } from "@/components/pulse/FeaturedItem";
+import { MarketGroupItem } from "@/components/pulse/MarketGroupItem";
 import { SupportingList } from "@/components/pulse/SupportingList";
 import { PulseNoticed } from "@/components/pulse/PulseNoticed";
 import { DetailSheet } from "@/components/pulse/DetailSheet";
@@ -32,6 +33,12 @@ import { useL1 } from "@/hooks/useL1";
 import { type L1Statement } from "@/services/l1";
 import { useAttentions } from "@/hooks/useAttentions";
 import { type PulseAttentionItem } from "@/services/attention/store";
+import {
+  attentionUnit,
+  buildPulseUnits,
+  type PulseMarketGroupUnit,
+  type PulseUnit,
+} from "@/services/attention/grouping";
 import { useSuggestions } from "@/hooks/useSuggestions";
 import { type PulseSuggestion } from "@/services/proposal/store";
 import { resolveAttentionConversation, MARKET_TALK_DIRECTORY } from "@/services/attention/talk";
@@ -52,6 +59,7 @@ const NOTICED_BUDGET = 5;
 
 type SupportingItem =
   | { kind: "needs-you"; attention: PulseAttentionItem }
+  | { kind: "market-group"; group: PulseMarketGroupUnit }
   | { kind: "suggested"; suggestion: PulseSuggestion }
   | { kind: "running"; event: ProjectEvent }
   | { kind: "market" };
@@ -99,6 +107,7 @@ const toNoticed = (st: L1Statement): NoticedItem => ({
 });
 
 interface SupportingBuckets {
+  marketGroups: PulseMarketGroupUnit[];
   needsYou: NeedsYouItem[];
   suggestions: SuggestionItem[];
   running: { id: string; name: string; status: "running" | "idle" }[];
@@ -106,12 +115,14 @@ interface SupportingBuckets {
 }
 
 function bucketize(items: SupportingItem[], funds: { code: string; name: string; changePct: number }[]): SupportingBuckets {
+  const marketGroups: PulseMarketGroupUnit[] = [];
   const needsYou: NeedsYouItem[] = [];
   const suggestions: SuggestionItem[] = [];
   const running: SupportingBuckets["running"] = [];
   let market: SupportingBuckets["market"] = [];
   for (const item of items) {
-    if (item.kind === "needs-you") needsYou.push(toNeedsYou(item.attention));
+    if (item.kind === "market-group") marketGroups.push(item.group);
+    else if (item.kind === "needs-you") needsYou.push(toNeedsYou(item.attention));
     else if (item.kind === "suggested") suggestions.push(toSuggestion(item.suggestion));
     else if (item.kind === "running") {
       running.push({ id: item.event.id, name: item.event.name, status: item.event.status === "running" ? "running" : "idle" });
@@ -120,7 +131,7 @@ function bucketize(items: SupportingItem[], funds: { code: string; name: string;
       market = [{ id: f.code, name: funds.length > 1 ? `${f.name} +${funds.length - 1}` : f.name, changePct: f.changePct }];
     }
   }
-  return { needsYou, suggestions, running, market };
+  return { marketGroups, needsYou, suggestions, running, market };
 }
 
 // Quiet text action ("See All", "More (n)") — accent-bright, no container.
@@ -225,16 +236,30 @@ export default function PulseScreen() {
       : t("pulse.header.presenceAttentive");
 
   // ── composition ─────────────────────────────────────────────────────────
-  const featured = openAttentions[0] ?? null;
+  // market 同类合并（#140）：先折成渲染单元，再按单元排队——Featured / Supporting
+  // 的预算都按**单元**计，合并因此真的腾出首屏位子。fail-open：分组抛错就退回原条目，
+  // 合并永远不能吃掉条目（施工卡 §5）。
+  const units: PulseUnit[] = useMemo(() => {
+    try {
+      return buildPulseUnits(openAttentions);
+    } catch {
+      return openAttentions.map(attentionUnit);
+    }
+  }, [openAttentions]);
+
+  const featured: PulseUnit | null = units[0] ?? null;
 
   const supporting: SupportingItem[] = useMemo(() => {
     const list: SupportingItem[] = [];
-    for (const attention of openAttentions.slice(1)) list.push({ kind: "needs-you", attention });
+    for (const unit of units.slice(1)) {
+      if (unit.kind === "market-group") list.push({ kind: "market-group", group: unit });
+      else list.push({ kind: "needs-you", attention: unit.item });
+    }
     for (const suggestion of suggestions) list.push({ kind: "suggested", suggestion });
     for (const event of events) list.push({ kind: "running", event });
     if (funds.length > 0) list.push({ kind: "market" });
     return list;
-  }, [openAttentions, suggestions, events, funds.length]);
+  }, [units, suggestions, events, funds.length]);
 
   const visibleSupporting = supporting.slice(0, SUPPORTING_BUDGET);
   const supportingOverflow = Math.max(0, supporting.length - visibleSupporting.length);
@@ -436,16 +461,25 @@ export default function PulseScreen() {
 
         {featured ? (
           <AnimatedEntry index={1}>
-            <FeaturedItem
-              item={toNeedsYou(featured)}
-              testID="featured-attention"
-              onReview={() => router.push(`/attention/${featured.id}`)}
-            />
+            {featured.kind === "market-group" ? (
+              <MarketGroupItem
+                group={featured}
+                testID="featured-attention"
+                onOpenMember={(item) => router.push(`/attention/${item.id}`)}
+              />
+            ) : (
+              <FeaturedItem
+                item={toNeedsYou(featured.item)}
+                testID="featured-attention"
+                onReview={() => router.push(`/attention/${featured.item.id}`)}
+              />
+            )}
           </AnimatedEntry>
         ) : null}
 
         <AnimatedEntry index={2}>
           <SupportingList
+            marketGroups={visibleBuckets.marketGroups}
             needsYou={visibleBuckets.needsYou}
             suggestions={visibleBuckets.suggestions}
             running={visibleBuckets.running}
@@ -466,6 +500,7 @@ export default function PulseScreen() {
               if (e) router.push({ pathname: "/talk", params: { projectPath: e.projectPath } });
             }}
             onOpenMarket={() => setFundsOpen(true)}
+            onOpenGroupMember={(item) => router.push(`/attention/${item.id}`)}
           />
         </AnimatedEntry>
 
@@ -580,6 +615,7 @@ export default function PulseScreen() {
         testID="supporting-overflow-sheet"
       >
         <SupportingList
+          marketGroups={allBuckets.marketGroups}
           needsYou={allBuckets.needsYou}
           suggestions={allBuckets.suggestions}
           running={allBuckets.running}
@@ -600,6 +636,7 @@ export default function PulseScreen() {
             if (e) router.push({ pathname: "/talk", params: { projectPath: e.projectPath } });
           }}
           onOpenMarket={() => setFundsOpen(true)}
+          onOpenGroupMember={(item) => router.push(`/attention/${item.id}`)}
         />
       </ListSheet>
 

@@ -2,6 +2,7 @@
 
 > 最后更新：2026-09-28 · **RN 浅色迁移（epic #7）A-G 完成、H 详情重做完成**（基准 `docs/pipeline/RN_MIGRATION_BRIEF.md`，D1-D10 决策）。当前形态以本节为准；下方 Companion 段及更早内容为历史参考。
 > 2026-10-29：补 Noticed 两类（observation / retry-report）/ TodayDigest / Settings 三入口事实登记，见下方「事实登记（2026-10-29）」。
+> 2026-10-29：market 同类合并（#140，呈现层）——见下方「事实登记（2026-10-29）· market 同域提醒合并」。
 
 ## 当前形态（2026-09-28 浅色 Companion，PR #16-#23）
 
@@ -19,7 +20,7 @@ root（cream #F7F5DC 画布，页面水平 padding 25）
 ├── ScrollView 内容区（pt14 / pb128）
 │   ├── TodayDigest（可选一行）：她今天替你做了什么（12/400 #6F6F6F + 低调 chevron）→
 │   │   ActivitySheet（days=1「今天」）；无数据/页满截断/失败都不渲染
-│   ├── Featured（FeaturedItem，≤1）：白卡整卡 Pressable → /attention/[id]（D10：无 lead、
+│   ├── Featured（FeaturedItem 或 MarketGroupItem，≤1 个**渲染单元**）：白卡整卡 Pressable → /attention/[id]（D10：无 lead、
 │   │   无行内 chips——Review/Discuss 收进详情页）；铃铛 16px #D97706 + 标题 17/700 +
 │   │   why 灰底块（15/400 #2A2A2A）+ meta（source · time）
 │   ├── In motion（SupportingList = 单张绿卡 #B2D7B5）：标题 [ In motion ]（方括号 400 字重）+
@@ -49,7 +50,7 @@ root（cream #F7F5DC 画布，页面水平 padding 25）
 - **动效**：AnimatedEntry stagger 保留（Reduce Motion 兼容）；呼吸点 reanimated withRepeat（Reduce Motion 兼容）。
 - **预算为硬约束**：Featured ≤1 / Supporting ≤4 / Noticed ≤5。
 - **动作语义红线不变**：查看 ≠ 授权；Confirm/Reject 是 suggestion 唯一推进路径；破坏性动作（Dismiss）弱化 + 二次确认（D9）。
-- **testID 兼容**：pulse-title / pulse-status / pulse-orb / pulse-settings / pulse-today-digest / featured-attention / supporting-ny-/-sg-/-run-/-mkt- / supporting-more / noticed-<id> / noticed-see-all / pulse-empty / pulse-suggestion-error / pulse-error / conversation-entry / fund-row-<code> 全保留；已删：pulse-login-banner、watching-line、supporting-more-projects、attention-detail-main。
+- **testID 兼容**：pulse-title / pulse-status / pulse-orb / pulse-settings / pulse-today-digest / featured-attention / supporting-ny-/-sg-/-run-/-mkt-/-mg- / supporting-more / noticed-<id> / noticed-see-all / pulse-empty / pulse-suggestion-error / pulse-error / conversation-entry / fund-row-<code> 全保留；已删：pulse-login-banner、watching-line、supporting-more-projects、attention-detail-main。
 
 ## Companion 暗色形态（2026-09-21 引入，迁移前，历史参考）
 
@@ -189,6 +190,17 @@ View root（#0B0A12 + companion backgroundGradient + 顶部紫光 topGlow）
 - **冷启动先补 `loadToken()` 再拉 snapshot**：`useL1.refresh` 自己补一次 token，否则首帧无 token 跳过 snapshot，只在 snapshot 出现的 retry-report 永远拿不到（#148）。
 - **retry-report 文案由 BFF 生成**：`homebase packages/web/lib/product/l1-rules.ts` 的 nightlyRetry rule，App 原样透传、不拼句。
 - **BFF 还有第三类 L1 `kind: "calendar"`**（`ics-sync` handler 每 30 分钟产「今天剩余事件」，35 分钟 TTL，内存态不落库）；`agent-mobile-app/src/services/l1.ts` 的 `L1Kind` 尚未纳入、`noticed` 过滤不含它 → **Pulse 当前不渲染 calendar**（缺口，勿写成已上线）。
+### 事实登记（2026-10-29）：market 同域提醒合并（#140）
+
+- **合并是视图，不是新产品对象**：`attention_items` 仍是 N 行、无迁移、无 API 变更、不写 Event（施工卡 `docs/pipeline/MARKET_ALERT_GROUPING_CARD.md` §3）。
+- **合并键**：`domain=market` ∧ `creationReasonRef` 相同 ∧ `expiresAt` 相同 → `market:{reasonRef}:{expiresAt}`（不跨授权、不跨窗口、不跨域；`expiresAt=null` 永不合并）。
+- **纯函数**：`services/attention/grouping.ts` 的 `buildPulseUnits(items) → PulseUnit[]`（`attention` | `market-group`，组带 `count` / `members`）。N=1 退化为普通条目；组占**最新成员**的位置；成员按 `createdAt` 降序。
+- **`PulseAttentionItem` 新增 `expiresAt`**（`services/attention/store.ts`）：分组需要窗口；视图模型其他字段不变。
+- **预算按单元计**：`index.tsx` 先 `buildPulseUnits` 再排队，Featured ≤1 / Supporting ≤4 数的是**渲染单元**，这才是"腾首屏位子"的来源。分组抛错 → fail-open 退回原条目（合并永远不能吃掉条目）。
+- **组件**：`components/pulse/MarketGroupItem.tsx`，`variant="featured"`（白卡 + 琥珀铃铛）/ `"supporting"`（绿卡内条目）；testID `featured-attention`（组在 Featured 位时）/ `supporting-mg-<groupKey>`，成员 `-member-<id>`、展开开关 `-toggle`、溢出 `-more`。
+- **文案**：标题 `{count} funds crossed the targets you set.`（计数在标题里，永不说 "one"）/ 副标题 `Today's check — kept together.` / `Show {count} details` / `+{count} more` / a11y `Review {count} market alerts from today's check`（`i18n` key 前缀 `pulse.marketGroup.`）。**不出现 "I merged"**。
+- **只展开，不做批量动作**：无组级 Dismiss / Handle（PM §17 生命周期仍 per-item）。展开前 5 条 + `+N more`，一条不丢。
+
 - **TodayDigest 位置/入口**：`components/pulse/TodayDigest.tsx`，Pulse ScrollView 第一行（Hero 之下），testID `pulse-today-digest`；点击 → `ActivitySheet` 的 `days={1}`「今天」模式。
 - **TodayDigest 取数**：`fetchAgentActivity(1, 50)`（`GET /api/product/agent-activity?days=1&limit=50`），只读，不改任何执行权。
 - **TodayDigest 口径**：本地时区当天 00:00 起、outcome ∈ {`evaluated`,`matched`,`failed`}；文案失败优先 → 命中 → all clear（`buildTodayDigestText`）。

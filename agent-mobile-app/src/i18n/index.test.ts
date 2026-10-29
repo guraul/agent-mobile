@@ -74,3 +74,23 @@ describe("语言切换", () => {
     expect(locales).toHaveLength(2);
   });
 });
+
+describe("market 同类合并组文案（#140）", () => {
+  afterEach(() => {
+    setLocale("en");
+  });
+
+  it("计数写在标题里，且不出现 'I merged'（描述结果，不描述管道）", () => {
+    expect(t("pulse.marketGroup.title", { count: 3 })).toBe(
+      "3 funds crossed the targets you set.",
+    );
+    expect(t("pulse.marketGroup.title", { count: 2 })).not.toMatch(/merged/i);
+    expect(t("pulse.marketGroup.subtitle")).toBe("Today's check — kept together.");
+  });
+
+  it("zh 同样带计数（组标题永不出现 'one/1'）", () => {
+    setLocale("zh");
+    expect(t("pulse.marketGroup.title", { count: 3 })).toBe("3 只基金越过了你设定的目标。");
+    expect(t("pulse.marketGroup.a11y", { count: 3 })).toContain("3");
+  });
+});

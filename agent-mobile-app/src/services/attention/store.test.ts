@@ -58,7 +58,7 @@ describe("Attention store（Phase 3 Pulse 数据层）", () => {
     expect(vm).toEqual({
       id: "a2", domain: "market", title: "权限请求 a2", summary: "bash 等待授权",
       subjectKind: "permission", subjectId: "req-a2", creationReasonRef: "opencode.permission.blocking",
-      sessionId: "sess-1", createdAt: 1000, state: "open",
+      sessionId: "sess-1", createdAt: 1000, expiresAt: null, state: "open",
     });
     expect((vm as unknown as Record<string, unknown>).dedupKey).toBeUndefined();
     expect((vm as unknown as Record<string, unknown>).provenance).toBeUndefined();

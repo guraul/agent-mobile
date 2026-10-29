@@ -45,6 +45,8 @@ export interface PulseAttentionItem {
   creationReasonRef: string;
   sessionId: string | null;
   createdAt: number;
+  /** 有效窗终点（market 条目 = 当日 15:00）；null = 无窗，合并键不可用 */
+  expiresAt: number | null;
   state: AttentionState;
 }
 
@@ -70,6 +72,7 @@ export function toPulseAttentionItem(item: AttentionItem): PulseAttentionItem {
     creationReasonRef: item.creationReasonRef,
     sessionId: item.sessionId,
     createdAt: item.createdAt,
+    expiresAt: item.expiresAt,
     state: item.state,
   };
 }
