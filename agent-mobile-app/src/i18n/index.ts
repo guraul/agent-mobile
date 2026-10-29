@@ -197,6 +197,17 @@ const en = {
   "pulse.supporting.running": "Running",
   "pulse.supporting.idle": "Idle",
 
+  // ── Pulse：market 同类合并组（#140）──────────────────────────────────
+  // base key 供 t(key, { count }) 的类型回退，与 `_other` 同文案
+  "pulse.marketGroup.title": "{count} funds crossed the targets you set.",
+  "pulse.marketGroup.title_one": "1 fund crossed the targets you set.",
+  "pulse.marketGroup.title_other": "{count} funds crossed the targets you set.",
+  "pulse.marketGroup.subtitle": "Today's check — kept together.",
+  "pulse.marketGroup.expand": "Show {count} details",
+  "pulse.marketGroup.collapse": "Hide details",
+  "pulse.marketGroup.more": "+{count} more",
+  "pulse.marketGroup.a11y": "Review {count} market alerts from today's check",
+
   // ── Pulse：Featured 卡 ────────────────────────────────────────────────
   "pulse.featured.reviewA11y": "Review: {title}",
 
@@ -638,6 +649,15 @@ const zh = {
   "pulse.supporting.watching": "关注中",
   "pulse.supporting.running": "运行中",
   "pulse.supporting.idle": "空闲",
+
+  "pulse.marketGroup.title": "{count} 只基金越过了你设定的目标。",
+  "pulse.marketGroup.title_one": "1 只基金越过了你设定的目标。",
+  "pulse.marketGroup.title_other": "{count} 只基金越过了你设定的目标。",
+  "pulse.marketGroup.subtitle": "今日检查 — 放在一起。",
+  "pulse.marketGroup.expand": "展开 {count} 条",
+  "pulse.marketGroup.collapse": "收起",
+  "pulse.marketGroup.more": "+{count} 条",
+  "pulse.marketGroup.a11y": "查看今日检查中的 {count} 条市场提醒",
 
   "pulse.featured.reviewA11y": "审阅：{title}",
 

@@ -14,6 +14,9 @@ import { lightColors, lightTypography, lightRadius, lightSpacing, lightSizes } f
 import { NeedsYouItem, SuggestionItem } from "./showcase-types";
 import { LightChip, LightTextAction } from "./LightAtoms";
 import { PressableScale } from "./PressableScale";
+import { MarketGroupItem } from "./MarketGroupItem";
+import type { PulseMarketGroupUnit } from "../../services/attention/grouping";
+import type { PulseAttentionItem } from "../../services/attention/store";
 import { t, useLocale } from "../../i18n";
 
 export interface RunningRow {
@@ -29,6 +32,8 @@ export interface MarketRow {
 }
 
 interface Props {
+  /** market 同类合并组（#140）：占组内最新成员的位置 → 渲染在 To review 段首 */
+  marketGroups?: PulseMarketGroupUnit[];
   needsYou: NeedsYouItem[];
   suggestions: SuggestionItem[];
   running?: RunningRow[];
@@ -40,6 +45,7 @@ interface Props {
   onDismiss: (item: SuggestionItem) => void;
   onOpenRunning?: (row: RunningRow) => void;
   onOpenMarket?: (row: MarketRow) => void;
+  onOpenGroupMember?: (item: PulseAttentionItem) => void;
 }
 
 /** 组定义（D7 顺序红线：To review → Suggested → Running → Market） */
@@ -51,6 +57,7 @@ const GROUP_LABEL_KEYS = {
 } as const;
 
 export function SupportingList({
+  marketGroups = [],
   needsYou,
   suggestions,
   running = [],
@@ -62,14 +69,16 @@ export function SupportingList({
   onDismiss,
   onOpenRunning,
   onOpenMarket,
+  onOpenGroupMember,
 }: Props) {
   useLocale();
+  const hasMarketGroups = marketGroups.length > 0;
   const hasNeedsYou = needsYou.length > 0;
   const hasSuggestions = suggestions.length > 0;
   const hasRunning = running.length > 0;
   const hasMarket = market.length > 0;
 
-  if (!hasNeedsYou && !hasSuggestions && !hasRunning && !hasMarket) return null;
+  if (!hasNeedsYou && !hasSuggestions && !hasRunning && !hasMarket && !hasMarketGroups) return null;
 
   return (
     <View style={styles.card}>
@@ -79,6 +88,16 @@ export function SupportingList({
           <Text style={styles.bracket}>]</Text>
         </Text>
       </View>
+
+      {marketGroups.map((group) => (
+        <MarketGroupItem
+          key={group.key}
+          group={group}
+          variant="supporting"
+          onOpenMember={(item) => onOpenGroupMember?.(item)}
+          testID={`supporting-mg-${group.groupKey}`}
+        />
+      ))}
 
       {hasNeedsYou &&
         needsYou.map((item) => (
