@@ -61,22 +61,29 @@
       ~~以下为 2026-10-14/16 的历史约定，2026-10-25 起作废，仅存档：回退链 `glm-5.3-flash-free` → `mimo-v2.6-flash-free` → `opencode-go/longcat-2.5-preview-free`；`space-bunny-free` / `step-5-preview-free` 已于 2026-10-14 删除；glm 于 2026-10-16 插入链中；free 档 "恢复可用" 只是当时快照。~~
       **非限流故障**（403 鉴权/地区、模型不存在、报错、无响应）→ 规则 13：停下报告，不改配置。
       **小模型**（`small_model` / `agents.title.model`，标题生成这类轻量旁路）→ 用户 2026-10-13 拍板：**可用 `opencode/mimo-v2.6-flash-free`**（旁路失败只影响标题；opencode 源码 `session/title.ts` 会自动回落到会话主模型）。
-    - **并发纪律**：**大任务只起一个子代理去做**（不要拆成多个并行）；任务执行**不得由主模型自己做**——**验证可以自己做**。
+    - **并发纪律**：**同一文件 / 同一仓的子任务串行**（并行会冲突）；**跨仓可并行**；任务**拆小**而不是堆成一个大任务（见规则 12 的任务体量与粒度）；任务执行**不得由主模型自己做**——**验证可以自己做**。
     - ⚠️ **执行类工作一律委派（用户 2026-10-13 二次明确：不止 pipeline，也不止"改代码"）**：**改代码 / 跑门禁（tsc、vitest）/ 建 worktree / 提交 / push / 开 PR / `merge-pr.sh` / 生产脚本执行 / gh 与 git 远端操作**——不论仓库（agent-mobile、memx、homebase）与任务大小，全部委派给 opencode 子代理。**"小改动"不构成自做的理由**（改个默认值 + 同步文档 + 改测试断言这类多文件编辑同样属执行类）。
       - 主模型（控制面）只做：**产品决策与拍板**、**审阅 diff**、**"用户 review 完成"的确认（人在环）**、**验收**、**交底书 / 知识库 / 规则文件落档**、**单条只读探针**。
       - `merge-pr.sh` 的命令执行可委派，但**合并前必须由控制面拿到用户确认**再发（手册 §一 review 约定）。
 12. **子代理模型 = 单一档 `opencode/deepseek-v4.1-flash-free`**（2026-10-25 拍板：原 free 档回退链已废止）⚠️ **角色库不 pin 模型**（`product_roles` 已核实：四角色只有 `provider: "opencode"`，**无 model 字段**；`~/.dsh/product-subagents-registry.json` 也查不到模型）→ **每次委派都要显式传 `model: "opencode/deepseek-v4.1-flash-free"`**，不能指望"已 pin 自动生效"（传参形式与 `prompt_async` 的逐条 model 一致）。
-   - **唯一档 `opencode/deepseek-v4.1-flash-free`**（2026-10-25 拍板：glm / mimo / longcat 回退档全部删除）；不可用（429 / 额度 / 地区 / 下架）→ **停下报告**，不挑链外模型、不改配置、不静默降质。opencode 执行面不可用期间，按规则 11 的例外改走 `provider=codebuddy` + `model=deepseek-v4.1-flash`。
-   - 🚫 **禁止惯性沿用 codebuddy（2026-10-28 用户明确要求；已真实发生并被指出）**：
-     - **opencode 额度一恢复，立刻回到默认档**。不得因为"昨晚/上一小时它被打满过"就继续用 codebuddy —— 那是在用**历史状态**代替**当前判断**（2026-10-28 实测：opencode 已恢复（`opencode run` 返回 OK），却仍连续 3 次委派走 codebuddy 且未说明）。
-     - **不预先探活**：直接派 opencode。**只有真的收到额度类错误**（`Free usage limit reached` / 429 / 地区封锁）时，才当场改派 codebuddy，并**在同一条回复里明说**"opencode 额度不可用，已切 codebuddy"。
+   - **唯一档 `opencode/deepseek-v4.1-flash-free`**（2026-10-25 拍板：glm / mimo / longcat 回退档全部删除）；不可用（429 / 额度 / 地区 / 下架）→ 走下面这条 codebuddy 例外，**不挑链外模型、不改配置、不静默降质**。
+   - **opencode 不可用 → 改委派 codebuddy（例外，不是备选）**：`provider=codebuddy`，model 写 `deepseek-v4.1-flash`（shim 会剥 `codebuddy/` 前缀）。
+     ⚠️ **代价**：它消耗 **WorkBuddy 账号额度**（与 opencode 免费档不是同一个池）→ **委派前必须告知用户**，并在同一条回复里写明「opencode 额度不可用（原始错误：…），已切 codebuddy」。
+     - **不预探活**：直接派 opencode；**只有真的收到额度类错误**（`Free usage limit reached` / 429 / 地区封锁）才切，不许"先试试别的"。
+     - **恢复即回默认**：opencode 一旦可用立刻切回；不得因为"昨天/上一小时它坏过"继续用 codebuddy —— 那是拿历史状态代替当前判断。
      - **可审计**：回复里凡涉及委派，必须让用户能看出用的是哪个 provider（表格列或正文点名）。
-     - 违反本条的典型症状：用户反问"为什么又用 codebuddy"。出现即视为规则失效，须立即切回并说明。
+     - **自检信号**：用户反问"为什么又用 codebuddy"即视为规则失效，立即切回并说明。
+   - **codebuddy 也不可用时**：**停下报告**（哪一档、原始错误），**请求用户授权**；**不得自行接手执行**。需要自做时必须**逐次**取得授权，并明示「本次自做，原因：…」。
    - ⚠️ **model id 必须写全 `provider/model` 形式**（`opencode/deepseek-v4.1-flash-free`；codebuddy 例外为 `deepseek-v4.1-flash`，其 shim 会剥掉 `codebuddy/` 前缀）。**写裸名会落到会话默认模型**，表现为"指定了但没生效"。
    - **非限流故障**（403 鉴权/地区、模型不存在、报错、无响应）→ 规则 13：**停下报告，不降级**。
+   - **任务体量与粒度（#138 实测通过，2026-10-29）**：任务书 **≤300 字**（目标 1 句 + 边界 ≤3 条 + 验收 1 句），细节用**指针**（指向 issue / 文档，别抄进 brief）；**一个任务 = 一个文件 / 一个行为 / 一个 PR，预计 ≤10 分钟**，超过就拆；同一文件或同一仓的子任务**串行**，跨仓可并行。
+   - **不写死基线数字**：测试基线会漂（实测 531 → 533），任务书写「跑 `pnpm test` 并与 main 对比」，不要写死条数。
+   - **验收要可核验证据**：DB 行 / CI run id / PR squash / 生产探针输出；**不接受子代理自述**（曾出现"什么都没运行"的不实汇报，靠库内台账才查清）。
+   - **失败判据**：`exited null`（codebuddy shim，多发生在长任务）与"零输出挂死"（`busySince` ≥30 分钟且 `receivedChars=0`）都要**拆小重试或改派**，不要原地等。
+   - **手动跑 `opencode run` 必须显式 `--model`**：`--agent <name>` **不会**应用该 agent 的 model，会落到顶层默认（生产是 mimo）——2026-10-28 的 companion 验收因此作废。
    - 作用域 = **DSH 子代理委派**。
    - ⚠️ **App/companion 运行时模型（2026-10-24 #111 起已改）**：chat 伴侣页 `CHAT_MODEL` = **`opencode/deepseek-v4.1-flash-free`**（`src/services/conversation-kind.ts`，单一事实源；原因：mimo 调不动 companion 插件的新工具 `project_sessions`，deepseek 实测一次调通）；chatcode 工作台 `DEFAULT_MODEL` 仍 `opencode/mimo-v2.6-flash-free`。**`providerID` 必须保持 `opencode`** —— App 唯一真实目标是生产 opencode，而**生产没有 `opencode-go` provider**，写死 Go 档会让手机端直接 `Model unavailable`。
-13. **子代理模型因"非限流"原因不可用时：报告，不降级（用户硬约束）**：若模型（回退链任一档）**不可用**（不存在 / 鉴权失败 / 报错 / 无响应；**⚠️ 限流 / 429 / 偶发不通不在此列** —— 那属于规则 12 的回退链场景，按链逐档尝试），**立即停下并告知用户**，**严禁自行降级、替换模型、改配置、切 provider，或用其他方式绕道兜底**（含"先用别的模型顶一下"）。与第 10 条 vision-reader 的"不得自行降级重试"同源；**宁可失败并如实报告，不可静默降质**。
+13. **子代理模型因"非限流"原因不可用时：报告，不降级（用户硬约束）**：若**唯一档**（`opencode/deepseek-v4.1-flash-free`）因非限流原因**不可用**（不存在 / 鉴权失败 / 报错 / 无响应；**⚠️ 限流 / 429 / 额度 / 地区封锁不在此列** —— 那属于规则 12 的 codebuddy 例外场景），**立即停下并告知用户**，**严禁自行降级、替换模型、改配置、切 provider，或用其他方式绕道兜底**（含"先用别的模型顶一下"）。与第 10 条 vision-reader 的"不得自行降级重试"同源；**宁可失败并如实报告，不可静默降质**。
 14. **包管理器只用 pnpm（2026-10-11 用户偏好，全局约定）**：**禁止 npm / yarn / bun**。装依赖用 `pnpm add` / `pnpm remove`；跑脚本用 `pnpm <script>` / `pnpm exec <bin>`；临时二进制用 `pnpm dlx`，**不用 `npx`**。与规则 1 呼应——装依赖统一走 `npx expo install` 的场景改为 `pnpm exec expo install`（等价且不引 npm）。不提交 `package-lock.json` / `yarn.lock`，只保留 `pnpm-lock.yaml`。全局版本见 `~/.config/opencode/AGENTS.md`（对所有项目生效）。
 15. **worktree 纪律（2026-10-17 用户明确「issue 关闭，相应的 worktree 也要清理」）**：
     - ① **issue / PR 一旦关闭，必须立刻清理对应 worktree + 本地分支**：`git worktree remove --force <path>` → `git branch -D task/<N>-<slug>`（squash 合并后提交**不是** main 祖先，故用 `-D` 而非 `-d`）→ `git worktree prune` → `git worktree list` 确认**只剩主工作区**；远端分支随手删（`gh pr merge --delete-branch` 或 `git push origin --delete`）。
