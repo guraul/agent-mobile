@@ -13,7 +13,7 @@ export interface UseL1Result {
   statements: L1Statement[];
   /** 行情跑马灯投影（market-estimate 类） */
   funds: L1MarketEstimateData[];
-  /** Phase 12：Noticed 投影的 L1 statements（observation + retry-report） */
+  /** Phase 12：Noticed 投影的 L1 statements（observation + retry-report + calendar） */
   noticed: L1Statement[];
   connected: boolean;
   loading: boolean;
@@ -88,9 +88,10 @@ export function useL1(): UseL1Result {
     .filter((f): f is L1MarketEstimateData => f !== null);
 
   // Phase 12：Noticed 投影。retry-report 是持久化的夜间补跑报告（agent_reports），
+  // calendar 是外部 ICS 日历的今日陈述（外部域切片 2，agent-mobile#153），
   // 与 observation 同属 informational，文案由服务端 L1 rule 生成，原样透传。
   const noticed = statements.filter(
-    (s) => s.kind === "observation" || s.kind === "retry-report",
+    (s) => s.kind === "observation" || s.kind === "retry-report" || s.kind === "calendar",
   );
 
   return { statements, funds, noticed, connected, loading, refresh };
