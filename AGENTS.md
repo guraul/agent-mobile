@@ -28,20 +28,13 @@
 
 ## CODING GUIDELINES
 
-行为指南以减少常见的 LLM 编码错误。
-
-**权衡：** 这些指南偏向谨慎而非速度。对于简单任务，请自行判断。
-
-1. **编码前先思考** - 不要假设。明确陈述假设。如果不确定，请询问。
-2. **简洁优先** - 解决问题的最小代码量。不做推测性工作。如果写了200行可以是50行，请重写。
-3. **手术式修改** - 只触碰必须的部分。匹配现有风格。移除由你的修改导致的未使用代码。
-4. **目标驱动执行** - 定义成功标准。循环直到验证。
+见 `~/.dsh/AGENTS.md` §6（编码前思考 / 简洁优先 / 手术式修改 / 目标驱动执行 + 验证纪律）。
 
 ## 强制规定
 
 以下硬性规则适用于所有任务，完整红线清单见 `CONVENTIONS.md`：
 
-1. **写 agent-mobile-app 代码前先读 Expo 版本化文档**：`https://docs.expo.dev/versions/v57.0.0/`（SDK 57）。依赖版本必须匹配 SDK 57，用 `pnpm exec expo install` 装依赖（勿用 `npx`，见规则 14），勿手工改版本号。
+1. **写 agent-mobile-app 代码前先读 Expo 版本化文档**：`https://docs.expo.dev/versions/v57.0.0/`（SDK 57）。依赖版本必须匹配 SDK 57，用 `pnpm exec expo install` 装依赖（勿用 `npx`，见规则 13），勿手工改版本号。
 2. **改完 TS 必须验证**：`cd agent-mobile-app && pnpm exec tsc --noEmit`；纯逻辑改动必须同步 `pnpm test`（vitest，`src/**/*.test.ts`）。
 3. **勿改消息数组 chronological 语义**：listMessages 返回旧在前，插入/排序一律以 `time.created` 为准；任何"反向"假设都会重现消息错乱。
 4. **勿移除打字机限速 / FlatList `extraData`**：`revealChars` 逐字揭示依赖 `extraData={revealChars}`，移除会导致整块弹出；轮询兜底与打字机冲突，勿同时启用。
@@ -50,59 +43,22 @@
 7. **9928 端口归属（2026-09-27 起）**：9928 由 systemd **`serve-9928.service`** 托管 **agent-mobile-app 静态版**（enabled 开机自启；showcase2-9928.service 已删除退役，其设计已移植进主应用）。部署流程 = `pnpm exec expo export --platform web --clear`（`--clear` 必须，否则 env 不注入）→ 产物放服务器 `agent-mobile-app/dist` → `systemctl restart serve-9928`（gzipCache 会缓存旧 bundle，不重启则改动"没生效"）。若切回 Expo Go Metro（`expo-metro-9928`，disabled 备用），改代码热重载无需重建。**BFF CORS 允许列表只放行 9928 的三个 origin**（见 `family-finance lib/cors.ts`），静态版换端口会全被 CORS 拦——换端口前必须先改 BFF CORS。
 8. **临时测试脚本 / 截图 / 日志统一放仓库根 `test/` 目录**，勿散落 /tmp。`test/` 已加入 `.gitignore` 不入库，需要留存的结果写进知识库或脚本化进 `agent-mobile-app/scripts/`。
 9. **仓库根的历史遗留目录 `src/`（设计期源码）、`showcase/`（静态原型）、`showcase2/`（Showcase 应用）已于 2026-09-27 删除**（showcase2 设计已移植进 `agent-mobile-app`，其余淘汰；需要时查 git 历史）。运行态代码只在 `agent-mobile-app/`。
-10. **图片/PDF 一律走 vision-reader 子代理，主模型禁止直接 `read` 图片或 PDF 文件路径**：主模型 `deepseek-v4-flash`（volcengine-plan）不支持图片输入，直接 `read` 会把图片带进请求历史，服务端每次返回 `Model do not support image input`，导致对话卡死在重复报错。读图时只把文件路径交给 vision-reader（`task` + `subagent_type: "vision-reader"`），主模型请求里绝不携带图片附件。
-11. **DSH 控制 opencode 做事；能用 opencode 就走 opencode（2026-10-10 用户拍板）**：**DSH = 控制面**（编排 / 决策 / 审阅 / 验收），**opencode = 执行面**（改代码 / 跑测试 / 探查 / 实现）。凡属可委派的执行类工作，**优先委派给 opencode 子代理（product 子代理角色库）**，而不是主模型亲自上手，也不走其他 product CLI（claude-code / codex / acp）。DSH 的四个子代理角色（`code-review` / `debug` / `explore` / `general`）**已全部 pin 到 opencode**（用户 2026-10-10 配置并实测可调用）——委派时**无需再逐次指定 provider**。
-    - **作用域边界（防歧义）**：本规则适用于**实现 / 执行阶段**。**产品决策讨论、拍板记录、交底书（BRIEF）与知识库落档，仍由 DSH 主模型直接做**——这类工作依赖当前对话上下文，且 subagent 看不到主会话，外包会导致决策链断裂（本仓 `docs/pipeline/CHAT_COMPANION_BRIEF.md` 的逐单元落档即为典型）。
-    - **只读小探针**（单条 `grep` / `cat` / `sqlite -readonly` 即可答）由主模型直接跑更快，不算违规。
-    - **子代理模型（用户 2026-10-14 二次拍板；取代 2026-10-13 的 longcat 首选）**：**首选档 `opencode/deepseek-v4.1-flash-free`**（homebase 侧已核实本机模型目录存在、并已实测委派成功）→ **每次委派都要显式传 `model`**（角色库不 pin 模型）。
-      **⚠️ 2026-10-25 用户拍板（现行，覆盖下方历史）**：**调用链只剩唯一档 `opencode/deepseek-v4.1-flash-free`**——`glm-5.3-flash-free`、`mimo-v2.6-flash-free`、`opencode-go/longcat-2.5-preview-free` 三档**已从子代理调用链移除**（longcat 另因模型目录已下架而不可用）。
-      **不可用时（429 / 额度耗尽 / 地区封锁 / 模型下架）→ 停下报告，不降级、不换模型、不换 provider**（与规则 13 同源）。
-      **唯一例外（2026-10-25 用户授权，仅限 opencode 执行面不可用期间）**：改走 `provider=codebuddy` + `model=deepseek-v4.1-flash` 继续推进；opencode 恢复即回默认。
-      ~~以下为 2026-10-14/16 的历史约定，2026-10-25 起作废，仅存档：回退链 `glm-5.3-flash-free` → `mimo-v2.6-flash-free` → `opencode-go/longcat-2.5-preview-free`；`space-bunny-free` / `step-5-preview-free` 已于 2026-10-14 删除；glm 于 2026-10-16 插入链中；free 档 "恢复可用" 只是当时快照。~~
-      **非限流故障**（403 鉴权/地区、模型不存在、报错、无响应）→ 规则 13：停下报告，不改配置。
-      **小模型**（`small_model` / `agents.title.model`，标题生成这类轻量旁路）→ 用户 2026-10-13 拍板：**可用 `opencode/mimo-v2.6-flash-free`**（旁路失败只影响标题；opencode 源码 `session/title.ts` 会自动回落到会话主模型）。
-    - **并发纪律**：**同一文件 / 同一仓的子任务串行**（并行会冲突）；**跨仓可并行**；任务**拆小**而不是堆成一个大任务（见规则 12 的任务体量与粒度）；任务执行**不得由主模型自己做**——**验证可以自己做**。
-    - ⚠️ **执行类工作一律委派（用户 2026-10-13 二次明确：不止 pipeline，也不止"改代码"）**：**改代码 / 跑门禁（tsc、vitest）/ 建 worktree / 提交 / push / 开 PR / `merge-pr.sh` / 生产脚本执行 / gh 与 git 远端操作**——不论仓库（agent-mobile、memx、homebase）与任务大小，全部委派给 opencode 子代理。**"小改动"不构成自做的理由**（改个默认值 + 同步文档 + 改测试断言这类多文件编辑同样属执行类）。
-      - 主模型（控制面）只做：**产品决策与拍板**、**审阅 diff**、**"用户 review 完成"的确认（人在环）**、**验收**、**交底书 / 知识库 / 规则文件落档**、**单条只读探针**。
-      - `merge-pr.sh` 的命令执行可委派，但**合并前必须由控制面拿到用户确认**再发（手册 §一 review 约定）。
-12. **子代理模型 = 单一档 `opencode/deepseek-v4.1-flash-free`**（2026-10-25 拍板：原 free 档回退链已废止）⚠️ **角色库不 pin 模型**（`product_roles` 已核实：四角色只有 `provider: "opencode"`，**无 model 字段**；`~/.dsh/product-subagents-registry.json` 也查不到模型）→ **每次委派都要显式传 `model: "opencode/deepseek-v4.1-flash-free"`**，不能指望"已 pin 自动生效"（传参形式与 `prompt_async` 的逐条 model 一致）。
-   - **唯一档 `opencode/deepseek-v4.1-flash-free`**（2026-10-25 拍板：glm / mimo / longcat 回退档全部删除）；不可用（429 / 额度 / 地区 / 下架）→ 走下面这条 codebuddy 例外，**不挑链外模型、不改配置、不静默降质**。
-   - **opencode 不可用 → 改委派 codebuddy（例外，不是备选）**：`provider=codebuddy`，model 写 `deepseek-v4.1-flash`（shim 会剥 `codebuddy/` 前缀）。
-     ⚠️ **代价**：它消耗 **WorkBuddy 账号额度**（与 opencode 免费档不是同一个池）→ **委派前必须告知用户**，并在同一条回复里写明「opencode 额度不可用（原始错误：…），已切 codebuddy」。
-     - **不预探活**：直接派 opencode；**只有真的收到额度类错误**（`Free usage limit reached` / 429 / 地区封锁）才切，不许"先试试别的"。
-     - **恢复即回默认**：opencode 一旦可用立刻切回；不得因为"昨天/上一小时它坏过"继续用 codebuddy —— 那是拿历史状态代替当前判断。
-     - **可审计**：回复里凡涉及委派，必须让用户能看出用的是哪个 provider（表格列或正文点名）。
-     - **自检信号**：用户反问"为什么又用 codebuddy"即视为规则失效，立即切回并说明。
-   - **codebuddy 也不可用时**：**停下报告**（哪一档、原始错误），**请求用户授权**；**不得自行接手执行**。需要自做时必须**逐次**取得授权，并明示「本次自做，原因：…」。
-   - ⚠️ **model id 必须写全 `provider/model` 形式**（`opencode/deepseek-v4.1-flash-free`；codebuddy 例外为 `deepseek-v4.1-flash`，其 shim 会剥掉 `codebuddy/` 前缀）。**写裸名会落到会话默认模型**，表现为"指定了但没生效"。
-   - **非限流故障**（403 鉴权/地区、模型不存在、报错、无响应）→ 规则 13：**停下报告，不降级**。
-   - **任务体量与粒度（#138 实测通过，2026-10-29）**：任务书 **≤300 字**（目标 1 句 + 边界 ≤3 条 + 验收 1 句），细节用**指针**（指向 issue / 文档，别抄进 brief）；**一个任务 = 一个文件 / 一个行为 / 一个 PR，预计 ≤10 分钟**，超过就拆；同一文件或同一仓的子任务**串行**，跨仓可并行。
-   - **不写死基线数字**：测试基线会漂（实测 531 → 533），任务书写「跑 `pnpm test` 并与 main 对比」，不要写死条数。
-   - **验收要可核验证据**：DB 行 / CI run id / PR squash / 生产探针输出；**不接受子代理自述**（曾出现"什么都没运行"的不实汇报，靠库内台账才查清）。
-   - **失败判据**：`exited null`（codebuddy shim，多发生在长任务）与"零输出挂死"（`busySince` ≥30 分钟且 `receivedChars=0`）都要**拆小重试或改派**，不要原地等。
-   - **手动跑 `opencode run` 必须显式 `--model`**：`--agent <name>` **不会**应用该 agent 的 model，会落到顶层默认（生产是 mimo）——2026-10-28 的 companion 验收因此作废。
-   - 作用域 = **DSH 子代理委派**。
-   - ⚠️ **App/companion 运行时模型（2026-10-24 #111 起已改）**：chat 伴侣页 `CHAT_MODEL` = **`opencode/deepseek-v4.1-flash-free`**（`src/services/conversation-kind.ts`，单一事实源；原因：mimo 调不动 companion 插件的新工具 `project_sessions`，deepseek 实测一次调通）；chatcode 工作台 `DEFAULT_MODEL` 仍 `opencode/mimo-v2.6-flash-free`。**`providerID` 必须保持 `opencode`** —— App 唯一真实目标是生产 opencode，而**生产没有 `opencode-go` provider**，写死 Go 档会让手机端直接 `Model unavailable`。
-13. **子代理模型因"非限流"原因不可用时：报告，不降级（用户硬约束）**：若**唯一档**（`opencode/deepseek-v4.1-flash-free`）因非限流原因**不可用**（不存在 / 鉴权失败 / 报错 / 无响应；**⚠️ 限流 / 429 / 额度 / 地区封锁不在此列** —— 那属于规则 12 的 codebuddy 例外场景），**立即停下并告知用户**，**严禁自行降级、替换模型、改配置、切 provider，或用其他方式绕道兜底**（含"先用别的模型顶一下"）。与第 10 条 vision-reader 的"不得自行降级重试"同源；**宁可失败并如实报告，不可静默降质**。
-14. **包管理器只用 pnpm（2026-10-11 用户偏好，全局约定）**：**禁止 npm / yarn / bun**。装依赖用 `pnpm add` / `pnpm remove`；跑脚本用 `pnpm <script>` / `pnpm exec <bin>`；临时二进制用 `pnpm dlx`，**不用 `npx`**。与规则 1 呼应——装依赖统一走 `npx expo install` 的场景改为 `pnpm exec expo install`（等价且不引 npm）。不提交 `package-lock.json` / `yarn.lock`，只保留 `pnpm-lock.yaml`。全局版本见 `~/.config/opencode/AGENTS.md`（对所有项目生效）。
-15. **worktree 纪律（2026-10-17 用户明确「issue 关闭，相应的 worktree 也要清理」）**：
-    - ① **issue / PR 一旦关闭，必须立刻清理对应 worktree + 本地分支**：`git worktree remove --force <path>` → `git branch -D task/<N>-<slug>`（squash 合并后提交**不是** main 祖先，故用 `-D` 而非 `-d`）→ `git worktree prune` → `git worktree list` 确认**只剩主工作区**；远端分支随手删（`gh pr merge --delete-branch` 或 `git push origin --delete`）。
-    - ② **外仓（memx / companion-tools 等）的任务分支必须落在仓库外的 worktree 容器**（`/Users/gubin/workspace/<repo>-worktrees/`），**绝不** checkout 在主仓 —— 本机 opencode **从主仓加载插件源码**（`~/.config/opencode/plugins/memx.ts` → 主仓 `src/hosts/opencode/index`），主仓切到未合并分支会让插件**加载到未合并代码**（已真实发生过一次）。
-    - ③ 建 worktree 一律**绝对路径 + 从主仓根执行**：在子目录里跑 `git worktree add .worktrees/X` 会嵌进错误的 worktree 层级。
-    - ④ **`merge-pr.sh` 已修（#102 → PR #103 `1f38630`）**：从**主工作区**运行也会「清该任务 worktree + 删本地分支 + 快进 main」，不再需要手工补齐。**推荐从主工作区运行** `scripts/pipeline/merge-pr.sh <PR号>`（shell 不会站在被删目录里）；从 worktree 内运行同样会清理，但**被清的就是你所在的 worktree**。**脚本自检**：`bash scripts/pipeline/test-merge-pr.sh`（PATH 打桩伪造 git/gh，不碰真实远端）。
-16. **读写长期记忆走宿主工具（2026-10-23 起；CLI 已退役）**：DSH 侧读写 memx 长期记忆一律走宿主注册的工具 —— **写**用 `memory_write`（用户说"记住"时模型调用）、**查**用 `memory_search`、**删**用 `forget`；读入上下文由插件在**会话开始时自动完成**（每会话一次）。
-    - **禁止直写 `~/.opencode/**` 的 markdown** —— 会绕过 `withFileLock` + 索引更新 + `.bak`，产生"不在索引里的孤儿"（2026-10-17 实测到 3 条）与格式分叉。
-    - 旧的 `pnpm mem …` 命令行已在 memx PR #25（issue #24）中**删除**；语义见 memx `AGENTS.md` 规则 17 与 `docs/knowledge-base/OPERATIONS.md`。
+10. **委派与职责二分**：见 `~/.dsh/AGENTS.md` §8（DSH 控制面 / opencode 执行面、必须委派范围、主模型只做、作用域边界、并发纪律、任务书体量）。
+    - **本仓特有**：`merge-pr.sh` 的命令执行可委派，但**合并前必须由控制面拿到用户确认**再发（手册 §一 review 约定）。
+11. **子代理模型与委派质量**：见 `~/.dsh/AGENTS.md` §9（唯一档 / codebuddy 例外 / 不降级 / 任务体量与粒度 / 验收证据 / 失败判据 / `opencode run --model` / 不写死基线）。
+    - **本仓特有 · App/companion 运行时模型（2026-10-24 #111 起已改）**：chat 伴侣页 `CHAT_MODEL` = **`opencode/deepseek-v4.1-flash-free`**（`src/services/conversation-kind.ts`，单一事实源；原因：mimo 调不动 companion 插件的新工具 `project_sessions`，deepseek 实测一次调通）；chatcode 工作台 `DEFAULT_MODEL` 仍 `opencode/mimo-v2.6-flash-free`。**`providerID` 必须保持 `opencode`** —— App 唯一真实目标是生产 opencode，而**生产没有 `opencode-go` provider**，写死 Go 档会让手机端直接 `Model unavailable`。
+12. **非限流故障不降级**：见 `~/.dsh/AGENTS.md` §9。
+13. **包管理器只用 pnpm**：见 `~/.dsh/AGENTS.md` §3。本仓注意：规则 1 里的 `npx expo install` 一律写成 `pnpm exec expo install`。
+14. **worktree 纪律**：通用纪律（关闭即清理、绝对路径 + 主仓根、外仓用仓库外容器）见 `~/.dsh/AGENTS.md` §7。
+    - **本仓特有 ④**：`merge-pr.sh` 已修（#102 → PR #103 `1f38630`）——从**主工作区**运行会「清该任务 worktree + 删本地分支 + 快进 main」，推荐 `scripts/pipeline/merge-pr.sh <PR号>`（shell 不会站在被删目录里）；从 worktree 内运行同样会清理，但**被清的就是你所在的 worktree**。**脚本自检**：`bash scripts/pipeline/test-merge-pr.sh`（PATH 打桩伪造 git/gh，不碰真实远端）。
+15. **读写长期记忆**：见 `~/.dsh/AGENTS.md` §10（只走宿主工具、禁直写 `~/.opencode/**`）。旧的 `pnpm mem …` CLI 已在 memx PR #25（issue #24）删除；语义见 memx `AGENTS.md` 规则 17 与 `docs/knowledge-base/OPERATIONS.md`。
 
 ## BROWSER AUTOMATION (Playwright)
 
-skill 位于 `~/.agents/skills/playwright-skill/`（`~/.agents/skills` 由 DSH 自动扫描，无需注册）。
+通用规则见 `~/.dsh/AGENTS.md` §11。本仓特有：
 
-- 执行：`cd ~/.agents/skills/playwright-skill && node run.js <script.js>`
-- **永远 `headless: true`**；截图存 `/tmp/`（或仓库根 `test/`，见强制规定 8），用 Read tool 展示
-- 浏览器可切换：`PW_BROWSER=chrome|chromium`（不设置则自动探测）；**macOS 本机与 Linux 服务器通用**
+- 截图存仓库根 `test/`（见强制规定 8，已 gitignore）
 - **不要把 playwright 装进本仓库**：会动 `pnpm-lock.yaml`。仓库内已有 `playwright-core`（devDependency），脚本经 `createRequire` 复用 skill 目录的依赖
-- 适用范围：页面截图、表单测试、页面验证、二维码扫码、渲染后内容抓取
 
 **⚠️ 仓库自带 e2e 脚本目前只适用于服务器（Linux）环境**：`agent-mobile-app/scripts/e2e/pulse-e2e.mjs`（`pnpm e2e` / `pnpm e2e:nosend`）、`phase9-e2e.mjs`、`phase13-e2e.mjs`、`v011-e2e.mjs` 里共 **17 处 `/root/...` 硬编码**——包括浏览器可执行路径（`/root/.cache/ms-playwright/chromium_headless_shell-1228/...`）、`.env.local` 读取路径、以及 `projectPath` 参数。**在 macOS 本机直接 `pnpm e2e` 会失败**（路径不存在）；本机要跑浏览器验证，用上面的 skill 方式另写脚本，或先修这些硬编码（改脚本属 E2 改名迁移范围，勿顺手改）。
 
