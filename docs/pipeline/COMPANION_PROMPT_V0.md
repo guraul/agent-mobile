@@ -2,7 +2,7 @@
 
 > **状态**：v0.11 · 2026-10-29（v0.8 三条硬规则 + v0.9 禁止输出隐藏块/HTML 注释 + v0.10 收紧"谈记忆只举一个例子" + v0.11 举例点到为止）· 维护者：DSH 主模型（§3.9 验收要点见 BRIEF）
 > **这份文字是运行态配置**：真身在 opencode 的 `agents.companion.system`（v2 schema：`packages/schema/src/agent.ts` 的 `system` 字段）。
-> 本文件是它的**版本化真源**——改这里必须同步改配置（本机 + 生产上线窗口），否则两边漂移。
+> 本文件是它的**版本化真源**——改这里必须同步改配置（**仅生产上线窗口**），否则文档与运行态漂移。**本机不再同步**：本机 opencode 已于 2026-10-29 重置为纯 subagent 执行器（配置只剩 `{$schema, model}`），不再承载 companion agent。
 > **背景**：#74 护栏降级（permissions 白名单撤除，改软约束 + 免费档网关工具指纹波动）；#82 §B 出口① 增加"记忆写入"这一条**唯一被允许的写动作**。
 
 ## 现行文本（v0.2，逐字）
@@ -94,7 +94,9 @@ body 就写你刚才那两三句（目标 / 边界 / 落点三件事，别塞别
 
 ## 应用方式（配置增量）
 
-**本机**（`~/.config/opencode/opencode.json`）：
+**同步范围：仅生产**（`/root/.config/opencode/opencode.json`，上线窗口执行）。本机 opencode 已于 2026-10-29 重置为纯 subagent 执行器（配置只剩 `{$schema, model}`），不再承载 companion agent——下面「本机」小节**已失效，仅供历史参考**。
+
+**~~本机~~**（`~/.config/opencode/opencode.json`；**已失效**）：
 
 1. `agents.companion.system` = 上面那段文本（本机原先**没有** `system` 字段）。
 2. `agents.companion.permissions` **追加一条**（本机仍保留 #74 前的白名单——白名单是"const-allow + deny-all"，不加这条 `memory_write` 会被 `whollyDisabled` 直接从工具快照里摘掉，见 `packages/core/src/tool.ts:292`）：
@@ -108,7 +110,7 @@ body 就写你刚才那两三句（目标 / 边界 / 落点三件事，别塞别
 1. 同 `system` 文本。
 2. **不需要** allow 规则——生产的 permissions 白名单已按 #74 撤除，`memory_write` 随 memx 插件注册即可见。
 
-**⚠️ 本机与生产的有意差异**：本机保留白名单 + 单条 allow（最小授权，不开 bash/edit）；生产走 #74 的标准工具集 + 软约束（#82 拍板）。差异是刻意的，别顺手"对齐"掉——对齐=本机 companion 获得工程副作用能力。
+**⚠️ ~~本机与生产的有意差异~~（已失效，2026-10-29）**：本机不再承载 companion agent（重置为纯 subagent 执行器，配置只剩 `{$schema, model}`），下述差异只存在于历史记录中；现行同步**仅生产**。~~本机保留白名单 + 单条 allow（最小授权，不开 bash/edit）；生产走 #74 的标准工具集 + 软约束（#82 拍板）。差异是刻意的，别顺手"对齐"掉——对齐=本机 companion 获得工程副作用能力。~~
 
 **✅ 同步状态（2026-10-29 核实）**：v0.5 → v0.6 → v0.7 → v0.8 均已同步生产 `agents.companion.system`。当前长度 **2021 字符**（v0.7 为 1583，v0.8 增量 +438，内容为三条硬规则：禁止虚构"刚做过" / 能力边界 + 替代 / 一次表达）。本次同步前的备份：`/root/.config/opencode/opencode.json.bak.1793255835784`（同步后已 `systemctl restart opencode-4096`，3 条验收全部通过：不编造命令 / 明确改不了日历 + 给替代 / 记忆只一句结论 + 一个例子）。
 
