@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { ScrollView, Switch, View } from "react-native";
+import { Pressable, ScrollView, Switch, View } from "react-native";
 import { BottomSheet } from "../navigation/BottomSheet";
 import { StatusPill } from "../feedback/StatusPill";
 import { Text } from "../primitives/Text";
@@ -9,6 +9,13 @@ import {
   fetchNightlyRetryEnabled,
   toggleNightlyRetry,
 } from "../../services/agency/scheduler-toggle";
+import {
+  BACKLOG_THRESHOLD_DEFAULT,
+  BACKLOG_THRESHOLD_OPTIONS,
+  fetchBacklogThreshold,
+  setBacklogThreshold,
+  type BacklogThreshold,
+} from "../../services/agency/backlog-threshold";
 import { loadToken } from "../../services/auth";
 import { showAlert } from "../../services/alert";
 import { colors, spacing } from "../../theme";
@@ -33,6 +40,9 @@ export function BoundariesSheet({
   useLocale();
 
   const [nightlyRetryEnabled, setNightlyRetryEnabled] = useState(false);
+  const [backlogThreshold, setBacklogThresholdState] = useState<BacklogThreshold>(
+    BACKLOG_THRESHOLD_DEFAULT,
+  );
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -42,10 +52,11 @@ export function BoundariesSheet({
     return loadToken()
       .then(() => {
         setLoading(true);
-        return fetchNightlyRetryEnabled();
+        return Promise.all([fetchNightlyRetryEnabled(), fetchBacklogThreshold()]);
       })
-      .then((enabled) => {
+      .then(([enabled, threshold]) => {
         setNightlyRetryEnabled(enabled);
+        setBacklogThresholdState(threshold);
         setLoadFailed(false);
       })
       .catch(() => {
@@ -74,6 +85,23 @@ export function BoundariesSheet({
       .finally(() => setPending(false));
   };
 
+  const onChangeThreshold = (next: BacklogThreshold) => {
+    if (loading || pending || next === backlogThreshold) return;
+    const previous = backlogThreshold;
+    setPending(true);
+    setBacklogThresholdState(next);
+    setBacklogThreshold(next)
+      .then((confirmed) => setBacklogThresholdState(confirmed))
+      .catch(() => {
+        setBacklogThresholdState(previous);
+        showAlert(
+          t("pulse.boundaries.acts.backlogNudge.updateFailedTitle"),
+          t("pulse.boundaries.acts.backlogNudge.updateFailedBody"),
+        );
+      })
+      .finally(() => setPending(false));
+  };
+
   return (
     <BottomSheet visible={visible} onClose={onClose} testID="boundaries-sheet">
       {/* header 与 MemorySheet / KnowledgeSheet 同一套：title + caption，xxs 间距 */}
@@ -93,8 +121,10 @@ export function BoundariesSheet({
             />
             <Text variant="caption" color="muted">{t(tier.captionKey)}</Text>
             {tier.items.map((item) => {
-              // 唯一可调项：nightly-retry（job 名与条目 id 一致）。
+              // 可调项：nightly-retry（开关）与 backlog-nudge（阈值三档）。
               const adjustable = tier.id === "actsThenTells" && item.id === NIGHTLY_RETRY_JOB;
+              const thresholdAdjustable =
+                tier.id === "actsThenTells" && item.id === "backlog-nudge";
               return (
                 <View key={item.id} testID={`boundaries-item-${item.id}`} style={rowStyle}>
                   <View style={rowBodyStyle}>
@@ -123,6 +153,33 @@ export function BoundariesSheet({
                           {t("pulse.boundaries.acts.nightlyRetry.statusFailed")}
                         </Text>
                       ) : null}
+                    </View>
+                  ) : null}
+                  {thresholdAdjustable ? (
+                    <View style={thresholdStyle}>
+                      <Text variant="monoCaption" color="muted">
+                        {t("pulse.boundaries.acts.backlogNudge.thresholdLabel")}
+                      </Text>
+                      <View style={chipsStyle}>
+                        {BACKLOG_THRESHOLD_OPTIONS.map((option) => {
+                          const selected = option === backlogThreshold;
+                          return (
+                            <Pressable
+                              key={option}
+                              onPress={() => onChangeThreshold(option)}
+                              disabled={loading || pending}
+                              accessibilityRole="button"
+                              accessibilityState={{ selected }}
+                              testID={`boundaries-backlog-threshold-${option}`}
+                              style={[chipStyle, selected ? chipSelectedStyle : null]}
+                            >
+                              <Text variant="monoCaption" color={selected ? "onAccent" : "body"}>
+                                {option}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
                     </View>
                   ) : null}
                 </View>
@@ -156,4 +213,32 @@ const switchStyle = {
   alignItems: "flex-end" as const,
   gap: 2,
   maxWidth: 120,
+};
+
+// 阈值三档：右侧一列（标签 + 三个小方块），与开关列同宽语义。
+const thresholdStyle = {
+  alignItems: "flex-end" as const,
+  gap: 4,
+  maxWidth: 120,
+};
+
+const chipsStyle = {
+  flexDirection: "row" as const,
+  gap: 4,
+};
+
+const chipStyle = {
+  minWidth: 28,
+  paddingHorizontal: spacing.xxs,
+  paddingVertical: 4,
+  borderRadius: 6,
+  borderWidth: 1,
+  borderColor: colors.border.subtle,
+  alignItems: "center" as const,
+  justifyContent: "center" as const,
+};
+
+const chipSelectedStyle = {
+  backgroundColor: colors.accent.default,
+  borderColor: colors.accent.default,
 };
