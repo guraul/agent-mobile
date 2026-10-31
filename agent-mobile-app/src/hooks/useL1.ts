@@ -13,7 +13,7 @@ export interface UseL1Result {
   statements: L1Statement[];
   /** 行情跑马灯投影（market-estimate 类） */
   funds: L1MarketEstimateData[];
-  /** Phase 12：Noticed 投影的 L1 statements（observation + retry-report + calendar） */
+  /** Phase 12：Noticed 投影的 L1 statements（observation + retry-report + calendar + backlog-nudge） */
   noticed: L1Statement[];
   connected: boolean;
   loading: boolean;
@@ -34,13 +34,16 @@ export function useL1(): UseL1Result {
   const mountedRef = useRef(true);
 
   // SSE 每帧是全量替换，但帧里只有内存态 L1（/stream 不含 agent_reports 持久报告）。
-  // 因此把上一状态里未过期的 retry-report 并回去，否则 snapshot 拿到的报告会被下一帧冲掉。
+  // 因此把上一状态里未过期的持久报告（retry-report / backlog-nudge）并回去，
+  // 否则 snapshot 拿到的报告会被下一帧冲掉。
   const apply = useCallback((items: L1Statement[]) => {
     if (!mountedRef.current) return;
     setStatements((prev) => {
       const now = Date.now();
       const carried = prev.filter(
-        (s) => s.kind === "retry-report" && (s.expiresAt === null || s.expiresAt > now),
+        (s) =>
+          (s.kind === "retry-report" || s.kind === "backlog-nudge") &&
+          (s.expiresAt === null || s.expiresAt > now),
       );
       if (carried.length === 0) return items;
       const ids = new Set(items.map((i) => i.id));
@@ -89,9 +92,14 @@ export function useL1(): UseL1Result {
 
   // Phase 12：Noticed 投影。retry-report 是持久化的夜间补跑报告（agent_reports），
   // calendar 是外部 ICS 日历的今日陈述（外部域切片 2，agent-mobile#153），
+  // backlog-nudge 是未处理事项积压提醒（homebase 33a5d49，同走 agent_reports），
   // 与 observation 同属 informational，文案由服务端 L1 rule 生成，原样透传。
   const noticed = statements.filter(
-    (s) => s.kind === "observation" || s.kind === "retry-report" || s.kind === "calendar",
+    (s) =>
+      s.kind === "observation" ||
+      s.kind === "retry-report" ||
+      s.kind === "calendar" ||
+      s.kind === "backlog-nudge",
   );
 
   return { statements, funds, noticed, connected, loading, refresh };

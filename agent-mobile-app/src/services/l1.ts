@@ -8,7 +8,12 @@ import { tokenHeader, handleUnauthorized } from "./auth";
 // SSE 语义：每帧全量替换当前生效 statements（无逐条 add/remove protocol）。
 // snapshot：首屏/重连对账。
 
-export type L1Kind = "market-estimate" | "observation" | "retry-report" | "calendar";
+export type L1Kind =
+  | "market-estimate"
+  | "observation"
+  | "retry-report"
+  | "calendar"
+  | "backlog-nudge";
 
 export interface L1Statement {
   id: string;
