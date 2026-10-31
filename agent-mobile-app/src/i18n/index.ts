@@ -114,6 +114,12 @@ const en = {
   "pulse.boundaries.acts.dailyDigest.title": "Daily digest",
   "pulse.boundaries.acts.dailyDigest.detail":
     "One line at the top of Pulse: what I checked for you today. Tap it for the full log.",
+  "pulse.boundaries.acts.backlogNudge.title": "Backlog nudge",
+  "pulse.boundaries.acts.backlogNudge.detail":
+    "When 5 items pile up, I say so once — and then leave it alone for a few days.",
+  "pulse.boundaries.acts.backlogNudge.thresholdLabel": "Nudge at",
+  "pulse.boundaries.acts.backlogNudge.updateFailedTitle": "Couldn't change the threshold",
+  "pulse.boundaries.acts.backlogNudge.updateFailedBody": "Nothing changed. Try again in a moment.",
   "pulse.boundaries.asks.label": "Asks first",
   "pulse.boundaries.asks.caption": "I prepare the action; the trigger stays with you.",
   "pulse.boundaries.asks.newResponsibility.title": "New scheduled responsibility",
@@ -576,6 +582,12 @@ const zh = {
   "pulse.boundaries.acts.dailyDigest.title": "每日摘要",
   "pulse.boundaries.acts.dailyDigest.detail":
     "Pulse 顶部一句话：今天替你查了什么。点开是完整记录。",
+  "pulse.boundaries.acts.backlogNudge.title": "积压提醒",
+  "pulse.boundaries.acts.backlogNudge.detail":
+    "未处理事项攒到 5 件时，我说一声；之后几天不再提。",
+  "pulse.boundaries.acts.backlogNudge.thresholdLabel": "提醒门槛",
+  "pulse.boundaries.acts.backlogNudge.updateFailedTitle": "没能改掉门槛",
+  "pulse.boundaries.acts.backlogNudge.updateFailedBody": "什么都没变，过一会儿再试。",
   "pulse.boundaries.asks.label": "先问再做",
   "pulse.boundaries.asks.caption": "我准备好动作，扳机留在你手上。",
   "pulse.boundaries.asks.newResponsibility.title": "新建定时责任",
