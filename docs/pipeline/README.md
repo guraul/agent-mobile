@@ -12,7 +12,7 @@
 3. 开发          cd 到 worktree 内开发；提交信息建议带 #<issue号>
 4. 开 PR         （推荐：在 worktree 内）scripts/pipeline/open-pr.sh
                  → 自动推送 + 开 PR，body 首行 Closes #<issue号>
-5. review        CI 过（tsc + vitest）+ **review 约定**（见下）→ squash merge
+5. review        CI 过（tsc + vitest）+ **审核闸门**（见全局 `~/.dsh/AGENTS.md` §7 第 6 条）→ squash merge
                  → 合并自动关闭 issue，并触发自动部署
 6. 自动部署      GitHub Actions：tsc/test → expo export → rsync → restart serve-9928
                  手动兜底: scripts/pipeline/deploy.sh（参数见下）
@@ -21,7 +21,7 @@
 
 规则：发版只由 `agent-mobile-app/**` 变更触发；BFF 走它自己仓库的 pipeline。
 
-**review 约定（人在环的唯一一步）**：agent 完成开发并开 PR 后，向用户询问"review 是否完成"；**用户回复 ok** 后，agent 运行 `merge-pr.sh` 执行 squash 合并（合并即触发自动部署）。除该确认外，从 issue 到部署全程自动化。
+**审核闸门**：`merge-pr.sh` 合并前调用 self-dsh-plugins 的共享 `gate`（判定逻辑不在本仓）。审核方 `APPROVE` 且未命中高风险 → 直接合并，不再问人；三种人工介入情形与绕过规则见全局 `~/.dsh/AGENTS.md` §7 第 6/7 条。
 
 ## 二、脚本用法
 
@@ -39,11 +39,14 @@ scripts/pipeline/open-pr.sh --worktree <dir>
 #   在 main 工作区跑（分支不是 task/*）会拒绝；报错一律带「目标工作区 / 分支 / 调用 cwd」
 #   自检（PATH 打桩，不碰真实 git 远端/GitHub）：bash scripts/pipeline/test-open-pr.sh
 
-# 合并（用户 review 通过后；推荐从主工作区运行，两种运行位置都会清理现场）
+# 合并（审核方 APPROVE 且未命中高风险；绕过见全局 ~/.dsh/AGENTS.md §7.7）
+#   推荐从主工作区运行，两种运行位置都会清理现场
 scripts/pipeline/merge-pr.sh            # 自动识别当前分支的 PR
 scripts/pipeline/merge-pr.sh 34         # 指定 PR 号
+scripts/pipeline/merge-pr.sh 34 --review-record=.dsh-web/reviews/34-<sha>.json
 scripts/pipeline/merge-pr.sh -C <dir>   # 指定目标工作区（同 --worktree）
 scripts/pipeline/merge-pr.sh --force    # CI 失败时强行合并（慎用）
+#   --no-review [--reason=<文本>] 显式跳过闸门（须用户当场同意；共享 gate 落跳过审计）
 #   合并动作（无论从哪运行都会做）：squash merge → 删远端分支
 #     → 删本地 task/* 分支（先移除检出它的 worktree → 主工作区 fetch + pull --ff-only main）
 #   清理范围：

@@ -44,13 +44,13 @@
 8. **临时测试脚本 / 截图 / 日志统一放仓库根 `test/` 目录**，勿散落 /tmp。`test/` 已加入 `.gitignore` 不入库，需要留存的结果写进知识库或脚本化进 `agent-mobile-app/scripts/`。
 9. **仓库根的历史遗留目录 `src/`（设计期源码）、`showcase/`（静态原型）、`showcase2/`（Showcase 应用）已于 2026-09-27 删除**（showcase2 设计已移植进 `agent-mobile-app`，其余淘汰；需要时查 git 历史）。运行态代码只在 `agent-mobile-app/`。
 10. **委派与职责二分**：见 `~/.dsh/AGENTS.md` §8（DSH 控制面 / opencode 执行面、必须委派范围、主模型只做、作用域边界、并发纪律、任务书体量）。
-    - **本仓特有**：`merge-pr.sh` 的命令执行可委派，但**合并前必须由控制面拿到用户确认**再发（手册 §一 review 约定）。
+    - **本仓特有**：`merge-pr.sh` 的命令执行可委派；合并前的审核闸门、绕过条件与留痕要求，一律按全局 `~/.dsh/AGENTS.md` §7 第 6/7 条，本文件不复述。
 11. **子代理模型与委派质量**：见 `~/.dsh/AGENTS.md` §9（唯一档 / codebuddy 例外 / 不降级 / 任务体量与粒度 / 验收证据 / 失败判据 / `opencode run --model` / 不写死基线）。
     - **本仓特有 · App/companion 运行时模型（2026-10-24 #111 起已改）**：chat 伴侣页 `CHAT_MODEL` = **`opencode/deepseek-v4.1-flash-free`**（`src/services/conversation-kind.ts`，单一事实源；原因：mimo 调不动 companion 插件的新工具 `project_sessions`，deepseek 实测一次调通）；chatcode 工作台 `DEFAULT_MODEL` 仍 `opencode/mimo-v2.6-flash-free`。**`providerID` 必须保持 `opencode`** —— App 唯一真实目标是生产 opencode，而**生产没有 `opencode-go` provider**，写死 Go 档会让手机端直接 `Model unavailable`。
 12. **非限流故障不降级**：见 `~/.dsh/AGENTS.md` §9。
 13. **包管理器只用 pnpm**：见 `~/.dsh/AGENTS.md` §3。本仓注意：规则 1 里的 `npx expo install` 一律写成 `pnpm exec expo install`。
 14. **worktree 纪律**：通用纪律（关闭即清理、绝对路径 + 主仓根、外仓用仓库外容器）见 `~/.dsh/AGENTS.md` §7。
-    - **本仓特有 ④**：`merge-pr.sh` 已修（#102 → PR #103 `1f38630`）——从**主工作区**运行会「清该任务 worktree + 删本地分支 + 快进 main」，推荐 `scripts/pipeline/merge-pr.sh <PR号>`（shell 不会站在被删目录里）；从 worktree 内运行同样会清理，但**被清的就是你所在的 worktree**。**脚本自检**：`bash scripts/pipeline/test-merge-pr.sh`（PATH 打桩伪造 git/gh，不碰真实远端）。
+    - **本仓特有 ④**：`merge-pr.sh` 已修（#102 → PR #103 `1f38630`）——从**主工作区**运行会「清该任务 worktree + 删本地分支 + 快进 main」，推荐 `scripts/pipeline/merge-pr.sh <PR号>`（shell 不会站在被删目录里）；从 worktree 内运行同样会清理，但**被清的就是你所在的 worktree**。**脚本自检**：`bash scripts/pipeline/test-merge-pr.sh`（PATH 打桩伪造 git/gh/node，不碰真实远端）。
 15. **读写长期记忆**：见 `~/.dsh/AGENTS.md` §10（只走宿主工具、禁直写 `~/.opencode/**`）。旧的 `pnpm mem …` CLI 已在 memx PR #25（issue #24）删除；语义见 memx `AGENTS.md` 规则 17 与 `docs/knowledge-base/OPERATIONS.md`。
 
 ## BROWSER AUTOMATION (Playwright)
