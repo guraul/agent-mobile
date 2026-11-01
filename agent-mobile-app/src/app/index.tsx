@@ -11,6 +11,7 @@ import { FeaturedItem } from "@/components/pulse/FeaturedItem";
 import { MarketGroupItem } from "@/components/pulse/MarketGroupItem";
 import { SupportingList } from "@/components/pulse/SupportingList";
 import { PulseNoticed } from "@/components/pulse/PulseNoticed";
+import { ContinueThreads } from "@/components/pulse/ContinueThreads";
 import { DetailSheet } from "@/components/pulse/DetailSheet";
 import { AnimatedEntry } from "@/components/pulse/AnimatedEntry";
 import type {
@@ -515,8 +516,12 @@ export default function PulseScreen() {
           </View>
         ) : null}
 
+        <AnimatedEntry index={3}>
+          <ContinueThreads />
+        </AnimatedEntry>
+
         {visibleNoticed.length > 0 ? (
-          <AnimatedEntry index={3}>
+          <AnimatedEntry index={4}>
             {/* Noticed ghost 卡（mock .card.ghost）：透明底 + 1.5px dashed 绿边 */}
             <View style={styles.section}>
               <View style={styles.sectionHead}>

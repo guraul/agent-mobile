@@ -114,6 +114,8 @@ const en = {
   "pulse.boundaries.acts.dailyDigest.title": "Daily digest",
   "pulse.boundaries.acts.dailyDigest.detail":
     "One line at the top of Pulse: what I checked for you today. Tap it for the full log.",
+  "pulse.continue.title": "Pick up where we left off",
+  "pulse.continue.action": "Continue",
   "pulse.boundaries.acts.backlogNudge.title": "Backlog nudge",
   "pulse.boundaries.acts.backlogNudge.detail":
     "When 5 items pile up, I say so once — and then leave it alone for a few days.",
@@ -582,6 +584,8 @@ const zh = {
   "pulse.boundaries.acts.dailyDigest.title": "每日摘要",
   "pulse.boundaries.acts.dailyDigest.detail":
     "Pulse 顶部一句话：今天替你查了什么。点开是完整记录。",
+  "pulse.continue.title": "接着上次聊",
+  "pulse.continue.action": "继续",
   "pulse.boundaries.acts.backlogNudge.title": "积压提醒",
   "pulse.boundaries.acts.backlogNudge.detail":
     "未处理事项攒到 5 件时，我说一声；之后几天不再提。",
