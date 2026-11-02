@@ -95,6 +95,7 @@ scripts/pipeline/status.sh
 - **gzipCache 陷阱**：dist 覆盖后必须重启 serve-9928，否则返回旧 bundle
 - BFF CORS 只放行 9928 的三个 origin（`106.13.181.13`/`127.0.0.1`/`localhost`）——静态站换端口前必须先改 BFF
 - squash merge 为唯一合并方式；PR body 首行必须 `Closes #<issue号>`
+- `tools/` 的 `dsh-pipeline` 依赖只在本机存在，用绝对路径（`file:/Users/gubin/workspace/dsh-pipeline/dist/latest.tgz`）；相对路径会在 worktree 下错位
 - 凭据不入库：部署密钥只放 GitHub Secrets；服务器 root 密钥不进任何仓库
 
 ## 五、阶段状态
