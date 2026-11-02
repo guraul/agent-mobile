@@ -1,0 +1,5 @@
+{
+  "repo": "guraul/agent-mobile",
+  "ci": [],
+  "highRisk": ["deploy.sh", "rollback.sh", ".github/**"]
+}

@@ -1,0 +1,7 @@
+{
+  "name": "agent-mobile-tools",
+  "private": true,
+  "dependencies": {
+    "dsh-pipeline": "file:../../dsh-pipeline/dist/latest.tgz"
+  }
+}

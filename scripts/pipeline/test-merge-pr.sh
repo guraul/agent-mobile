@@ -1,16 +1,18 @@
 #!/usr/bin/env bash
-# test-merge-pr.sh — merge-pr.sh 的行为自检（issue #102 / #182）
+# test-merge-pr.sh — merge-pr.sh 的转发契约自检（issue #187）
 #
 # 用法: bash scripts/pipeline/test-merge-pr.sh [被测脚本路径]
 #       该参数可选，默认同目录的 merge-pr.sh（用于拿旧版本做反证对照）
 #
-# 原理: 在临时目录里伪造 git/gh/node（argv 记入日志、按剧本回放），把 merge-pr.sh 的
-#       各种运行形态各跑一遍，再对日志做断言。**全程不碰真实 git 远端与 GitHub**。
-#   ① 主工作区形态: 指定 PR 号 + --review-record → 调用共享 gate（带 --record）→ 清理/快进
-#   ② worktree 形态: 自动识别当前分支的 PR → 既有行为不变（不反向清理主仓）
-#   ③ 闸门拒绝: 共享 gate 非 0 → 不合并、不清理（fail-closed）
-#   ④ --no-review: gate 收到 --no-review --reason → 放行合并
-#   ⑤ --review-record 与 --no-review 同时给 → 直接拒绝，连 gate 都不调用
+# 原理: 在临时目录里伪造 git/gh/node 与一个假的 dsh-pipeline 包（argv 记入日志、按剧本回放），
+#       把 merge-pr.sh 的各种运行形态各跑一遍，再对日志做断言。**全程不碰真实 git 远端与 GitHub**。
+#   ① 主工作区形态: 指定 PR 号 + --review-record → node 收到 --record（参数映射）
+#   ② -C 形态: 只决定「在哪个工作区找分支」；--root 仍是主工作区
+#   ③ --check-only / --no-review --reason → 原样传给包
+#   ④ 包退出码非 0 → 原样透传（不吞错误）
+#   ⑤ 互斥: --review-record 与 --no-review 同时给 → 拒绝，连包都不调用
+#   ⑥ 包缺失 → 拒绝执行并给出试过的路径
+# 说明: 合并/清理的**行为**由包自测覆盖（dsh-pipeline 的 node --test），本脚本只验转发壳。
 # 约定: 断言失败打印失败项 + 实际命令日志，退出码非 0；全部通过退出 0。
 
 set -uo pipefail
@@ -25,22 +27,18 @@ TMP="$(cd "$TMP" && pwd -P)"   # macOS /var → /private/var：归一化，避�
 trap 'rm -rf "$TMP"' EXIT
 
 REPO_SLUG="guraul/agent-mobile"
-BRANCH="task/102-fix-pipeline-merge-pr-sh-worktree-main"
+BRANCH="task/187-refactor-pipeline-merge-pr-sh-dsh-pipeli"
 FAKE_MAIN="$TMP/main"                              # 伪造的主工作区（检出 main）
-FAKE_WT="$FAKE_MAIN/.worktrees/102-fix-pipeline"   # 伪造的任务 worktree（检出 BRANCH）
+FAKE_WT="$FAKE_MAIN/.worktrees/187-pipeline"       # 伪造的任务 worktree（检出 BRANCH）
 FAKE_WT_LIST="$TMP/worktree-list.txt"
 SHIM_LOG="$TMP/cmd.log"
 RECORD="$TMP/record.json"
-HEAD_SHA="cccc4444cccc4444cccc4444cccc4444cccc4444"
-mkdir -p "$TMP/bin" "$FAKE_WT"
+PKG_HOME="$FAKE_MAIN/tools/node_modules/dsh-pipeline"
+PKG_CLI="$PKG_HOME/bin/cli.mjs"
+mkdir -p "$TMP/bin" "$FAKE_WT" "$(dirname "$PKG_CLI")" "$FAKE_MAIN/.git"
+: > "$PKG_CLI"
 
-# 共享 gate 的路径：用假 HOME 指到临时目录，自检不依赖 self-dsh-plugins 是否已合入本机
-FAKE_HOME="$TMP/home"
-GATE_CLI="$FAKE_HOME/workspace/self-dsh-plugins/dsh-subagents/lib/cli.js"
-mkdir -p "$(dirname "$GATE_CLI")"
-: > "$GATE_CLI"
-
-# 剧本：worktree 列表（仓库级，各形态相同）
+# 剧本：worktree 列表（主工作区排第一，与 git 的实际顺序一致）
 cat > "$FAKE_WT_LIST" <<EOF
 worktree ${FAKE_MAIN}
 HEAD aaaa1111aaaa1111aaaa1111aaaa1111aaaa1111
@@ -56,54 +54,39 @@ EOF
 cat > "$TMP/bin/git" <<'SHIM'
 #!/usr/bin/env bash
 printf 'git %s\n' "$*" >> "$SHIM_LOG"
+# 目标目录（-C）不参与断言，只回放与子命令相关的输出
 sub=()
-skip=0
 for a in "$@"; do
-  if [[ $skip -eq 1 ]]; then skip=0; continue; fi
-  if [[ "$a" == "-C" ]]; then skip=1; continue; fi
-  sub[${#sub[@]}]="$a"
+  case "$a" in
+    -C) continue ;;               # 目标目录不参与断言子命令
+    rev-parse|branch|worktree|log) sub+=("$a") ;;
+    --show-toplevel) printf '%s\n' "$FAKE_MAIN" ;;
+    --git-common-dir) printf '%s\n' "$FAKE_MAIN/.git" ;;
+    --show-current) printf '%s\n' "$FAKE_BRANCH" ;;
+    list) cat "$FAKE_WT_LIST" ;;
+  esac
 done
-case "${sub[0]:-}" in
-  rev-parse) printf '%s\n' "$FAKE_ROOT" ;;
-  branch)    [[ "${sub[1]:-}" == "--show-current" ]] && printf '%s\n' "$FAKE_BRANCH" ;;
-  worktree)  [[ "${sub[1]:-}" == "list" ]] && cat "$FAKE_WT_LIST" ;;
-  log)       printf '%s\n' "$FAKE_MAIN_SHA 假提交（自检桩）" ;;
-  *)         : ;;
-esac
 exit 0
 SHIM
 
-# —— 伪造 gh（PR #102 已 OPEN；无 CI checks；head sha 固定；其余回放成功）——
+# —— 伪造 gh（PR #102；分支名 → 102）——
 cat > "$TMP/bin/gh" <<'SHIM'
 #!/usr/bin/env bash
 printf 'gh %s\n' "$*" >> "$SHIM_LOG"
 if [[ "${1:-}" == "pr" && "${2:-}" == "view" ]]; then
-  field=""; prev=""
-  for a in "$@"; do
-    [[ "$prev" == "--json" ]] && field="$a"
-    prev="$a"
-  done
-  case "$field" in
-    number)      printf '102\n' ;;
-    headRefName) printf '%s\n' "$FAKE_BRANCH" ;;
-    state)       printf 'OPEN\n' ;;
-    title)       printf 'fix(pipeline): 自检桩标题 (#102)\n' ;;
-    headRefOid)  printf '%s\n' "$FAKE_HEAD_SHA" ;;
-    *)           printf '\n' ;;
-  esac
+  if [[ "${3:-}" == "102" || "${3:-}" == "$FAKE_BRANCH" ]]; then printf '102\n'; fi
   exit 0
 fi
-if [[ "${1:-}" == "pr" && "${2:-}" == "checks" ]]; then exit 1; fi   # 无 checks → CI 门槛自动跳过
 exit 0
 SHIM
 
-# —— 伪造 node（共享 gate 的替身：只记录 argv，按 FAKE_GATE_RC 回放放行/拒绝）——
+# —— 伪造 node（共享包的替身：只记录 argv，按 FAKE_PKG_RC 回放）——
 cat > "$TMP/bin/node" <<'SHIM'
 #!/usr/bin/env bash
 printf 'node %s\n' "$*" >> "$SHIM_LOG"
-if [[ "${FAKE_GATE_RC:-0}" != "0" ]]; then
-  echo "审核闸门: 自检桩拒绝（FAKE_GATE_RC=${FAKE_GATE_RC}）" >&2
-  exit "$FAKE_GATE_RC"
+if [[ "${FAKE_PKG_RC:-0}" != "0" ]]; then
+  echo "merge: 自检桩拒绝（FAKE_PKG_RC=${FAKE_PKG_RC}）" >&2
+  exit "$FAKE_PKG_RC"
 fi
 exit 0
 SHIM
@@ -112,89 +95,86 @@ chmod +x "$TMP/bin/git" "$TMP/bin/gh" "$TMP/bin/node"
 
 FAIL=0
 RC=0
-GATE_RC=0
+PKG_RC=0
+HIDE_PKG=0
 
-# run_sut <cwd> <fake_root> [merge-pr 参数...]
+# run_sut <cwd> [merge-pr 参数...]
 run_sut() {
-  local cwd="$1" root="$2"; shift 2
+  local cwd="$1"; shift
   : > "$SHIM_LOG"
-  ( cd "$cwd" && env PATH="$TMP/bin:$PATH" HOME="$FAKE_HOME" \
-      FAKE_ROOT="$root" FAKE_MAIN="$FAKE_MAIN" FAKE_WT="$FAKE_WT" \
-      FAKE_BRANCH="$BRANCH" FAKE_WT_LIST="$FAKE_WT_LIST" \
-      FAKE_MAIN_SHA="cccc3333" FAKE_HEAD_SHA="$HEAD_SHA" \
-      FAKE_GATE_RC="$GATE_RC" SHIM_LOG="$SHIM_LOG" \
+  if [[ $HIDE_PKG -eq 1 ]]; then mv "$PKG_HOME" "$TMP/pkg-hidden"; fi
+  ( cd "$cwd" && env PATH="$TMP/bin:$PATH" \
+      FAKE_MAIN="$FAKE_MAIN" FAKE_BRANCH="$BRANCH" FAKE_WT_LIST="$FAKE_WT_LIST" \
+      FAKE_PKG_RC="$PKG_RC" SHIM_LOG="$SHIM_LOG" \
       bash "$SUT" "$@" ) >"$TMP/sut.out" 2>&1
   RC=$?
+  if [[ $HIDE_PKG -eq 1 ]]; then mv "$TMP/pkg-hidden" "$PKG_HOME"; fi
 }
 
-# 整行匹配（日志每行 = 一条完整命令），避免 worktree 路径前缀造成误判
-has()  { grep -Fxq -- "$1" "$SHIM_LOG" || { echo "  ✗ 应出现: $1（$2）"; FAIL=1; }; }
-hasnt(){ grep -Fxq -- "$1" "$SHIM_LOG" && { echo "  ✗ 不应出现: $1（$2）"; FAIL=1; }; return 0; }
-# 子串匹配（node 的 argv 里含脚本绝对路径，整行断言不现实）
 has_sub()  { grep -Fq -- "$1" "$SHIM_LOG" || { echo "  ✗ 应出现子串: $1（$2）"; FAIL=1; }; }
 hasnt_sub(){ grep -Fq -- "$1" "$SHIM_LOG" && { echo "  ✗ 不应出现子串: $1（$2）"; FAIL=1; }; return 0; }
+has_line() { grep -Fxq -- "$1" "$SHIM_LOG" || { echo "  ✗ 应出现: $1（$2）"; FAIL=1; }; }
+wrong()    { echo "  ✗ $1"; FAIL=1; }
 
-GATE_ARGS="gate --pr 102 --root ${FAKE_MAIN} --head-sha ${HEAD_SHA}"
-
-# ═══ ① 主工作区形态：指定 PR 号 + 审核记录 ═══
-echo "── ① 主工作区形态: bash merge-pr.sh 102 --review-record=…（cwd=${FAKE_MAIN##*/}）"
-GATE_RC=0
-run_sut "$FAKE_MAIN" "$FAKE_MAIN" 102 "--review-record=$RECORD"
+# ═══ ① 主工作区形态：PR 号 + --review-record=<f> → 包的 --record ═══
+echo "── ① 主工作区形态: merge-pr.sh 102 --review-record=…"
+PKG_RC=0
+run_sut "$FAKE_MAIN" 102 "--review-record=$RECORD"
 echo "  退出码: $RC"
-[[ $RC -eq 0 ]] || { echo "  ✗ 退出码应为 0，实为 $RC"; FAIL=1; }
-has_sub "${GATE_ARGS} --record ${RECORD}"                              "闸门收到审核记录"
-has "gh pr merge 102 --repo ${REPO_SLUG} --squash"                     "squash 合并"
-has "git -C ${FAKE_MAIN} push origin --delete ${BRANCH}"               "删远端分支"
-has "git -C ${FAKE_MAIN} worktree remove --force ${FAKE_WT}"           "清理任务 worktree（#102 修复点）"
-has "git -C ${FAKE_MAIN} branch -D ${BRANCH}"                          "删本地任务分支"
-has "git -C ${FAKE_MAIN} pull --ff-only origin main --quiet"           "快进主工作区 main（#102 修复点）"
-hasnt "git -C ${FAKE_MAIN} worktree remove --force ${FAKE_MAIN}"       "不得移除主工作区本身"
-hasnt "git -C ${FAKE_MAIN} branch -D main"                             "不得删 main 分支"
+[[ $RC -eq 0 ]] || wrong "退出码应为 0，实为 $RC"
+has_sub "merge --pr 102 --root ${FAKE_MAIN} --record ${RECORD}" "参数映射 --review-record → --record"
+hasnt_sub "gh pr merge"                                        "壳自己不做合并（合并归包）"
+hasnt_sub "push origin --delete"                               "壳自己不做清理（清理归包）"
 
-# ═══ ② worktree 形态：无参数自动识别当前分支的 PR ═══
-echo "── ② worktree 形态: bash merge-pr.sh（cwd=${FAKE_WT##*/}，自动识别分支）"
-GATE_RC=0
-run_sut "$FAKE_WT" "$FAKE_WT"
+# ═══ ② -C 形态：只影响找分支的工作区，--root 仍是主工作区 ═══
+echo "── ② -C 形态: merge-pr.sh -C <worktree>（无 PR 号，按当前分支解析）"
+PKG_RC=0
+run_sut "$FAKE_MAIN" -C "$FAKE_WT"
 echo "  退出码: $RC"
-[[ $RC -eq 0 ]] || { echo "  ✗ 退出码应为 0，实为 $RC"; FAIL=1; }
-has "git -C ${FAKE_WT} branch --show-current"                          "自动识别当前分支（取目标工作区）"
-has_sub "$GATE_ARGS"                                                   "闸门按 PR 号 + 主工作区 + head sha 调用"
-hasnt_sub "--record"                                                   "无记录时不得伪造 --record（fail-closed）"
-hasnt_sub "--no-review"                                                "无记录时不得自行跳过"
-has "gh pr merge 102 --repo ${REPO_SLUG} --squash"                     "squash 合并（桩放行）"
-has "git -C ${FAKE_MAIN} worktree remove --force ${FAKE_WT}"           "既有行为: 清理该 worktree"
-has "git -C ${FAKE_MAIN} branch -D ${BRANCH}"                          "既有行为: 删本地任务分支"
-has "git -C ${FAKE_MAIN} pull --ff-only origin main --quiet"           "既有行为: 快进主工作区 main"
-hasnt "git -C ${FAKE_MAIN} worktree remove --force ${FAKE_MAIN}"       "不反向清理主仓 worktree"
-hasnt "git -C ${FAKE_MAIN} branch -D main"                             "不反向清理 main 分支"
+[[ $RC -eq 0 ]] || wrong "退出码应为 0，实为 $RC"
+has_line "git -C ${FAKE_WT} branch --show-current"          "分支取自 -C 指定的工作区"
+has_sub "merge --pr 102 --root ${FAKE_MAIN}"                "root 仍是主工作区"
+has_sub "gh pr view ${BRANCH} --repo ${REPO_SLUG}"          "分支名在这里解析成 PR 号"
 
-# ═══ ③ 闸门拒绝：必须 fail-closed（不合并、不清理）═══
-echo "── ③ 闸门拒绝: 共享 gate 退出码 1"
-GATE_RC=1
-run_sut "$FAKE_MAIN" "$FAKE_MAIN" 102 "--review-record=$RECORD"
+# ═══ ③ --check-only / --no-review --reason 原样传 ═══
+echo "── ③ 演练与跳过: --check-only / --no-review --reason=…"
+PKG_RC=0
+run_sut "$FAKE_MAIN" 102 --check-only
 echo "  退出码: $RC"
-[[ $RC -ne 0 ]] || { echo "  ✗ 闸门拒绝时退出码应非 0，实为 $RC"; FAIL=1; }
-has_sub "$GATE_ARGS --record ${RECORD}"                                "闸门确实被调用"
-hasnt "gh pr merge 102 --repo ${REPO_SLUG} --squash"                   "闸门拒绝后不得合并"
-hasnt "git -C ${FAKE_MAIN} push origin --delete ${BRANCH}"             "闸门拒绝后不得清理分支"
+[[ $RC -eq 0 ]] || wrong "退出码应为 0，实为 $RC"
+has_sub "merge --pr 102 --root ${FAKE_MAIN} --check-only"   "--check-only 传给包"
 
-# ═══ ④ --no-review：显式跳过（共享 gate 落审计），仍走合并 ═══
-echo "── ④ 显式跳过: --no-review --reason=…"
-GATE_RC=0
-run_sut "$FAKE_MAIN" "$FAKE_MAIN" 102 --no-review "--reason=用户当场同意（自检桩）"
+PKG_RC=0
+run_sut "$FAKE_MAIN" 102 --no-review "--reason=用户当场同意（自检桩）"
 echo "  退出码: $RC"
-[[ $RC -eq 0 ]] || { echo "  ✗ 退出码应为 0，实为 $RC"; FAIL=1; }
-has_sub "${GATE_ARGS} --no-review --reason 用户当场同意（自检桩）"      "跳过参数原样传给共享 gate"
-has "gh pr merge 102 --repo ${REPO_SLUG} --squash"                     "跳过闸门后合并"
+[[ $RC -eq 0 ]] || wrong "退出码应为 0，实为 $RC"
+has_sub "--reason 用户当场同意（自检桩）"                    "--reason 传给包"
+has_sub "--no-review"                                       "--no-review 传给包"
 
-# ═══ ⑤ 互斥参数：记录与跳过不能同时给 ═══
+# ═══ ④ 包失败：退出码原样透传 ═══
+echo "── ④ 包拒绝: 包退出码 1"
+PKG_RC=1
+run_sut "$FAKE_MAIN" 102 "--review-record=$RECORD"
+echo "  退出码: $RC"
+[[ $RC -eq 1 ]] || wrong "包返回 1 时壳应同样返回 1，实为 $RC"
+
+# ═══ ⑤ 互斥参数：不调用包 ═══
 echo "── ⑤ 互斥: --review-record 与 --no-review 同时给"
-GATE_RC=0
-run_sut "$FAKE_MAIN" "$FAKE_MAIN" 102 "--review-record=$RECORD" --no-review
+PKG_RC=0
+run_sut "$FAKE_MAIN" 102 "--review-record=$RECORD" --no-review
 echo "  退出码: $RC"
-[[ $RC -ne 0 ]] || { echo "  ✗ 互斥参数应拒绝，实为 $RC"; FAIL=1; }
-hasnt_sub "gate --pr 102"                                              "参数冲突时不应调用闸门"
-hasnt "gh pr merge 102 --repo ${REPO_SLUG} --squash"                   "参数冲突时不得合并"
+[[ $RC -ne 0 ]] || wrong "互斥参数应拒绝，实为 $RC"
+hasnt_sub "merge --pr"                                     "参数冲突时不应调用包"
+
+# ═══ ⑥ 包缺失：拒绝执行并列出试过的路径 ═══
+echo "── ⑥ 包缺失: tools/node_modules/dsh-pipeline 不存在"
+PKG_RC=0
+HIDE_PKG=1
+run_sut "$FAKE_MAIN" 102 --check-only
+HIDE_PKG=0
+echo "  退出码: $RC"
+[[ $RC -ne 0 ]] || wrong "包缺失时应失败，实为 $RC"
+grep -Fq "找不到共享 pipeline 包" "$TMP/sut.out" || wrong "应提示找不到共享 pipeline 包"
 
 if [[ $FAIL -ne 0 ]]; then
   echo
@@ -206,5 +186,5 @@ if [[ $FAIL -ne 0 ]]; then
 fi
 
 echo
-echo "✓ 自检通过：闸门带记录放行、拒绝即不合并、--no-review 显式跳过；主工作区/worktree 两种形态的清理行为不变"
+echo "✓ 自检通过：参数映射（--review-record→--record、-C→找分支的工作区）、--check-only/--no-review 透传、退出码透传、包缺失即拒绝"
 exit 0
