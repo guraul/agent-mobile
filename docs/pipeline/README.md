@@ -21,7 +21,7 @@
 
 规则：发版只由 `agent-mobile-app/**` 变更触发；BFF 走它自己仓库的 pipeline。
 
-**审核闸门**：`merge-pr.sh` 合并前调用 self-dsh-plugins 的共享 `gate`（判定逻辑不在本仓）。审核方 `APPROVE` 且未命中高风险 → 直接合并，不再问人；三种人工介入情形与绕过规则见全局 `~/.dsh/AGENTS.md` §7 第 6/7 条。
+**审核闸门**：`merge-pr.sh` 已改成共享包 `dsh-pipeline` 的薄转发壳（issue #187），闸门判定、CI 校验、squash 合并与现场清理都在包里，本仓不再保留第二份实现。审核方 `APPROVE` 且未命中高风险 → 直接合并，不再问人；三种人工介入情形与绕过规则见全局 `~/.dsh/AGENTS.md` §7 第 6/7 条。
 
 ## 二、脚本用法
 
@@ -40,13 +40,15 @@ scripts/pipeline/open-pr.sh --worktree <dir>
 #   自检（PATH 打桩，不碰真实 git 远端/GitHub）：bash scripts/pipeline/test-open-pr.sh
 
 # 合并（审核方 APPROVE 且未命中高风险；绕过见全局 ~/.dsh/AGENTS.md §7.7）
+#   前置：在主工作区 tools/ 里 `pnpm install`（装 dsh-pipeline 的 tgz 构建物，见 tools/package.json）
 #   推荐从主工作区运行，两种运行位置都会清理现场
 scripts/pipeline/merge-pr.sh            # 自动识别当前分支的 PR
 scripts/pipeline/merge-pr.sh 34         # 指定 PR 号
+scripts/pipeline/merge-pr.sh 34 --check-only        # 演练：跑到闸门/CI 为止，不合并、不清理
 scripts/pipeline/merge-pr.sh 34 --review-record=.dsh-web/reviews/34-<sha>.json
-scripts/pipeline/merge-pr.sh -C <dir>   # 指定目标工作区（同 --worktree）
+scripts/pipeline/merge-pr.sh -C <dir>   # 指定目标工作区（同 --worktree；只影响找分支）
 scripts/pipeline/merge-pr.sh --force    # CI 失败时强行合并（慎用）
-#   --no-review [--reason=<文本>] 显式跳过闸门（须用户当场同意；共享 gate 落跳过审计）
+#   --no-review --reason=<文本> 显式跳过闸门（须用户当场同意；包会落跳过审计，--reason 必填）
 #   合并动作（无论从哪运行都会做）：squash merge → 删远端分支
 #     → 删本地 task/* 分支（先移除检出它的 worktree → 主工作区 fetch + pull --ff-only main）
 #   清理范围：
@@ -93,6 +95,7 @@ scripts/pipeline/status.sh
 - **gzipCache 陷阱**：dist 覆盖后必须重启 serve-9928，否则返回旧 bundle
 - BFF CORS 只放行 9928 的三个 origin（`106.13.181.13`/`127.0.0.1`/`localhost`）——静态站换端口前必须先改 BFF
 - squash merge 为唯一合并方式；PR body 首行必须 `Closes #<issue号>`
+- `tools/` 的 `dsh-pipeline` 依赖只在本机存在，用绝对路径（`file:/Users/gubin/workspace/dsh-pipeline/dist/latest.tgz`）；相对路径会在 worktree 下错位
 - 凭据不入库：部署密钥只放 GitHub Secrets；服务器 root 密钥不进任何仓库
 
 ## 五、阶段状态

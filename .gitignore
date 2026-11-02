@@ -8,3 +8,7 @@ test/
 .workbuddy/
 # 仓库根误生成过 node_modules（2026-09-28 npm 残留），防复发
 node_modules/
+
+# tools/ 只为装共享 pipeline 包（本地 tgz 构建物）：锁文件钉不住本地 tgz，不入库（全局 §3）
+/tools/node_modules/
+/tools/pnpm-lock.yaml
