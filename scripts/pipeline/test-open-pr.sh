@@ -11,8 +11,9 @@
 #   ③ 传 --worktree=<dir> → 同上（两种写法等价）
 #   ④ 包退出码非 0       → 原样透传（不吞错误）
 #   ⑤ 包缺失             → 拒绝执行并给出试过的路径，连 node 都不调
-#   ⑥ 未知参数           → 拒绝，不调用包
-# 说明: push/建 PR 的**行为**由包自测覆盖（dsh-pipeline 的 node --test），本脚本只验转发壳。
+#   ⑥ 未知参数           → 拒绝（die，退出 1），不调用包
+# 说明: push/建 PR 的**行为**由包自测覆盖（dsh-pipeline 的 node --test），本脚本只验转发壳；
+#       ⑥ 断言退出 1——壳自身的用法错误走 lib.sh 的 die，包用 2 表示用法/环境错误。
 # 约定: 断言失败打印失败项 + 实际命令日志，退出码非 0；全部通过退出 0。
 
 set -uo pipefail
@@ -155,7 +156,7 @@ echo "── ⑥ 未知参数: open-pr.sh --nope"
 PKG_RC=0
 run_sut --nope
 echo "  退出码: $RC"
-[[ $RC -ne 0 ]] || wrong "未知参数应拒绝，实为 $RC"
+[[ $RC -eq 1 ]] || wrong "未知参数应退出 1（die），实为 $RC"
 hasnt_sub "node "                                   "参数非法时不应调用包"
 
 if [[ $FAIL -ne 0 ]]; then
