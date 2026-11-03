@@ -1,41 +1,46 @@
 #!/usr/bin/env bash
-# new-task.sh — 从 GitHub issue 创建开发 worktree + 分支
-# 用法: scripts/pipeline/new-task.sh <issue号>
-# 效果: 分支 task/<issue号>-<slug>，worktree .worktrees/<issue号>-<slug>（基于 origin/main）
-# 幂等: worktree 已存在时直接打印路径退出
+# new-task.sh — 薄转发：issue → task 分支 + worktree 的创建交给共享包 dsh-pipeline
+#
+# 为什么只剩一个壳: 自 issue #189 起，「读 issue 标题 → slug → 在主工作区建
+#   task/<号>-<slug> 分支与 .worktrees/<号>-<slug>」的唯一实现是共享包 dsh-pipeline
+#   的 task 子命令；本仓只保留「文件名与用法都不变」的转发壳，免得两份实现各自漂移。
+#
+# 用法:
+#   scripts/pipeline/new-task.sh <issue号>
+#
+# 参数映射: <issue号> → `task <issue号> --root <脚本所在仓库>`。
+#   --root 只回答「哪个仓」——包会把它折回主工作区（worktree 容器恒为主工作区 .worktrees/），
+#   所以从 worktree 里调用不会套出嵌套 .worktrees。取脚本所在仓库而不是 cwd（issue #108 的约定）。
+#
+# 退出码: 0 成功 / 1 本壳的用法或环境错误（die）/ 其它为包的退出码原样透传
+#   （包用 2 表示用法或环境错误）。壳自身的用法错误走 die（exit 1），是 issue #189
+#   要求保留的旧实现语义；只有包的退出码才原样透传。
+#
+# 包位置（顺序固定，解析只在 lib.sh 的 resolve_pipeline_cli 里实现一次）:
+#   ① $DSH_PIPELINE_HOME；② 主工作区 tools/node_modules/dsh-pipeline（worktree 场景）；
+#   ③ 当前脚本所属仓 tools/node_modules/dsh-pipeline（非 worktree）。
 source "$(dirname "$0")/lib.sh"
-require_gh
 
-ISSUE="${1:-}"
-is_issue_number "$ISSUE" || die "用法: $0 <issue号>"
-
-TITLE=$(gh issue view "$ISSUE" --repo guraul/agent-mobile --json title -q .title) \
-  || die "issue #${ISSUE} 不存在或无法访问"
-SLUG=$(slugify "$TITLE")
-BRANCH="task/${ISSUE}-${SLUG}"
-
-# worktree 一律建在**主工作区**的 .worktrees/ 下。REPO_ROOT 现在取脚本自身位置（issue #108），
-# 若脚本是从某个 worktree 的副本被调起，REPO_ROOT 会是那个 worktree——直接用会套出嵌套 .worktrees。
-MAIN_WT=$(git -C "$REPO_ROOT" worktree list --porcelain \
-  | awk '/^worktree /{w=$2} /^branch refs\/heads\/main$/{print w; exit}')
-[[ -n "$MAIN_WT" ]] || die "未找到检出 main 的主工作区"
-WT="${MAIN_WT}/.worktrees/${ISSUE}-${SLUG}"
-
-if git -C "$MAIN_WT" worktree list --porcelain | grep -q "^worktree ${WT}$"; then
-  ok "worktree 已存在: ${WT}"
-  echo "  cd ${WT}"
-  exit 0
-fi
-
-info "同步 origin/main"
-git -C "$MAIN_WT" fetch origin main --quiet || {
-  info "fetch 失败，3 秒后重试一次"
-  sleep 3
-  git -C "$MAIN_WT" fetch origin main --quiet || die "无法访问 GitHub（origin fetch 两次失败）；稍后重试"
+# 用法错误一律走 lib.sh 的 die（exit 1，带目标工作区上下文）：旧实现就是这个退出码，
+# issue #189 要求保留，别改成 2——2 是**包**的用法错误码，只在透传时出现。
+usage() {
+  echo "用法: $0 <issue号>" >&2
+  die "${1:-参数错误}"
 }
-info "创建分支 ${BRANCH}（基于 origin/main）+ worktree"
-git -C "$MAIN_WT" worktree add -b "$BRANCH" "$WT" origin/main >/dev/null
-ok "issue #${ISSUE}: ${TITLE}"
-echo "  分支:   ${BRANCH}"
-echo "  worktree: ${WT}"
-echo "  下一步: cd ${WT} && 开发（提交信息建议带 #${ISSUE}）"
+
+# 用法校验放在依赖检查之前：没装包时也应该先看到「怎么用」，而不是包缺失
+[[ $# -eq 1 ]] || usage "需要且只需要 1 个参数（issue 号），实际 $# 个"
+ISSUE="$1"
+is_issue_number "$ISSUE" || usage "issue 号必须是正整数: ${ISSUE}"
+
+require_gh
+require_pipeline_pkg
+
+info "共享 pipeline 包: ${PIPELINE_HOME}"
+info "转发: node ${PIPELINE_CLI_PATH} task ${ISSUE} --root ${REPO_ROOT}"
+
+set +e
+node "${PIPELINE_CLI_PATH}" task "${ISSUE}" --root "${REPO_ROOT}"
+RC=$?
+set -e
+exit "${RC}"
