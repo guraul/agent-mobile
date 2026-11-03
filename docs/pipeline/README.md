@@ -23,12 +23,15 @@
 
 **审核闸门**：`merge-pr.sh` 已改成共享包 `dsh-pipeline` 的薄转发壳（issue #187），闸门判定、CI 校验、squash 合并与现场清理都在包里，本仓不再保留第二份实现。审核方 `APPROVE` 且未命中高风险 → 直接合并，不再问人；三种人工介入情形与绕过规则见全局 `~/.dsh/AGENTS.md` §7 第 6/7 条。
 
+**任务入口与开 PR**：`new-task.sh` / `open-pr.sh` 同样是薄转发壳（issue #189），分别转发到包的 `task` / `pr` 子命令；`-C` / `--worktree` 映射成包的 `--root`，其余参数与退出码原样透传。行为实现在包里，本仓只保留文件名与用法。
+
 ## 二、脚本用法
 
 ```bash
 # 任务入口（issue → worktree）
 scripts/pipeline/new-task.sh 12
 #   输出 worktree 路径，cd 进去开发；重复运行幂等
+#   自检（假包 + PATH 打桩，不碰真实 git 远端/GitHub）：bash scripts/pipeline/test-new-task.sh
 
 # 开 PR（推荐在 worktree 目录内运行）
 cd .worktrees/12-xxx && ../../scripts/pipeline/open-pr.sh
@@ -37,7 +40,7 @@ scripts/pipeline/open-pr.sh --worktree <dir>
 #   目标解析（issue #108）：-C/--worktree > 脚本自身所在工作区；**cwd 不参与**
 #     → 从主工作区用绝对路径调用 worktree 里的脚本，也会解析到那个 worktree，而不是 main
 #   在 main 工作区跑（分支不是 task/*）会拒绝；报错一律带「目标工作区 / 分支 / 调用 cwd」
-#   自检（PATH 打桩，不碰真实 git 远端/GitHub）：bash scripts/pipeline/test-open-pr.sh
+#   自检（假包 + PATH 打桩，不碰真实 git 远端/GitHub）：bash scripts/pipeline/test-open-pr.sh
 
 # 合并（审核方 APPROVE 且未命中高风险；绕过见全局 ~/.dsh/AGENTS.md §7.7）
 #   前置：在主工作区 tools/ 里 `pnpm install`（装 dsh-pipeline 的 tgz 构建物，见 tools/package.json）

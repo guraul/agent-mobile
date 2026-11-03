@@ -1,41 +1,33 @@
 #!/usr/bin/env bash
-# open-pr.sh — 推送**目标工作区**的分支并开 PR
+# open-pr.sh — 薄转发：推送目标工作区的 task 分支 + 开 PR 交给共享包 dsh-pipeline
+#
+# 为什么只剩一个壳: 自 issue #189 起，「校验分支/工作区干净 → push → gh pr create」
+#   的唯一实现是共享包 dsh-pipeline 的 pr 子命令；本仓只保留「文件名与 -C 用法都不变」的转发壳。
 #
 # 用法（推荐：在 worktree 内运行）:
 #   cd .worktrees/<issue号>-<slug> && scripts/pipeline/open-pr.sh
 #   scripts/pipeline/open-pr.sh -C .worktrees/<issue号>-<slug>    # 不 cd，显式指定
 #   scripts/pipeline/open-pr.sh --worktree <dir>
+#
 # 目标解析（issue #108）: -C/--worktree > 脚本所在仓库；cwd 不参与。
-# 约定: 分支名必须为 task/<issue号>-<slug>；PR body 首行 Closes #<issue号>
+# 参数映射: -C/--worktree <dir> → 包的 --root <dir>；不传时 --root 取脚本所在仓库（REPO_ROOT）。
+# 退出码: 原样透传（0 成功 / 2 用法或环境错误）。
+#
+# 包位置（顺序固定，解析只在 lib.sh 的 resolve_pipeline_cli 里实现一次）:
+#   ① $DSH_PIPELINE_HOME；② 主工作区 tools/node_modules/dsh-pipeline（worktree 场景）；
+#   ③ 当前脚本所属仓 tools/node_modules/dsh-pipeline（非 worktree）。
 source "$(dirname "$0")/lib.sh"
 require_gh
+require_pipeline_pkg
 
 parse_target_dir "$@"
 resolve_work_dir
 
-BRANCH="$(git -C "$WORK_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
-[[ -n "$BRANCH" && "$BRANCH" != "HEAD" ]] \
-  || die "目标是 detached HEAD，无法确定分支（请 cd 进 worktree，或传 -C <worktree 路径>）"
-[[ "$BRANCH" == task/* ]] \
-  || die "目标不是 task/* 分支（取到主工作区了？请 cd 进 worktree，或传 -C <worktree 路径>）"
-ISSUE="$(printf '%s' "$BRANCH" | sed -E 's|^task/([0-9]+)-.*|\1|')"
-is_issue_number "$ISSUE" || die "无法从分支名解析 issue 号: ${BRANCH}"
+info "共享 pipeline 包: ${PIPELINE_HOME}"
+info "转发: node ${PIPELINE_CLI_PATH} pr --root ${WORK_DIR}"
 
-TITLE=$(gh issue view "$ISSUE" --repo guraul/agent-mobile --json title -q .title) \
-  || die "issue #${ISSUE} 无法访问"
-
-if [[ -n "$(git -C "$WORK_DIR" status --porcelain)" ]]; then
-  die "工作区有未提交改动，先 commit（或 stash）"
-fi
-
-info "推送 ${BRANCH}（来自 ${WORK_DIR}）"
-git -C "$WORK_DIR" push -u origin "$BRANCH"
-
-info "创建 PR（base: main ← ${BRANCH}）"
-BODY="Closes #${ISSUE}
-
----
-由 scripts/pipeline/open-pr.sh 创建；合并前确认 CI（tsc + vitest）通过。"
-gh pr create --repo guraul/agent-mobile --base main --head "$BRANCH" \
-  --title "${TITLE} (#${ISSUE})" --body "$BODY"
-ok "PR 已创建；合并方式：squash merge（合并后自动关闭 issue #${ISSUE} 并触发部署）"
+set +e
+node "${PIPELINE_CLI_PATH}" pr --root "${WORK_DIR}"
+RC=$?
+set -e
+exit "${RC}"
