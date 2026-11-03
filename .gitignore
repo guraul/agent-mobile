@@ -12,3 +12,7 @@ node_modules/
 # tools/ 只为装共享 pipeline 包（本地 tgz 构建物）：锁文件钉不住本地 tgz，不入库（全局 §3）
 /tools/node_modules/
 /tools/pnpm-lock.yaml
+
+# 审核链路的本机运行态：#.dsh-web 存审核记录与跳过审计，.tmp 存 prepare 产物；都不入库
+/.dsh-web/
+/.tmp/
