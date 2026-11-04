@@ -11,9 +11,11 @@
 #   scripts/pipeline/review.sh <动作> ... -C <dir>     # 指定目标工作区（同 --worktree）
 #
 # 参数映射: <PR号> → 包的 --pr；-C/--worktree <dir> → parse_target_dir → resolve_work_dir
-#   → 包的 --root（缺省为脚本所在仓库，cwd 不参与，issue #108）；
+#   （只决定 WORK_DIR，cwd 不参与，issue #108）；包的 --root 恒取**主工作区**
+#   （git worktree list 第一条，同 merge-pr.sh）——取 WORK_DIR 会让 .tmp/review/ 与
+#   .dsh-web/reviews/ 落进 worktree，随 merge-pr.sh 清理现场一起被删；
 #   --model / --round / --provider / --form / --response 原样追加，
-#   --flag=值 与 --flag 值 两种写法都支持（同 merge-pr.sh）。
+#   --flag=值 与 --flag 值 两种写法都支持，等号形式的空值一律拒绝（同 --response）。
 #   prepare 只接受 --model；publish 必须给 --response；其余判定全在包里。
 #
 # 退出码: 0 成功 / 1 环境错误（die：缺 gh、缺共享包、目标目录不存在）/
@@ -79,6 +81,12 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# —— 取值不能为空（与 --response 的 -n 校验一致，等号/空格两种写法都拦）——
+[[ $HAS_MODEL -eq 0    || -n "${MODEL}"    ]] || usage "--model 取值不能为空"
+[[ $HAS_ROUND -eq 0    || -n "${ROUND}"    ]] || usage "--round 取值不能为空"
+[[ $HAS_PROVIDER -eq 0 || -n "${PROVIDER}" ]] || usage "--provider 取值不能为空"
+[[ $HAS_FORM -eq 0     || -n "${FORM}"     ]] || usage "--form 取值不能为空"
+
 # —— 动作各自的必填/允许项：在壳里先拒，省掉一次包调用（判定仍在包里）——
 if [[ "${ACTION}" == "prepare" ]]; then
   [[ $HAS_RESPONSE -eq 0 && $HAS_ROUND -eq 0 && $HAS_PROVIDER -eq 0 && $HAS_FORM -eq 0 ]] \
@@ -94,8 +102,13 @@ else
 fi
 resolve_work_dir
 
+# —— root 取主工作区（.tmp/review/ 与 .dsh-web/reviews/ 落在主仓，不是随 worktree 一起被删的临时目录） ——
+# git 保证 worktree list 的第一条是主工作区；-C 只影响 WORK_DIR，不影响 root（同 merge-pr.sh）。
+MAIN_WT=$(git -C "${WORK_DIR}" worktree list --porcelain | awk '/^worktree /{print $2; exit}')
+[[ -n "${MAIN_WT}" ]] || die "找不到主工作区"
+
 # —— 只做参数映射，不做任何判定（判定全在包里）——
-set -- review "${ACTION}" --pr "${PR}" --root "${WORK_DIR}"
+set -- review "${ACTION}" --pr "${PR}" --root "${MAIN_WT}"
 if [[ "${ACTION}" == "publish" ]]; then set -- "$@" --response "${RESPONSE}"; fi
 if [[ $HAS_ROUND -eq 1 ]];     then set -- "$@" --round "${ROUND}"; fi
 if [[ $HAS_MODEL -eq 1 ]];     then set -- "$@" --model "${MODEL}"; fi

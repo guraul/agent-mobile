@@ -45,7 +45,7 @@ scripts/pipeline/open-pr.sh --worktree <dir>
 # 审核（prepare 生成审核请求 + publish 判定落盘；共享包 review 子命令的薄转发壳，issue #194）
 scripts/pipeline/review.sh prepare 34 [--model <模型>]
 scripts/pipeline/review.sh publish 34 --response <文件> [--round <n>] [--model <m>] [--provider <p>] [--form <f>]
-scripts/pipeline/review.sh prepare 34 -C <dir>   # 指定目标工作区（同 --worktree；映射 --root）
+scripts/pipeline/review.sh prepare 34 -C <dir>   # 指定目标工作区（同 --worktree；只影响 WORK_DIR，--root 仍取主工作区）
 #   prepare 产物写 <root>/.tmp/review/<pr>/request.json；publish 落 <root>/.dsh-web/reviews/<pr>-<sha>.json
 #   退出码：0 成功 / 1 环境错误（die）/ 2 用法错误（缺参、未知参数）/ 其余为包退出码原样透传
 #   自检（假包 + PATH 打桩，不碰真实 git 远端/GitHub）：bash scripts/pipeline/test-review.sh
