@@ -14,13 +14,15 @@ export const MARKET_TALK_DIRECTORY = "/root/project/homebase";
 // permissions 白名单撤除（改软护栏 = system prompt + 客户端写死）。#75/#76 起
 // **CHAT_MODEL 只在本文件定义**（ChatPanelZ.tsx 的历史本地副本已删）——改它只需改这里 +
 // 全仓 grep 确认。
-// 2026-10-24 用户拍板：**聊天模型用 `opencode/deepseek-v4.1-flash-free`**——生产 companion 上
-// `mimo-v2.6-flash-free` **调不动插件新工具 `project_sessions`**（同插件的 `session_status`
-// 正常），deepseek 实测一次调通。⚠️ **providerID 仍必须是 `opencode`**：App 唯一的真实目标是
-// 生产 opencode，而生产的模型目录里没有 `opencode-go`（见 OPERATIONS 上线窗口预检）——
-// 写死 Go 档会让手机端直接 Model unavailable（Go 档只用于 DSH 子代理 + 本机 memx 提炼）。
+// 2026-11-04 用户拍板：**聊天模型改走 go 订阅 `opencode-go/deepseek-v4.1-flash`**。
+// 原因：免费档（`opencode/deepseek-v4.1-flash-free`）按 IP 限流且恢复时间不可预测，
+// 用户侧表现就是「有时发消息没反应」；生产已订阅 OpenCode Go，切过去即可稳定。
+// 历史（2026-10-24）：免费档时期选 deepseek 而非 mimo，是因为 mimo **调不动插件的
+// `project_sessions`** 工具（同插件 `session_status` 正常）。
+// ⚠️ providerID 必须与生产 opencode 模型目录一致：生产已确认存在 `opencode-go/*`；
+// 若将来生产撤销 go 订阅，这里要同步改回，否则手机端会 `Model unavailable`。
 export const CHAT_AGENT_ID = "companion";
-export const CHAT_MODEL = { providerID: "opencode", modelID: "deepseek-v4.1-flash-free" } as const;
+export const CHAT_MODEL = { providerID: "opencode-go", modelID: "deepseek-v4.1-flash" } as const;
 
 export type ConversationKind = "chat" | "chatcode";
 

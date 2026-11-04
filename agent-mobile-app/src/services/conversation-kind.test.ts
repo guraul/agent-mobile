@@ -10,15 +10,15 @@ import {
 // 绑项目 → chatcode；market 工作区 / 无项目 → chat
 
 describe("CHAT_MODEL（chat 伴侣页写死模型，#111）", () => {
-  it("是 opencode/deepseek-v4.1-flash-free（mimo 调不动 companion 的 project_sessions 工具）", () => {
+  it("是 opencode-go/deepseek-v4.1-flash（生产已订阅 go，免费档限流不可预测）", () => {
     expect(CHAT_MODEL).toEqual({
-      providerID: "opencode",
-      modelID: "deepseek-v4.1-flash-free",
+      providerID: "opencode-go",
+      modelID: "deepseek-v4.1-flash",
     });
   });
 
-  it("providerID 必须是 opencode（生产模型目录里没有 opencode-go）", () => {
-    expect(CHAT_MODEL.providerID).toBe("opencode");
+  it("providerID 是 opencode-go（生产 2026-11-04 起已订阅 go，模型目录含 opencode-go/*）", () => {
+    expect(CHAT_MODEL.providerID).toBe("opencode-go");
   });
 });
 
