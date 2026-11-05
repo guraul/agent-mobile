@@ -125,7 +125,7 @@ agent-mobile/                                  # git 根仓库
 │       └── archive/                          # 已完结阶段文档（PHASE{1,5,9..13}_*、审计/报告、迁移映射等）
 ├── test/                                     # 临时测试脚本/截图/日志（gitignore，不入库）
 ├── docs/pipeline/                            # ★ 交付 pipeline：README.md 手册 + PROGRESS.md 进度台账
-├── scripts/pipeline/                         # ★ pipeline 脚本（new-task/open-pr/deploy/rollback/status）
+├── scripts/pipeline/                         # ★ pipeline 入口（由 dsh-pipeline 生成，禁止手改）
 ├── docs/newdesign/                           # ★ 新设计文档与 HTML 视觉稿（用户活跃编辑中）
 └── agent-mobile-app/                          # ★ 当前活跃的 Expo 应用
     ├── app.json / eas.json                    # EAS + 应用配置

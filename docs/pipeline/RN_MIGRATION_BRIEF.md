@@ -36,7 +36,7 @@
 
 - **D1 主题新旧共存渐进切**：新增浅色 token 命名空间（建议 `src/theme/light.ts`），**不动 `theme/companion` 旧值**；页面逐个切换；最后一个 issue 删旧值。7-token 字阶 = display 26/400 · page-title 24/700 · title 17/700 · body 15/400 · body-strong 15/600 · caption 12/400 · label 12/600；RN 必须显式写 lineHeight（约 `round(fontSize×1.45)`）。**In motion 绿卡字值有意偏离 token**（11.5px 组标签 / 14px 条目标题，pulse.html schedule 样式），照抄 mock。
 - **D2 字体**：系统栈（iOS=SF Pro / Android=Roboto，与 mock 系统字体栈同源）；Inter 打包为后续可选优化，本批不做。
-- **D3 部署**：每个 PR 合并即自动部署 9928，照常（CI 已上线，issue #2 已关）；出问题按应急口径回滚——原 `scripts/pipeline/rollback.sh` 已于 2026-11-05 删除，直接用 `ssh` + `ln -sfn releases/<id> dist` + `systemctl restart serve-9928`。8 个 PR 的中间态均为自洽可用状态（由 D1 保证）。
+- **D3 部署**：每个 PR 合并即自动部署 9928，照常（CI 已上线，issue #2 已关）；出问题走回滚：Actions → `rollback-web` → Run workflow（`release` 留空=上一版，可先 `dry_run` 看计划）；**GitHub 不可用**时才手工 `ssh` + `ln -sfn releases/<id> dist` + `systemctl restart serve-9928`。8 个 PR 的中间态均为自洽可用状态（由 D1 保证）。
 - **D4 未登录只能到登录页**：启动 gate 进独立登录页（新增 `app/login.tsx` push screen），删除首页登录 banner 与登录 BottomSheet——**行为变更**，e2e 与单测同步改。
 - **D5 Settings 过渡**：首页终态无齿轮，但**过渡期保留旧齿轮 + 旧 SettingsSheet**（唯一有意偏离 mock 之处），等 chat 侧设置面板落地后删除（chat 侧不在本批）。
 - **D6 首页删三样**：Watching N 行（→/assignments）、More projects 入口、Duties 展示——职责/项目改为 chat 内查询（`chat-widgets.html` 已定形态），本批只删不建。
