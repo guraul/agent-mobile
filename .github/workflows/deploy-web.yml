@@ -39,7 +39,7 @@ jobs:
       - name: Export web bundle
         working-directory: agent-mobile-app
         env:
-          EXPO_PUBLIC_OPENCODE_URL: http://106.13.181.13:19234
+          EXPO_PUBLIC_OPENCODE_URL: https://106.13.181.13
         run: pnpm exec expo export --platform web --clear
 
       - name: Setup deploy key

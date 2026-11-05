@@ -66,7 +66,7 @@ describe("fetchIcsSources", () => {
 
     expect(await fetchIcsSources()).toEqual([item]);
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://106.13.181.13:19234/api/product/external/ics-sources",
+      "https://106.13.181.13/api/product/external/ics-sources",
       expect.objectContaining({ headers: expect.objectContaining({ Authorization: "Bearer t" }) }),
     );
   });
@@ -109,7 +109,7 @@ describe("deleteIcsSource", () => {
     vi.stubGlobal("fetch", fetchMock);
     await expect(deleteIcsSource("ics_1")).resolves.toBeUndefined();
     expect(fetchMock.mock.calls[0][0]).toBe(
-      "http://106.13.181.13:19234/api/product/external/ics-sources/ics_1",
+      "https://106.13.181.13/api/product/external/ics-sources/ics_1",
     );
   });
 
