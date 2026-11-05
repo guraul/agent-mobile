@@ -186,6 +186,11 @@ const en = {
   "pulse.knowledge.unconfigured": "Knowledge vault is not configured (LLM_WIKI_VAULT).",
   "pulse.knowledge.empty": "No matches.",
 
+  // ── KB：最近的决定（A2；查询为空时的列表形态）──────────────────────────
+  "kb.decisions.title": "Recent decisions",
+  "kb.decisions.empty": "No decisions captured yet.",
+  "kb.decisions.count": "{count} saved",
+
   // ── Pulse：Market sheet（FundSheet）────────────────────────────────────
   "pulse.market.title": "Market",
   "pulse.market.caption": "Estimates I am keeping an eye on. Informational only.",
@@ -648,6 +653,11 @@ const zh = {
   "pulse.knowledge.search": "搜索",
   "pulse.knowledge.unconfigured": "知识库 vault 未配置（LLM_WIKI_VAULT）",
   "pulse.knowledge.empty": "无匹配结果",
+
+  // ── KB：最近的决定（A2）────────────────────────────────────────────────
+  "kb.decisions.title": "最近的决定",
+  "kb.decisions.empty": "还没有记下的决定",
+  "kb.decisions.count": "共 {count} 条",
 
   "pulse.market.title": "市场",
   "pulse.market.caption": "我在关注的估算。仅供参考。",

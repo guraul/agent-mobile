@@ -82,6 +82,22 @@ export async function searchKb(query: string): Promise<{ configured: boolean; hi
   return (await res.json()) as { configured: boolean; hits: KbHit[] };
 }
 
+export interface KbDecisionItem {
+  ref: string;
+  title: string;
+  created: string | null; // frontmatter created（YYYY-MM-DD），缺失为 null
+  tags: string[];
+  updatedAt: number;
+}
+
+/** 最近的决定（只读）：`<vault>/wiki/decisions/*.md`，BFF 已按 created 倒序。 */
+export async function listKbDecisions(): Promise<{ configured: boolean; items: KbDecisionItem[] }> {
+  const res = await fetch(`${getBaseUrl()}/api/product/kb/decisions`, { headers: authHeaders() });
+  await ensureAuth(res);
+  if (!res.ok) throw new Error(`kb decisions failed: ${res.status}`);
+  return (await res.json()) as { configured: boolean; items: KbDecisionItem[] };
+}
+
 /** KB 文档阅读（v0.1.1）：按 ref 读 vault 全文（BFF 受限读取：vault 内 + .md + 防 traversal）。 */
 export async function fetchKbDoc(ref: string): Promise<{ title: string; content: string; updatedAt: number; ref: string }> {
   const res = await fetch(`${getBaseUrl()}/api/product/kb/doc/${ref.split("/").map(encodeURIComponent).join("/")}`, {
