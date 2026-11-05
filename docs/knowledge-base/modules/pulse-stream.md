@@ -187,12 +187,21 @@ View root（#0B0A12 + companion backgroundGradient + 顶部紫光 topGlow）
 
 ### 事实登记（2026-10-29）：Noticed 两类 / TodayDigest / Settings 三入口
 
-- **Noticed 只收两种 L1 kind**：`observation` 与 `retry-report`（`hooks/useL1.ts` 的 `noticed` 过滤）。
+- ~~**Noticed 只收两种 L1 kind**：`observation` 与 `retry-report`~~ → 已扩充（2026-11-05 修正）：现收 `observation` / `retry-report` / `calendar` / `backlog-nudge` / `inbox-nudge`（`hooks/useL1.ts` 的 `noticed` 过滤）。
 - **`retry-report` 只在 L1 snapshot 里出现**：它是 homebase `agent_reports` 的持久化夜间补跑报告，SSE `/api/product/l1/stream` 全量帧不含。
 - **SSE 帧必须并回未过期的 `retry-report`**：`useL1.apply` 把上一状态里 `expiresAt === null || expiresAt > now` 的 retry-report 并回全量帧，否则下一帧就把它冲掉（#146）。
 - **冷启动先补 `loadToken()` 再拉 snapshot**：`useL1.refresh` 自己补一次 token，否则首帧无 token 跳过 snapshot，只在 snapshot 出现的 retry-report 永远拿不到（#148）。
 - **retry-report 文案由 BFF 生成**：`homebase packages/web/lib/product/l1-rules.ts` 的 nightlyRetry rule，App 原样透传、不拼句。
-- **BFF 还有第三类 L1 `kind: "calendar"`**（`ics-sync` handler 每 30 分钟产「今天剩余事件」，35 分钟 TTL，内存态不落库）；`agent-mobile-app/src/services/l1.ts` 的 `L1Kind` 尚未纳入、`noticed` 过滤不含它 → **Pulse 当前不渲染 calendar**（缺口，勿写成已上线）。
+- **BFF 还有第三类 L1 `kind: "calendar"`**（`ics-sync` handler 每 30 分钟产「今天剩余事件」，35 分钟 TTL，内存态不落库）——~~`L1Kind` 尚未纳入、Pulse 不渲染~~ → 该结论已过时（2026-11-05 核对：`services/l1.ts` 的 `L1Kind` 与 `hooks/useL1.ts` 的 `noticed` 过滤此前均已含 `calendar`，是文档没跟上）。
+
+### 事实登记（2026-11-05）：Noticed 新增 `inbox-nudge`（收件箱整理提醒）
+
+- **来源**：homebase `inbox-nudge` 调度任务（每天 09:00 Asia/Shanghai）——llm-wiki 的 `raw/inbox/` 顶层还有未整理的想法/决策时，写一条 `agent_reports`（`kind="inbox-nudge"`，TTL 24h），文案由 BFF 生成（「有 N 条想法/决策待整理，要我编进知识库吗？」），App 原样透传、不拼句。
+- **口径**：只数 `raw/inbox/*.md` 顶层文件（`skipped/` 子目录 = 已处理，不计）；同日已有同 kind 报告就不重复产；**只提醒不编译**（PM §27/§29：保存 ≠ 执行）。
+- **App 登记两处**（缺一处报告就隐形）：`services/l1.ts` 的 `L1Kind` 加 `"inbox-nudge"`；`hooks/useL1.ts` 的 `noticed` 过滤加同名条件。
+- **必须并回 SSE 帧**：它与 `retry-report`/`backlog-nudge` 一样只出现在 `/api/product/l1` snapshot，不在 `/api/product/l1/stream` 全量帧里——`useL1.apply` 的 carried 过滤已包含它，否则下一帧就把它冲掉。
+- 呈现仍是既有 `PulseNoticed` 行（dot + 单行 fact + 时间）→ `DetailSheet`，**没有新交互、不占新预算**（Noticed ≤5）。
+
 ### 事实登记（2026-10-29）：market 同域提醒合并（#140）
 
 - **合并是视图，不是新产品对象**：`attention_items` 仍是 N 行、无迁移、无 API 变更、不写 Event（施工卡 `docs/pipeline/MARKET_ALERT_GROUPING_CARD.md` §3）。
