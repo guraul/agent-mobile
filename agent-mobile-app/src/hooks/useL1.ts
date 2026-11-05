@@ -42,7 +42,7 @@ export function useL1(): UseL1Result {
       const now = Date.now();
       const carried = prev.filter(
         (s) =>
-          (s.kind === "retry-report" || s.kind === "backlog-nudge") &&
+          (s.kind === "retry-report" || s.kind === "backlog-nudge" || s.kind === "inbox-nudge") &&
           (s.expiresAt === null || s.expiresAt > now),
       );
       if (carried.length === 0) return items;
@@ -93,13 +93,15 @@ export function useL1(): UseL1Result {
   // Phase 12：Noticed 投影。retry-report 是持久化的夜间补跑报告（agent_reports），
   // calendar 是外部 ICS 日历的今日陈述（外部域切片 2，agent-mobile#153），
   // backlog-nudge 是未处理事项积压提醒（homebase 33a5d49，同走 agent_reports），
+  // inbox-nudge 是收件箱整理提醒（homebase #137，同走 agent_reports，有积压才有），
   // 与 observation 同属 informational，文案由服务端 L1 rule 生成，原样透传。
   const noticed = statements.filter(
     (s) =>
       s.kind === "observation" ||
       s.kind === "retry-report" ||
       s.kind === "calendar" ||
-      s.kind === "backlog-nudge",
+      s.kind === "backlog-nudge" ||
+      s.kind === "inbox-nudge",
   );
 
   return { statements, funds, noticed, connected, loading, refresh };

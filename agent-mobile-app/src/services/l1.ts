@@ -13,7 +13,8 @@ export type L1Kind =
   | "observation"
   | "retry-report"
   | "calendar"
-  | "backlog-nudge";
+  | "backlog-nudge"
+  | "inbox-nudge";
 
 export interface L1Statement {
   id: string;
