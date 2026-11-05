@@ -92,8 +92,7 @@ node test/bff-e2e.mjs      # 登录 → 横幅消失 → 打开项目 → 动态
 > **手动兜底** = `scripts/pipeline/deploy.sh`；**回滚** = `scripts/pipeline/rollback.sh`（releases 任意秒切）。手册见 `docs/pipeline/README.md`。
 >
 > **服务器布局**：`/root/project/agent-mobile/agent-mobile-app/` 下 `releases/<id>/` 为产物目录（保留最近 5 版），`dist` 是指向当前版本的软链；`serve-9928.service` 托管（enabled 开机自启），重启才刷新 gzipCache。
-> **BFF CORS 允许列表只放行 9928 的三个 origin**（`106.13.181.13`/`127.0.0.1`/`localhost`，见 homebase `lib/cors.ts`），
-> 静态版换端口浏览器端会全被 CORS 拦——所以换端口前必须先改 BFF CORS 允许列表。
+> **2026-11-05 拓扑变更**：产品 App 改由 Caddy 在 **443** 同源提供（`/api/*` → BFF，其余 → 静态服务 `127.0.0.1:9929`）；**9928 让给财务后台**（Caddy 全量反代 BFF）。页面与 API 同源后 **不再依赖 CORS 允许列表**（旧 9928 origin 列表仅对历史 http 入口有效）。
 
 ```bash
 # 自动部署：merge 到 main 即触发（actions 页面可见进度），无需手动操作
@@ -104,10 +103,10 @@ scripts/pipeline/rollback.sh           # 回滚到上一版 / 指定 release
 scripts/pipeline/status.sh             # 全链路状态
 ```
 
-- 服务地址：`http://106.13.181.13:9928`（Pulse 首页在 /；/memory /me 重定向到 /）
+- 服务地址：**`https://106.13.181.13`**（Pulse 首页在 /；/memory /me 重定向到 /）；财务后台 `https://106.13.181.13:9928`
 - serve-static.mjs 特性：gzip（bundle 3MB→0.5MB）、`Cache-Control: no-store`（防浏览器缓存）；ROOT 硬编码指向 dist（软链可穿透）
 - **gzipCache 陷阱**：任何方式替换产物后**必须** `systemctl restart serve-9928`（deploy.sh / workflow 已内置）——`gzipCache` 按路径缓存 gzipped 字节，不重启返回旧 bundle（见 CONVENTIONS）
-- 进程管理（2026-09-27 全部收编 systemd，均 enabled 开机自启）：`serve-9928.service`（主应用静态版）/ `bff-19234.service`（homebase BFF）/ `opencode-4096.service`（opencode server）。服务器 node = v24.21.0（nodesource apt）。
+- 进程管理（2026-09-27 全部收编 systemd，均 enabled 开机自启）：`serve-9928.service`（主应用静态版，实际端口 9929，名字是历史遗留）/ `bff-19234.service`（homebase BFF）/ `opencode-4096.service`（opencode server）。服务器 node = v24.21.0（nodesource apt）。
 
 ## Expo Go 真机预览（备用方案，9928 端口）
 

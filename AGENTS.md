@@ -40,7 +40,14 @@
 4. **勿移除打字机限速 / FlatList `extraData`**：`revealChars` 逐字揭示依赖 `extraData={revealChars}`，移除会导致整块弹出；轮询兜底与打字机冲突，勿同时启用。
 5. **勿改组件硬编码颜色/字号/间距**：必须走 `src/theme/`，否则破坏主题一致性。勿改 `StatusType` 取值集合。
 6. **敏感凭据不入库**：`EXPO_TOKEN`、`EXPO_PUBLIC_OPENCODE_*`（BFF 侧）等不写入代码/文档/提交。手机端不持有 opencode 凭证。
-7. **9928 端口归属（2026-09-27 起）**：9928 由 systemd **`serve-9928.service`** 托管 **agent-mobile-app 静态版**（enabled 开机自启；showcase2-9928.service 已删除退役，其设计已移植进主应用）。部署流程 = `pnpm exec expo export --platform web --clear`（`--clear` 必须，否则 env 不注入）→ 产物放服务器 `agent-mobile-app/dist` → `systemctl restart serve-9928`（gzipCache 会缓存旧 bundle，不重启则改动"没生效"）。若切回 Expo Go Metro（`expo-metro-9928`，disabled 备用），改代码热重载无需重建。**BFF CORS 允许列表只放行 9928 的三个 origin**（见 `family-finance lib/cors.ts`），静态版换端口会全被 CORS 拦——换端口前必须先改 BFF CORS。
+7. **入口拓扑（2026-11-05 起变更，旧「9928 归属」已作废）**：
+    - **产品 App（Pulse）= `https://106.13.181.13`（443）**：Caddy 在 443 分流——`/api/*`、`/_next/*`、`/files/*` → BFF `127.0.0.1:19234`，其余 → App 静态服务 `127.0.0.1:9929`（保留 SPA 回退与 `[id].html` 动态路由）。页面与 API **同源**，不再有 CORS 问题。
+    - **财务后台 = `https://106.13.181.13:9928`**：Caddy 全量反代到 BFF。
+    - **`serve-9928.service` 名字是历史遗留**，实际监听 `127.0.0.1:9929`（systemd drop-in `/etc/systemd/system/serve-9928.service.d/port.conf` 设 `PORT`/`BIND`）。
+    - 部署流程不变：`pnpm exec expo export --platform web --clear`（`--clear` 必须）→ 产物进 `dist`（软链指向 releases）→ `systemctl restart serve-9928`（gzipCache 需重启才生效）。
+    - Caddy 配置 `/etc/caddy/Caddyfile`；`admin off` 所以 **`caddy reload` 不可用，改完必须 `systemctl restart caddy`**。
+    - 自签证书：新设备首次访问需手动接受一次（浏览器「继续访问」）。
+
 8. **临时测试脚本 / 截图 / 日志统一放仓库根 `test/` 目录**，勿散落 /tmp。`test/` 已加入 `.gitignore` 不入库，需要留存的结果写进知识库或脚本化进 `agent-mobile-app/scripts/`。
 9. **仓库根的历史遗留目录 `src/`（设计期源码）、`showcase/`（静态原型）、`showcase2/`（Showcase 应用）已于 2026-09-27 删除**（showcase2 设计已移植进 `agent-mobile-app`，其余淘汰；需要时查 git 历史）。运行态代码只在 `agent-mobile-app/`。
 10. **委派与职责二分**：见 `~/.dsh/AGENTS.md` §8（DSH 控制面 / opencode 执行面、必须委派范围、主模型只做、作用域边界、并发纪律、任务书体量）。
@@ -79,15 +86,15 @@ pnpm exec tsc --noEmit     # 类型检查
 pnpm e2e                   # Playwright E2E（含发消息，需确认）
 pnpm e2e:nosend            # E2E 跳过发消息步骤
 
-# Web 静态版（生产应用，9928 端口；serve-9928.service 托管，见强制规定 7）
-EXPO_PUBLIC_OPENCODE_URL=http://106.13.181.13:19234 pnpm exec expo export --platform web --clear
+# Web 静态版（生产应用；serve-9928.service 托管，实际端口 9929，对外 https://106.13.181.13，见强制规定 7）
+EXPO_PUBLIC_OPENCODE_URL=https://106.13.181.13 pnpm exec expo export --platform web --clear
 # 产物 dist/ 同步到服务器 /root/project/agent-mobile/agent-mobile-app/dist，然后：
 systemctl restart serve-9928            # 部署：gzipCache 需重启才生效（见强制规定 7）
-# 手机/电脑浏览器打开 http://106.13.181.13:9928（Pulse 首页在 /；/memory /me 重定向到 /）
+# 手机/电脑浏览器打开 https://106.13.181.13（首次需接受自签证书）
 
 # Expo Go 真机预览（备用，9928 端口）
 systemctl start expo-metro-9928     # Metro dev server（9928，热重载）
 # 手机 Expo Go 手动输入 exp://106.13.181.13:9928
 ```
 
-**环境与端口**：手机/浏览器端走 BFF（`106.13.181.13:19234` 主，`bff-19234.service`；`19235` 阶段2 worktree，当前未运行）；opencode server `127.0.0.1:4096`（仅 BFF 本机可达，`opencode-4096.service`）；9928 静态服务（`serve-9928.service` 托管主应用，BFF CORS 只放行 9928 三个 origin）。服务器三个服务均已收编 systemd 且开机自启（2026-09-27）。BFF 代码在 `family-finance/` 仓库（独立 git，私有）。
+**环境与端口**：对外只有 **Caddy `:443`**（`/api` → BFF，页面 → 静态服务 `127.0.0.1:9929`）与 **`:9928`**（财务后台 → BFF）。BFF `bff-19234.service`（仅本机 `127.0.0.1:19234`），opencode `opencode-4096.service`（`127.0.0.1:4096`），静态服务 `serve-9928.service`（实际 9929）。均在 systemd 且开机自启。BFF 代码在 `family-finance/` 仓库（独立 git，私有）。

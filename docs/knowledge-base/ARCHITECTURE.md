@@ -46,7 +46,7 @@ hooks 层（聚合状态）        src/hooks/useProjectEvents.ts
 ## 跨端/跨服务通信
 
 - **应用 ↔ OpenCode Server**：HTTP + Basic auth，SSE 事件流（`/global/event`），端口 4096。
-- **web 预览 ↔ 服务器**：静态文件服务，`agent-mobile-app/scripts/serve-static.mjs`（HTTP），端口 9928。
+- **web 预览 ↔ 服务器**：静态文件服务，`agent-mobile-app/scripts/serve-static.mjs`（HTTP），端口 **9929**（2026-11-05 起；对外经 Caddy 443 提供，见 OPERATIONS）。
 - **构建 ↔ Expo 云**：EAS CLI 上传项目 → 云端 Gradle 构建 → 下载 APK。
 
 ## 数据模型定义
@@ -138,7 +138,7 @@ SSE session.status / permission.* / session.updated / session.created / session.
 
 ```
 pnpm exec expo export --platform web   →  dist/（静态产物，pulse.html 等）
-node scripts/serve-static.mjs    →  :9928 提供 HTTP 服务（gzip + /→/pulse 302）
+node scripts/serve-static.mjs    →  :9929 提供 HTTP 服务（gzip + /→/pulse 302；PORT 可用环境变量覆盖）
 ```
 
 **EAS 构建流转**：
