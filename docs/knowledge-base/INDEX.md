@@ -133,7 +133,7 @@ agent-mobile/                                  # git 根仓库
     ├── pnpm-workspace.yaml                    # 包源排除规则（非 workspace）
     ├── .env.local                             # 环境变量（未提交，见 OPERATIONS.md）
     ├── scripts/
-    │   ├── serve-static.mjs                   # 静态服务器（gzip；端口硬编码 9928，含 / 与 [id].html 回退）
+    │   ├── serve-static.mjs                   # 静态服务器（gzip；PORT/BIND 可配，生产 127.0.0.1:9929，含 / 与 [id].html 回退）
     │   ├── e2e/pulse-e2e.mjs                  # Playwright E2E（含发消息）
     │   └── e2e/phase13-e2e.mjs                # Playwright E2E（Phase 13 链路）
     │   └── reset-project.js                   # create-expo-app 模板残留（可忽略）
@@ -154,7 +154,7 @@ agent-mobile/                                  # git 根仓库
 ```
 
 > **9928 端口现状**：由 `serve-9928.service` 托管 agent-mobile-app 静态版（2026-09-27 起 systemd 接管，开机自启；showcase2-9928.service 已删除）。
-> `agent-mobile-app/scripts/serve-static.mjs` 端口硬编码 9928；重新部署 = 覆盖 dist + `systemctl restart serve-9928`。
+> `agent-mobile-app/scripts/serve-static.mjs` 端口由 `PORT`/`BIND` 环境变量决定（默认 9928；生产 drop-in 设为 `127.0.0.1:9929`，由 Caddy 在 443 对外）；重新部署 = 覆盖 dist + `systemctl restart serve-9928`。
 
 ## 模块依赖关系
 
@@ -184,7 +184,7 @@ opencode server (127.0.0.1:4096, Basic auth)
   │     └── → ChatPanelZ → message-reducer（增量 patch）→ message-merging → MessageBubbleZ
   └── 发送消息：ChatPanelZ → sendMessageAsync (prompt_async) → SSE 回流
 
-homebase BFF (106.13.181.13:19234)，JWT，全部为 projection（canonical 在 BFF SQLite / memx / vault）：
+homebase BFF（对外 `https://106.13.181.13`，经 Caddy；内部 `127.0.0.1:19234`），JWT，全部为 projection（canonical 在 BFF SQLite / memx / vault）：
   ├── /api/product/attention（snapshot）+ /api/product/stream（SSE：attention.* + proposal.*）→ services/attention → useAttentions → Featured + Supporting(NEEDS YOU)
   ├── /api/product/assignment-proposals（snapshot ?status=proposed，SSE proposal.*）→ services/proposal → useSuggestions → Supporting(SUGGESTED)
   ├── /api/product/l1 + /api/product/l1/stream（SSE 全帧）→ services/l1 → useL1 → Supporting(MARKET) + Noticed
@@ -219,7 +219,7 @@ homebase BFF (106.13.181.13:19234)，JWT，全部为 projection（canonical 在 
 | 跑 E2E | `pnpm e2e` / `pnpm e2e:nosend`（见 OPERATIONS.md） |
 | 写临时测试脚本/存截图 | `agent-mobile/test/`（勿放 /tmp） |
 | 排查 opencode 机制（auto compact 等） | 源码在 `/root/project/opencode-src`（仓库外，含 .git 历史） |
-| 预览 web 版 | `pnpm exec expo export --platform web` + `scripts/serve-static.mjs`（端口 9928，`serve-9928.service` 托管，见 OPERATIONS.md） |
+| 预览 web 版 | `pnpm exec expo export --platform web` + `scripts/serve-static.mjs`（生产由 `serve-9928.service` 托管在 `127.0.0.1:9929`，对外 `https://106.13.181.13`，见 OPERATIONS.md） |
 | 打 APK | `eas build -p android --profile preview`（见 OPERATIONS.md） |
 | 下载/分发 APK | `eas build:download --build-id <id>` → 覆盖 `test/download/pulse.apk` → `apk-download-9928.service`（备用） |
 | 改应用元信息（包名/名称/主题色） | `agent-mobile-app/app.json` |

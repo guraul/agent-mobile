@@ -64,7 +64,7 @@ auth.ts ──Bearer JWT──► 认证（homebase 用户）       opencode 凭
 | `getSessionStatus(directory?)` | `GET /session/status?directory=` | busy/retry 状态表 |
 | `replyPermission(id,permissionID,response)` | `POST /session/{id}/permissions/{pid}` | 回复权限（once/always/reject） |
 | `sendMessage(id,body)` | `POST /session/{id}/message` | 同步发送 |
-| `sendMessageAsync(id,body)` | `POST /session/{id}/prompt_async` | 异步发送（流式）。body 可带 `agent`/`model`（**按消息指定**，session 建后不可变）。**#57 起 chat 侧（kind==="chat"）三处发送固定 `agent:"companion"` + `model:"opencode/deepseek-v4.1-flash-free"`**（均写死不可改，取自 `CHAT_MODEL`；伴侣 agent：只读 + 产品动作，服务端禁 bash/edit 全家——模型变更史与依据见 chat.md「#57 E3-a 客户端半边」段与 issue #111）；chatcode 侧仍发 agents 列表当前选中值 + model 状态 |
+| `sendMessageAsync(id,body)` | `POST /session/{id}/prompt_async` | 异步发送（流式）。body 可带 `agent`/`model`（**按消息指定**，session 建后不可变）。**#57 起 chat 侧（kind==="chat"）三处发送固定 `agent:"companion"` + `model:"opencode-go/deepseek-v4.1-flash"`**（均写死不可改，取自 `CHAT_MODEL`；伴侣 agent：只读 + 产品动作，服务端禁 bash/edit 全家——模型变更史与依据见 chat.md「#57 E3-a 客户端半边」段与 issue #111）；chatcode 侧仍发 agents 列表当前选中值 + model 状态 |
 | `abort(id)` | `POST /session/{id}/abort` | 中止 |
 | `login(username,password)` | `POST /api/auth/login`（BFF） | 登录拿 JWT（委托 auth.ts） |
 | `listProviders()` | `GET /config/providers` | 动态模型列表 `{providers, default}` |

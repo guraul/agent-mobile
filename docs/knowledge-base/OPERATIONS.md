@@ -19,7 +19,7 @@
 
 | 变量 | 用途 | 是否必填 | 默认值 |
 |---|---|---|---|
-| `EXPO_PUBLIC_OPENCODE_URL` | BFF baseUrl（手机端所有请求走这里） | 否 | `http://106.13.181.13:19234` |
+| `EXPO_PUBLIC_OPENCODE_URL` | BFF baseUrl（手机端所有请求走这里） | 否 | `https://106.13.181.13`（2026-11-05 起） |
 
 > **阶段 2 起手机端不再持有 opencode 凭证**（`EXPO_PUBLIC_OPENCODE_USERNAME/PASSWORD` 已删除，凭证只在 BFF 侧）。
 
@@ -120,7 +120,7 @@ systemctl status expo-metro-9928     # 日志：Waiting on http://localhost:9928
 # 手动启动（调试用）
 cd agent-mobile-app
 REACT_NATIVE_PACKAGER_HOSTNAME=106.13.181.13 \
-EXPO_PUBLIC_OPENCODE_URL=http://106.13.181.13:19234 \
+EXPO_PUBLIC_OPENCODE_URL=https://106.13.181.13 \
 npx expo start --port 9928 --host lan
 ```
 
@@ -166,7 +166,7 @@ eas build:download --build-id <id> --non-interactive   # 下载 APK 到本地
 - **构建命令勿前台阻塞运行**（易挂起会话）：用 `nohup ... &` 后台跑，约 10-20 分钟完成
 - 首次需 `eas init --account guraul --non-interactive`（已执行，项目 ID 已写入 app.json）
 - **APK 访问 BFF 需明文 HTTP**：BFF 是 `http://` 明文，Android 9+ 默认禁 cleartext，app.json 已配 `expo-build-properties` → `android.usesCleartextTraffic: true`（勿删，否则 APK 内所有请求报 `UnknownServiceException`）
-- **EAS 云构建不含 `.env.local`**（gitignore）：构建时 `EXPO_PUBLIC_OPENCODE_URL` 取不到，走 `src/config/opencode.ts` 的代码 fallback（当前为 `http://106.13.181.13:19234`）。改 BFF 地址时**必须同步改 fallback**，否则 APK 连错地址
+- **EAS 云构建不含 `.env.local`**（gitignore）：构建时 `EXPO_PUBLIC_OPENCODE_URL` 取不到，走 `src/config/opencode.ts` 的代码 fallback（当前为 `https://106.13.181.13`）。改 BFF 地址时**必须同步改 fallback**，否则 APK 连错地址
 
 ## 上架准备（未执行）
 
@@ -273,7 +273,7 @@ cat ~/.opencode/USER.md
 
 | 项 | 状态 | 窗口动作 |
 |---|---|---|
-| 生产 opencode 认识 `opencode-go/*`？ | ❌ **不认识**——`opencode models` 只有 agnes / deepseek / opencode / sensenova / siliconflow-cn / stepfun（76 个模型） | **当前决定不用**（用户 2026-10-12：生产保持 mimo）。若将来要在生产用 Go 档，先解决这一项（刷新 models.dev 或按 DSH 侧 `~/.dsh/profiles/web/cordis.patch.yml` 显式声明 provider） |
+| 生产 opencode 认识 `opencode-go/*`？ | ✅ **认识（2026-11-04 起）**——生产已订阅 OpenCode Go，`opencode models` 含 `opencode-go/deepseek-v4.1-flash` 等；伴侣 `agents.companion.model` 与 `small_model` 均已切该档，App `CHAT_MODEL` 同步 | 2026-10-12 的旧结论「生产不认识、保持 mimo」**已作废**：当时未订阅。若撤销订阅，需同时回改三处（见 `AGENTS.md` 规则 11） |
 | 生产已装 memx？ | ❌ 无 `~/.config/opencode/plugins/` 目录；config 无 `plugins` 键 | 跑 memx `install.sh` + v2 `plugins` 注册 |
 | 生产 companion model | `opencode/mimo-v2.6-flash-free` | **保持不动**（用户 2026-10-12 二次拍板） |
 | 生产 companion prompt | v0.1（无 memory_write 条款） | 应用 v0.2（`COMPANION_PROMPT_V0.md`） |
