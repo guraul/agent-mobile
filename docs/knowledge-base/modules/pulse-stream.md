@@ -3,6 +3,7 @@
 > 最后更新：2026-09-28 · **RN 浅色迁移（epic #7）A-G 完成、H 详情重做完成**（基准 `docs/pipeline/RN_MIGRATION_BRIEF.md`，D1-D10 决策）。当前形态以本节为准；下方 Companion 段及更早内容为历史参考。
 > 2026-10-29：补 Noticed 两类（observation / retry-report）/ TodayDigest / Settings 三入口事实登记，见下方「事实登记（2026-10-29）」。
 > 2026-10-29：market 同类合并（#140，呈现层）——见下方「事实登记（2026-10-29）· market 同域提醒合并」。
+> 2026-11-05：知识 sheet 空查询态「最近的决定」（A2，PR #208）、续接块相对时间（B1+，PR #209）——见下方「事实登记（2026-11-05）」。
 
 ## 当前形态（2026-09-28 浅色 Companion，PR #16-#23）
 
@@ -295,6 +296,24 @@ recompute()：
 SSE 事件 → 更新 refs 后 recompute：
   session.status / permission.updated / permission.replied / session.updated / session.created / session.deleted
 ```
+
+## 事实登记（2026-11-05）：知识列表与续接相对时间
+
+### 知识 sheet 的「最近的决定」（A2，PR #208）
+
+- 入口不变：Header Settings → `settings-knowledge` → `KnowledgeSheet`（不新开页面、不加 tab）。
+- **查询为空**时，搜索框下方多一块「最近的决定」（`testID=knowledge-decisions`）：最多 5 条，每行 = 标题 + 副行「`created` · 领域标签」（`tags` 的首项固定是 `decision`，不作为领域展示）。
+- 数据源：`services/memory/client.ts` 的 `listKbDecisions()` → BFF `GET /api/product/kb/decisions`（只读；BFF 已按 `created` 倒序，上限 50）。点击条目复用既有 `onOpenDoc`（`/kb/doc?ref&title`），不新开详情路径。
+- 语义：查询非空时让位给搜索结果（清空输入即回来）；请求失败**静默隐藏**这一块；vault 未配置（`configured:false`）时整块隐藏——**不谎称「没有决定」**；空列表才显示 `kb.decisions.empty`。
+- 文案：`kb.decisions.title` / `kb.decisions.empty` / `kb.decisions.count`（en + zh）。
+- 明确不做：新增/编辑/删除决策、分页、标签筛选。
+
+### 续接块显示「多久之前」（B1+，PR #209）
+
+- `ContinueThreads`（`testID=continue-threads`）每行在 `reason` 之后、同一段内接相对时间（`testID=continue-thread-when-{i}`），小号次要色（`lightColors.grayText`，12px）；`numberOfLines={2}` 保持，**不新增行、不撑高卡片**。
+- 规则（纯函数 `src/services/relative-time.ts` 的 `relativeDay(createdAt, now?)`）：按**设备本地日历天**算，跨零点即「昨天」；今天 / 昨天 / 2–7 天前 →「N 天前」；> 7 天 →「N 周前」（`Math.round(days/7)`，最小 1 周）；未来时间（时钟偏移）按今天处理。
+- i18n：`pulse.continue.when.today` / `.yesterday` / `.days` / `.weeks`（`_one`/`_other` 复数；基名与 `_one`/`_other` 必须同时存在于 en 与 zh，`MessageDict` 类型强制）。
+- 明确不做：不拉会话最后一条消息、不做「上次聊到哪」的 LLM 摘要（PM §25 默认 Resume）、不改续接标记数据结构。
 
 ## 修改本模块的注意事项
 
