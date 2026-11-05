@@ -26,7 +26,7 @@ const providers = [
 ];
 
 describe("DEFAULT_MODEL", () => {
-  it("是 opencode/mimo-v2.6-flash-free（生产可用；App 侧不写死 opencode-go——生产模型目录里没有它）", () => {
+  it("是 opencode/mimo-v2.6-flash-free（chatcode 侧仍走免费档；chat 侧 CHAT_MODEL 已切 go 档）", () => {
     expect(DEFAULT_MODEL).toEqual({
       providerID: "opencode",
       modelID: "mimo-v2.6-flash-free",
