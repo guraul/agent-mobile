@@ -14,6 +14,7 @@ export type L1Kind =
   | "retry-report"
   | "calendar"
   | "backlog-nudge"
+  | "inbox-nudge"
   | "assignment-done";
 
 export interface L1Statement {
