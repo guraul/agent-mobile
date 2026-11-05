@@ -4,7 +4,8 @@ import { join, extname, normalize } from 'node:path';
 import { gzipSync } from 'node:zlib';
 
 const ROOT = '/root/project/agent-mobile/agent-mobile-app/dist';
-const PORT = 9928;
+const PORT = Number(process.env.PORT ?? 9928);
+const BIND = process.env.BIND ?? "0.0.0.0";
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'application/javascript', '.mjs': 'application/javascript',
   '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg',
@@ -61,4 +62,4 @@ createServer(async (req, res) => {
       res.writeHead(404).end('Not Found');
     }
   }
-}).listen(PORT, () => console.log(`Pulse static server on :${PORT} (gzip enabled)`));
+}).listen(PORT, BIND, () => console.log(`Pulse static server on ${BIND}:${PORT} (gzip enabled)`));
