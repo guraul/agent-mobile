@@ -2,7 +2,7 @@
 
 > 最后更新：2026-10-11 · E1 opencode v2 契约改造（issue #53；BFF PR#15 + App PR#68/#70/#72）
 > 2026-10-29：补 `services/agency/*`、`services/external/*`、`services/activity/*` 事实登记，见文末「agency / external / activity」。
-> ⚠️ **v2 要点**：REST `{data}` 信封（client 解包）；消息列表仅元数据+单条拉 content；agent/model **建会话定**（chat 侧 companion+deepseek-v4.1-flash-free，常量在 conversation-kind.ts；chatcode 切换走 switchAgent/switchModel）；事件流无 message.updated（text.started 占位→delta→text.ended→execution.*/stream.resync 节流 refetch）；question→form；busy 白名单见 busy-signal.ts（v2 事件名）。详见 [API.md](../API.md) 2026-10-11 块。
+> ⚠️ **v2 要点**：REST `{data}` 信封（client 解包）；消息列表仅元数据+单条拉 content；agent/model **建会话定**（chat 侧 companion+opencode-go/deepseek-v4.1-flash，常量在 conversation-kind.ts；chatcode 切换走 switchAgent/switchModel）；事件流无 message.updated（text.started 占位→delta→text.ended→execution.*/stream.resync 节流 refetch）；question→form；busy 白名单见 busy-signal.ts（v2 事件名）。详见 [API.md](../API.md) 2026-10-11 块。
 > 上一版：2026-10-10 · commit：`feat(chat): busy 真实信号（#58）`（新增 `busy-signal.ts` 纯函数 + 单测；ChatPanelZ 状态行判据由 `sending` 改为事件驱动 busy）
 > 上一版：2026-10-10 · commit：`feat(chat): chat 页强制 agent=companion（#57 E3-a 客户端半边）`（chat 侧三处 `sendMessageAsync` 固定 `agent:"companion"`）
 > 上一版：2026-08-30 · commit：`d255c48`（bff-config/model-prefs/bff-health/getBaseUrl 运行时覆盖 + OPTIONS 探测 + loadToken 修复）

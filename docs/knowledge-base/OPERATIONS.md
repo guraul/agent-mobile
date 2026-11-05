@@ -1,6 +1,6 @@
 # OPERATIONS.md —— 构建与运维
 
-> 最后更新：2026-10-12 · commit 6d432c5 · DSH 接入 OpenCode Go 订阅（`opencode-go` provider）配置 + 404/400 排查结论落档，见 §DSH 接入 OpenCode Go
+> 最后更新：2026-11-05 · 运行时模型切 go 档（#193）、入口改 443 同源、静态服务迁 9929（#212/#215）、旧结论清理（#199/#216）；更早：2026-10-12 · DSH 接入 OpenCode Go 订阅（`opencode-go` provider）配置 + 404/400 排查结论落档，见 §DSH 接入 OpenCode Go
 > 最后更新：2026-10-11 · E1 生产 opencode 升级 v2.0.26（issue #53）
 > ⚠️ **opencode v2 要点（2026-10-11 生产窗口实测）**：
 > - **v2 没有任何 npm/GitHub 发布产物**（npm `opencode-ai@latest`=1.19.0 仍是 v1 线）——装机只能走官方 v2 脚本：`curl -fsSL https://opencode.ai/v2/install | bash -s -- --version 2.0.26`，落位 `~/.opencode/bin/opencode`（本机与生产同此）
