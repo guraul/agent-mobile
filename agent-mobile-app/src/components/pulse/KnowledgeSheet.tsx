@@ -6,10 +6,13 @@ import { Button } from "../primitives/Button";
 import { Input } from "../primitives/Input";
 import { Text } from "../primitives/Text";
 import { Icon } from "../primitives/Icon";
-import { searchKb, type KbHit } from "../../services/memory/client";
+import { listKbDecisions, searchKb, type KbDecisionItem, type KbHit } from "../../services/memory/client";
 import { loadToken } from "../../services/auth";
 import { colors, radius, spacing } from "../../theme";
 import { t, useLocale } from "../../i18n";
+
+/** 最近的决定最多显示几条（D2：列表先只做「看得到」） */
+const MAX_DECISIONS = 5;
 
 /**
  * KnowledgeSheet — Sources / Knowledge, contextual only.
@@ -32,6 +35,9 @@ export function KnowledgeSheet({
   // 订阅语言：切换时 sheet 重渲染，渲染期 t() 取到新文案。
   useLocale();
   const [hits, setHits] = useState<KbHit[] | null>(null);
+  // 最近的决定（A2）：查询为空时的列表形态，只读，最多 5 条。
+  const [decisions, setDecisions] = useState<KbDecisionItem[] | null>(null);
+  const [decisionsConfigured, setDecisionsConfigured] = useState(true);
   const [configured, setConfigured] = useState(true);
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<KbHit | null>(null);
@@ -40,6 +46,7 @@ export function KnowledgeSheet({
   const reset = useCallback(() => {
     setQuery("");
     setHits(null);
+    setDecisions(null);
     setSelected(null);
     setError(null);
   }, []);
@@ -50,6 +57,24 @@ export function KnowledgeSheet({
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 退场清场，无可挂的异步来源
     if (!visible) reset();
   }, [visible, reset]);
+
+  const loadDecisions = useCallback(() => {
+    loadToken()
+      .then(() => listKbDecisions())
+      .then((res) => {
+        setDecisionsConfigured(res.configured);
+        setDecisions(res.items.slice(0, MAX_DECISIONS));
+      })
+      .catch(() => {
+        // 静默：拿不到就不显示这一块（知识库是辅助入口，不阻塞搜索）
+        setDecisions(null);
+      });
+  }, []);
+
+  useEffect(() => {
+    if (!visible) return;
+    loadDecisions();
+  }, [visible, loadDecisions]);
 
   const runSearch = useCallback(async () => {
     const q = query.trim();
@@ -126,6 +151,57 @@ export function KnowledgeSheet({
           </View>
 
           {error ? <Text variant="caption" color="error">{error}</Text> : null}
+
+          {/* 查询为空 → 最近的决定（A2，只读门面）；有查询时让位给搜索结果 */}
+          {!query.trim() && decisions !== null && decisionsConfigured ? (
+            <View style={{ gap: spacing.xs }} testID="knowledge-decisions">
+              <View style={{ flexDirection: "row", alignItems: "baseline", justifyContent: "space-between" }}>
+                <Text variant="caption" color="muted">{t("kb.decisions.title")}</Text>
+                <Text variant="monoCaption" color="muted">
+                  {t("kb.decisions.count", { count: decisions.length })}
+                </Text>
+              </View>
+              {decisions.length === 0 ? (
+                <Text variant="caption" color="muted" testID="knowledge-decisions-empty">
+                  {t("kb.decisions.empty")}
+                </Text>
+              ) : (
+                decisions.map((d) => {
+                  // 副行 = 日期 + 领域标签（tags 的首项固定是 decision，不作为领域展示）
+                  const meta = [d.created ?? "", ...d.tags.filter((tag) => tag !== "decision")]
+                    .filter(Boolean)
+                    .join(" · ");
+                  return (
+                    <Pressable
+                      key={d.ref}
+                      onPress={() =>
+                        onOpenDoc({ ref: d.ref, title: d.title, snippet: "", updatedAt: d.updatedAt, scope: "wiki" })
+                      }
+                      accessibilityRole="button"
+                      accessibilityLabel={d.title}
+                      testID={`knowledge-decision-${d.ref.replace(/[^a-zA-Z0-9]/g, "_")}`}
+                      style={({ pressed }) => ({
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: spacing.xs,
+                        paddingVertical: spacing.xs,
+                        borderTopWidth: 1,
+                        borderTopColor: colors.border.subtle,
+                        opacity: pressed ? 0.6 : 1,
+                      })}
+                    >
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <Text variant="bodyStrong" color="ink" numberOfLines={1}>{d.title}</Text>
+                        {meta ? (
+                          <Text variant="caption" color="muted" numberOfLines={1}>{meta}</Text>
+                        ) : null}
+                      </View>
+                    </Pressable>
+                  );
+                })
+              )}
+            </View>
+          ) : null}
           {hits !== null && !configured ? (
             <Text variant="caption" color="muted" testID="knowledge-unconfigured">
               {t("pulse.knowledge.unconfigured")}
