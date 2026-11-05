@@ -24,7 +24,7 @@
 #   装的是 dist/latest.tgz 的打包产物（见 tools/package.json），不是源码 checkout。
 #
 # 部署不在本脚本里: 合并后由仓库 Actions 在 main 上完成构建/部署，本脚本只合并+清理，
-#   不新增任何部署动作（旧的 deploy.sh 调用也没有迁移进包）。
+#   不新增任何部署动作（原 deploy.sh 已于 2026-11-05 删除，部署由 .github/workflows/deploy-web.yml 承接）。
 source "$(dirname "$0")/lib.sh"
 require_gh
 require_pipeline_pkg

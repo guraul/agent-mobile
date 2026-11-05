@@ -100,7 +100,7 @@ jq -Rs '{body: .}' /tmp/epic35.md | gh api repos/guraul/agent-mobile/issues/35 -
 | `scripts/e2e/pulse-e2e.mjs` | e2e 主脚本，本地 12 项（含卡片步，NO_SEND 可跑） |
 | `~/.pulse-e2e-creds` | e2e 凭据（勿读内容） |
 | 本地 export + `expo serve --port 9928` | pre-merge 视觉验收（CORS 命中） |
-| `scripts/pipeline/*` | new-task.sh / open-pr.sh / merge-pr.sh / deploy.sh / rollback.sh |
+| `scripts/pipeline/*` | new-task.sh / open-pr.sh / merge-pr.sh / status.sh（deploy.sh / rollback.sh 已于 2026-11-05 删除，部署由 `.github/workflows/deploy-web.yml` 承接） |
 
 ## 7. 沟通约定
 

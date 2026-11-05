@@ -15,8 +15,9 @@
 5. review        CI 过（tsc + vitest）+ **审核闸门**（见全局 `~/.dsh/AGENTS.md` §7 第 6 条）→ squash merge
                  → 合并自动关闭 issue，并触发自动部署
 6. 自动部署      GitHub Actions：tsc/test → expo export → rsync → restart serve-9928
-                 手动兜底: scripts/pipeline/deploy.sh（参数见下）
-7. 回滚          scripts/pipeline/rollback.sh（releases 任意秒切）
+                 手工部署已由 `.github/workflows/deploy-web.yml` 承接（`workflow_dispatch` 可手动触发）；
+                 原 `deploy.sh`/`rollback.sh` 已于 2026-11-05 删除
+7. 应急回滚      ssh + ln -sfn releases/<id> dist + systemctl restart serve-9928
 ```
 
 规则：发版只由 `agent-mobile-app/**` 变更触发；BFF 走它自己仓库的 pipeline。
@@ -69,14 +70,10 @@ scripts/pipeline/merge-pr.sh --force    # CI 失败时强行合并（慎用）
 #       带走"（目录已删）；建议先 cd 回主工作区再运行
 #   自检（PATH 打桩，不碰真实 git 远端/GitHub）：bash scripts/pipeline/test-merge-pr.sh
 
-# 手动部署兜底（Actions 不可用时；质量门槛默认开启）
-scripts/pipeline/deploy.sh                 # tsc + test → export → rsync releases/<id> → 切软链 → restart → 验证
-scripts/pipeline/deploy.sh --skip-tests    # 紧急跳过测试
-scripts/pipeline/deploy.sh --with-bff      # 顺带触发 BFF pipeline
-scripts/pipeline/deploy.sh --dry-run       # 只打印将执行的命令
-
-# 回滚（releases 任意版本秒切；无参数 = 回到上一版）
-scripts/pipeline/rollback.sh [release-id] [--dry-run]
+# 手工部署 / 回滚（墓碑）
+# 手工部署已由 .github/workflows/deploy-web.yml 承接（workflow_dispatch 可手动触发）；
+# 原 scripts/pipeline/deploy.sh、rollback.sh 已于 2026-11-05 删除；
+# 应急直接用 ssh + ln -sfn releases/<id> dist + systemctl restart serve-9928
 
 # 收敛生产 `opencode` 命令到 v2（E1 升级遗留的 npm v1 残留；issue #84）
 scripts/pipeline/fix-opencode-binary.sh [--dry-run]

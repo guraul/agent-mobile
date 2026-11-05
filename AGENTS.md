@@ -44,7 +44,7 @@
     - **产品 App（Pulse）= `https://106.13.181.13`（443）**：Caddy 在 443 分流——`/api/*`、`/_next/*`、`/files/*` → BFF `127.0.0.1:19234`，其余 → App 静态服务 `127.0.0.1:9929`（保留 SPA 回退与 `[id].html` 动态路由）。页面与 API **同源**，不再有 CORS 问题。
     - **财务后台 = `https://106.13.181.13:9928`**：Caddy 全量反代到 BFF。
     - **`serve-9928.service` 名字是历史遗留**，实际监听 `127.0.0.1:9929`（systemd drop-in `/etc/systemd/system/serve-9928.service.d/port.conf` 设 `PORT`/`BIND`）。
-    - 部署流程不变：`pnpm exec expo export --platform web --clear`（`--clear` 必须）→ 产物进 `dist`（软链指向 releases）→ `systemctl restart serve-9928`（gzipCache 需重启才生效）。
+    - 部署主路径 = `.github/workflows/deploy-web.yml`（merge 自动；`workflow_dispatch` 可手动触发）。手工部署已由该 workflow 承接；原 `scripts/pipeline/deploy.sh`、`rollback.sh` 已于 2026-11-05 删除；应急直接用 `ssh` + `ln -sfn releases/<id> dist` + `systemctl restart serve-9928`（gzipCache 需重启才生效）。
     - Caddy 配置 `/etc/caddy/Caddyfile`；`admin off` 所以 **`caddy reload` 不可用，改完必须 `systemctl restart caddy`**。
     - 自签证书：新设备首次访问需手动接受一次（浏览器「继续访问」）。
 
@@ -86,10 +86,10 @@ pnpm exec tsc --noEmit     # 类型检查
 pnpm e2e                   # Playwright E2E（含发消息，需确认）
 pnpm e2e:nosend            # E2E 跳过发消息步骤
 
-# Web 静态版（生产应用；serve-9928.service 托管，实际端口 9929，对外 https://106.13.181.13，见强制规定 7）
-EXPO_PUBLIC_OPENCODE_URL=https://106.13.181.13 pnpm exec expo export --platform web --clear
-# 产物 dist/ 同步到服务器 /root/project/agent-mobile/agent-mobile-app/dist，然后：
-systemctl restart serve-9928            # 部署：gzipCache 需重启才生效（见强制规定 7）
+# Web 静态版部署（serve-9928.service 托管，实际端口 9929，对外 https://106.13.181.13，见强制规定 7）
+# 主路径 = .github/workflows/deploy-web.yml（merge 自动 / workflow_dispatch 手动）
+# 手工部署已由该 workflow 承接；原 scripts/pipeline/deploy.sh、rollback.sh 已于 2026-11-05 删除
+# 应急：ssh + ln -sfn releases/<id> dist + systemctl restart serve-9928（gzipCache 需重启才生效，见强制规定 7）
 # 手机/电脑浏览器打开 https://106.13.181.13（首次需接受自签证书）
 
 # Expo Go 真机预览（备用，9928 端口）

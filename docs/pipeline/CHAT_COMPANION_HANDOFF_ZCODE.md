@@ -79,7 +79,7 @@
 - 触发：**push 到 main**，且路径命中 `agent-mobile-app/**` 或该 workflow 文件本身。**讨论文档/根目录文件改动不触发部署。**
 - 流程：`pnpm install --frozen-lockfile` → **`tsc --noEmit` + `pnpm test`（质量门就在这一步）** → `expo export --platform web --clear` → rsync 到 `releases/run-<id>-<sha>` → 切 `dist` 软链 → `systemctl restart serve-9928` → curl 验证 200。
 - **`--clear` 必须保留**，否则 env 不注入。
-- 回滚：`scripts/pipeline/rollback.sh`（releases 秒切）。
+- 回滚：原 `scripts/pipeline/rollback.sh` 已于 2026-11-05 删除；应急用 `ssh` + `ln -sfn releases/<id> dist` + `systemctl restart serve-9928`。
 
 **family-finance → BFF 19234**（该仓 `.github/workflows/deploy.yml`）
 
@@ -271,7 +271,7 @@ agent-mobile-app/scripts/e2e/v011-e2e.mjs:31
    → **push 时显式用 SSH URL**：`git push git@github.com:guraul/agent-mobile.git main`。`origin` 保持 HTTPS 未改。
    （family-finance 的 origin 已经是 SSH，无此问题。）
 2. **`gh issue comment <n> --body "多行文本"` 会报 `accepts 1 arg(s), received 3`** → **一律用 `--body-file`**（同理 `gh issue edit --body-file`）。
-3. 仓库里的 pipeline 脚本：`scripts/pipeline/{new-task.sh,open-pr.sh,merge-pr.sh,rollback.sh,status.sh}`，用法见 `docs/pipeline/README.md`。
+3. 仓库里的 pipeline 脚本：`scripts/pipeline/{new-task.sh,open-pr.sh,merge-pr.sh,status.sh}`（原 `deploy.sh`/`rollback.sh` 已于 2026-11-05 删除，部署由 `.github/workflows/deploy-web.yml` 承接），用法见 `docs/pipeline/README.md`。
    - `merge-pr.sh` 会**删掉 worktree** → **必须先从 worktree 里 `cd` 出来**，否则 shell 被连根带走。
 
 ### 6.2 worktree 陷阱（**DSH 这次真踩了**）
