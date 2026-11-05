@@ -6,6 +6,7 @@ import { PressableScale } from "./PressableScale";
 import { getBaseUrl } from "../../config/opencode";
 import { loadToken, tokenHeader } from "../../services/auth";
 import { t, useLocale } from "../../i18n";
+import { relativeDay } from "../../services/relative-time";
 
 /**
  * ContinueThreads —— 续接标记（PRODUCT_MODEL §24）。
@@ -68,20 +69,27 @@ export function ContinueThreads() {
           </Text>
         </View>
       </View>
-      {threads.map((thread, index) => (
-        <PressableScale
-          key={thread.id}
-          testID={`continue-thread-${index}`}
-          style={[styles.row, index > 0 ? styles.rowDivider : null]}
-          scaleTo={0.99}
-          onPress={() => router.push({ pathname: "/talk", params: { sessionId: thread.sessionId } })}
-        >
-          <Text style={styles.reason} numberOfLines={2}>
-            {thread.reason}
-          </Text>
-          <Text style={styles.action}>{t("pulse.continue.action")}</Text>
-        </PressableScale>
-      ))}
+      {threads.map((thread, index) => {
+        // 「多久之前」（B1+）：只做相对时间，不拉最后一条消息、不做摘要（PM §25）。
+        const when = relativeDay(thread.createdAt);
+        return (
+          <PressableScale
+            key={thread.id}
+            testID={`continue-thread-${index}`}
+            style={[styles.row, index > 0 ? styles.rowDivider : null]}
+            scaleTo={0.99}
+            onPress={() => router.push({ pathname: "/talk", params: { sessionId: thread.sessionId } })}
+          >
+            <Text style={styles.reason} numberOfLines={2}>
+              {thread.reason}{" "}
+              <Text style={styles.when} testID={`continue-thread-when-${index}`}>
+                {t(when.key, { count: when.count })}
+              </Text>
+            </Text>
+            <Text style={styles.action}>{t("pulse.continue.action")}</Text>
+          </PressableScale>
+        );
+      })}
     </View>
   );
 }
@@ -121,5 +129,7 @@ const styles = StyleSheet.create({
   },
   rowDivider: { borderTopWidth: 1, borderTopColor: lightColors.rowGray },
   reason: { flex: 1, fontSize: 14, lineHeight: 20, color: lightColors.bodyText },
+  // 时间跟在 reason 后面、同一段内（不换行占两行），小号次要色
+  when: { fontSize: 12, color: lightColors.grayText },
   action: { fontSize: 13, color: lightColors.accentDeep },
 });
