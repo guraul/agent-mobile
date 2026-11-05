@@ -15,7 +15,7 @@ concurrency:
 jobs:
   deploy:
     # pin 到具体提交而不是 @main：上游改动不该静默改变线上部署行为
-    uses: guraul/dsh-pipeline/.github/workflows/deploy.yml@fc4598ac2c61161eba4474a1e9b0bf8861729aa4
+    uses: guraul/dsh-pipeline/.github/workflows/deploy.yml@4f376ebc5296db910604d6afae792647abdee1fd
     with:
       mode: releases
       service: serve-9928
@@ -26,6 +26,8 @@ jobs:
       health_check: ssh
       health_url: http://127.0.0.1:9929/
       ssh_host: 106.13.181.13
+      public_health_url: https://106.13.181.13/
+      public_health_insecure: true
     secrets: inherit
 
   post-deploy:

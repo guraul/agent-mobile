@@ -1,7 +1,7 @@
 # Pipeline 工作手册
 
 > 面向**任何人或任何 coding agent** 的交付流程说明。所有能力都是幂等 bash 脚本（`scripts/pipeline/`），不依赖任何特定 agent 的插件。
-> 进度台账见 [PROGRESS.md](PROGRESS.md)。
+> 目录里 6 个入口是共享包 `dsh-pipeline` 的**生成物**（见 [`scripts/pipeline/README.md`](../../scripts/pipeline/README.md)，禁止手改）；进度台账见 [PROGRESS.md](PROGRESS.md)。
 
 ## 一、流程总览
 
@@ -24,7 +24,7 @@
 
 **审核闸门**：`merge-pr.sh` 已改成共享包 `dsh-pipeline` 的薄转发壳（issue #187），闸门判定、CI 校验、squash 合并与现场清理都在包里，本仓不再保留第二份实现。审核方 `APPROVE` 且未命中高风险 → 直接合并，不再问人；三种人工介入情形与绕过规则见全局 `~/.dsh/AGENTS.md` §7 第 6/7 条。
 
-**任务入口与开 PR**：`new-task.sh` / `open-pr.sh` 同样是薄转发壳（issue #189），分别转发到包的 `task` / `pr` 子命令；`-C` / `--worktree` 映射成包的 `--root`，其余参数原样透传。退出码：`0` 成功、`1` 本壳的用法或环境错误（走 `die`）、其它为包的退出码原样透传（包用 `2` 表示用法或环境错误）。行为实现在包里，本仓只保留文件名与用法。
+**任务入口与开 PR**：`new-task.sh` / `open-pr.sh` 同样是薄转发壳（issue #189），分别转发到包的 `task` / `pr` 子命令；`-C` / `--worktree` 映射成包的 `--root`，其余参数原样透传。退出码：**入口是生成物，不改写任何退出码**——只有两种壳自身错误：未知入口 `2`、找不到共享包 `3`；其余一律透传包的退出码（包用 `2` 表示用法错误、`1` 表示业务拒绝）。行为实现在包里，本仓只保留生成的文件名。
 
 ## 二、脚本用法
 
@@ -32,7 +32,7 @@
 # 任务入口（issue → worktree）
 scripts/pipeline/new-task.sh 12
 #   输出 worktree 路径，cd 进去开发；重复运行幂等
-#   自检（假包 + PATH 打桩，不碰真实 git 远端/GitHub）：bash scripts/pipeline/test-new-task.sh
+#   自检（墓碑）：原 test-new-task.sh 已随生成物移除（#220），由 dsh-pipeline selftest --shims 覆盖
 
 # 开 PR（推荐在 worktree 目录内运行）
 cd .worktrees/12-xxx && ../../scripts/pipeline/open-pr.sh
@@ -41,7 +41,7 @@ scripts/pipeline/open-pr.sh --worktree <dir>
 #   目标解析（issue #108）：-C/--worktree > 脚本自身所在工作区；**cwd 不参与**
 #     → 从主工作区用绝对路径调用 worktree 里的脚本，也会解析到那个 worktree，而不是 main
 #   在 main 工作区跑（分支不是 task/*）会拒绝；报错一律带「目标工作区 / 分支 / 调用 cwd」
-#   自检（假包 + PATH 打桩，不碰真实 git 远端/GitHub）：bash scripts/pipeline/test-open-pr.sh
+#   自检（墓碑）：原 test-open-pr.sh 已随生成物移除（#220），由 dsh-pipeline selftest --shims 覆盖
 
 # 审核（prepare 生成审核请求 + publish 判定落盘；共享包 review 子命令的薄转发壳，issue #194）
 scripts/pipeline/review.sh prepare 34 [--model <模型>]
@@ -49,7 +49,7 @@ scripts/pipeline/review.sh publish 34 --response <文件> [--round <n>] [--model
 scripts/pipeline/review.sh prepare 34 -C <dir>   # 指定目标工作区（同 --worktree；只影响 WORK_DIR，--root 仍取主工作区）
 #   prepare 产物写 <root>/.tmp/review/<pr>/request.json；publish 落 <root>/.dsh-web/reviews/<pr>-<sha>.json
 #   退出码：0 成功 / 1 环境错误（die）/ 2 用法错误（缺参、未知参数）/ 其余为包退出码原样透传
-#   自检（假包 + PATH 打桩，不碰真实 git 远端/GitHub）：bash scripts/pipeline/test-review.sh
+#   自检（墓碑）：原 test-review.sh 已随生成物移除（#220），由 dsh-pipeline selftest --shims 覆盖
 
 # 合并（审核方 APPROVE 且未命中高风险；绕过见全局 ~/.dsh/AGENTS.md §7.7）
 #   前置：在主工作区 tools/ 里 `pnpm install`（装 dsh-pipeline 的 tgz 构建物，见 tools/package.json）
@@ -68,16 +68,15 @@ scripts/pipeline/merge-pr.sh --force    # CI 失败时强行合并（慎用）
 #       main 快进到 origin/main。✅ 推荐用法（shell 不会站在被删的目录里）
 #     · 从 worktree 内运行（无参数）：同样会清理——被清的就是你所在的 worktree，shell 会被"连根
 #       带走"（目录已删）；建议先 cd 回主工作区再运行
-#   自检（PATH 打桩，不碰真实 git 远端/GitHub）：bash scripts/pipeline/test-merge-pr.sh
+#   自检（墓碑）：原 test-merge-pr.sh 已随生成物移除（#220），由 dsh-pipeline selftest --shims 覆盖
 
 # 手工部署 / 回滚（墓碑）
 # 手工部署已由 .github/workflows/deploy-web.yml 承接（workflow_dispatch 可手动触发）；
 # 原 scripts/pipeline/deploy.sh、rollback.sh 已于 2026-11-05 删除；
 # 应急直接用 ssh + ln -sfn releases/<id> dist + systemctl restart serve-9928
 
-# 收敛生产 `opencode` 命令到 v2（E1 升级遗留的 npm v1 残留；issue #84）
-scripts/pipeline/fix-opencode-binary.sh [--dry-run]
-#   备份旧 symlink → /root/backups/opencode-v1-symlink.bak → 重指 v2 → 校验 --version；幂等
+# 收敛生产 `opencode` 命令到 v2（E1 遗留）：原 fix-opencode-binary.sh 已于 2026-11-05 删除
+#   （它是 `scripts/pipeline/` 里最后一个手写脚本，依赖的 lib.sh 已随生成物移除；需要时查 git 历史）
 
 # 全链路状态（只读）
 scripts/pipeline/status.sh
@@ -95,7 +94,7 @@ scripts/pipeline/status.sh
 | 静态站目录 | `/root/project/agent-mobile/agent-mobile-app/dist`（当前为覆盖式部署；Phase 2 改 `releases/<id>` + `current` 软链） |
 | 仓库 checkout | `/root/project/agent-mobile`、`/root/project/homebase` |
 | node | v24.21.0（nodesource apt） |
-| 已知问题 | BFF 生产跑的是 `next dev`（Phase 3 修）；19235 阶段2 BFF 未运行；生产 `opencode` 命令曾解析到 v1（E1 探针包残留，issue #84 → `fix-opencode-binary.sh` 收敛，需窗口执行） |
+| 已知问题 | BFF 生产跑的是 `next dev`（Phase 3 修）；19235 阶段2 BFF 未运行；生产 `opencode` 命令曾解析到 v1（E1 探针包残留，issue #84；原 `fix-opencode-binary.sh` 已于 2026-11-05 删除，收敛步骤见 git 历史） |
 
 ## 四、关键约定（红线）
 
