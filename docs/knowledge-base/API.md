@@ -49,7 +49,7 @@
 > `/api/events/stream` 已于 Phase 10 **删除**（L1 迁移到 `/api/product/l1` + `/api/product/l1/stream`；legacy `lib/events/*` 一并移除）。
 
 **认证**：`Authorization: Bearer <JWT>`（`/api/auth/login` 签发）。401 → 手机端清 token + 显示登录横幅。
-**CORS**：允许 `http://106.13.181.13:9928`、`http://127.0.0.1:9928`、`http://localhost:9928`（`lib/cors.ts` `CORS_ORIGINS`）。OPTIONS 预检返回 204 + CORS 头。
+**CORS**：2026-11-05 起产品 App 由 Caddy 在 443 **同源**提供（页面与 `/api` 同一 origin），**不再依赖 CORS 允许列表**；旧列表 `http://…:9928`（`lib/cors.ts` `CORS_ORIGINS`）只对历史 http 入口有效。OPTIONS 预检返回 204 + CORS 头。
 **BFF 环境变量**：`JWT_SECRET`、`ADMIN_USERNAME`、`ADMIN_PASSWORD`、`OPENCODE_USERNAME`、`OPENCODE_PASSWORD`、`OPENCODE_BASE_URL`（默认 `http://127.0.0.1:4096`）。
 
 ### stream 协议（打字机）
@@ -111,7 +111,7 @@
 | `/_expo/static/**` | GET | 静态资源（JS/CSS，gzip 压缩） |
 | 其他 | GET | 404 |
 
-鉴权：无（内网/公网直开）。端口 9928。**登录态由 BFF JWT 管理**（`pulse_opencode_token` localStorage）。
+鉴权：无。**对外入口 `https://106.13.181.13`（443，经 Caddy；页面与 API 同源）**，静态服务内部监听 `127.0.0.1:9929`。**登录态由 BFF JWT 管理**（`pulse_opencode_token` localStorage）。
 ## Assignment（Phase 5，手机端最小接入）
 
 `src/services/assignment/client.ts`：proposal/confirm/reject/revoke/list REST 封装 + 斜杠命令解析（纯函数，有测试）。

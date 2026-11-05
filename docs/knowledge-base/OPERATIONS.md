@@ -1,6 +1,6 @@
 # OPERATIONS.md —— 构建与运维
 
-> 最后更新：2026-10-12 · commit 6d432c5 · DSH 接入 OpenCode Go 订阅（`opencode-go` provider）配置 + 404/400 排查结论落档，见 §DSH 接入 OpenCode Go
+> 最后更新：2026-11-05 · 运行时模型切 go 档（#193）、入口改 443 同源、静态服务迁 9929（#212/#215）、旧结论清理（#199/#216）；更早：2026-10-12 · DSH 接入 OpenCode Go 订阅（`opencode-go` provider）配置 + 404/400 排查结论落档，见 §DSH 接入 OpenCode Go
 > 最后更新：2026-10-11 · E1 生产 opencode 升级 v2.0.26（issue #53）
 > ⚠️ **opencode v2 要点（2026-10-11 生产窗口实测）**：
 > - **v2 没有任何 npm/GitHub 发布产物**（npm `opencode-ai@latest`=1.19.0 仍是 v1 线）——装机只能走官方 v2 脚本：`curl -fsSL https://opencode.ai/v2/install | bash -s -- --version 2.0.26`，落位 `~/.opencode/bin/opencode`（本机与生产同此）
@@ -19,7 +19,7 @@
 
 | 变量 | 用途 | 是否必填 | 默认值 |
 |---|---|---|---|
-| `EXPO_PUBLIC_OPENCODE_URL` | BFF baseUrl（手机端所有请求走这里） | 否 | `http://106.13.181.13:19234` |
+| `EXPO_PUBLIC_OPENCODE_URL` | BFF baseUrl（手机端所有请求走这里） | 否 | `https://106.13.181.13`（2026-11-05 起） |
 
 > **阶段 2 起手机端不再持有 opencode 凭证**（`EXPO_PUBLIC_OPENCODE_USERNAME/PASSWORD` 已删除，凭证只在 BFF 侧）。
 
@@ -120,7 +120,7 @@ systemctl status expo-metro-9928     # 日志：Waiting on http://localhost:9928
 # 手动启动（调试用）
 cd agent-mobile-app
 REACT_NATIVE_PACKAGER_HOSTNAME=106.13.181.13 \
-EXPO_PUBLIC_OPENCODE_URL=http://106.13.181.13:19234 \
+EXPO_PUBLIC_OPENCODE_URL=https://106.13.181.13 \
 npx expo start --port 9928 --host lan
 ```
 
@@ -166,7 +166,7 @@ eas build:download --build-id <id> --non-interactive   # 下载 APK 到本地
 - **构建命令勿前台阻塞运行**（易挂起会话）：用 `nohup ... &` 后台跑，约 10-20 分钟完成
 - 首次需 `eas init --account guraul --non-interactive`（已执行，项目 ID 已写入 app.json）
 - **APK 访问 BFF 需明文 HTTP**：BFF 是 `http://` 明文，Android 9+ 默认禁 cleartext，app.json 已配 `expo-build-properties` → `android.usesCleartextTraffic: true`（勿删，否则 APK 内所有请求报 `UnknownServiceException`）
-- **EAS 云构建不含 `.env.local`**（gitignore）：构建时 `EXPO_PUBLIC_OPENCODE_URL` 取不到，走 `src/config/opencode.ts` 的代码 fallback（当前为 `http://106.13.181.13:19234`）。改 BFF 地址时**必须同步改 fallback**，否则 APK 连错地址
+- **EAS 云构建不含 `.env.local`**（gitignore）：构建时 `EXPO_PUBLIC_OPENCODE_URL` 取不到，走 `src/config/opencode.ts` 的代码 fallback（当前为 `https://106.13.181.13`）。改 BFF 地址时**必须同步改 fallback**，否则 APK 连错地址
 
 ## 上架准备（未执行）
 
@@ -263,7 +263,7 @@ cat ~/.opencode/USER.md
 | 读取 | 不新增端点：BFF `GET /api/product/memory`（Phase 6 投影）直接读 canonical 记忆库；`POST /api/product/memory` 保持 **405**（PM §6/§29：记忆不由 API 创建） |
 | 权限 | 生产的 companion 白名单已按 #74 撤除 → 工具随插件注册即可见；**本机仍留白名单**，只追加 `{"action":"memory_write","resource":"*","effect":"allow"}`（白名单是 deny-all，不加这条工具会被 `tool.ts:292 whollyDisabled` 从快照摘掉） |
 | 软约束 prompt | `agents.companion.system` v0.2，真源 `docs/pipeline/COMPANION_PROMPT_V0.md`（v0.2 = 补"必须真调 memory_write / 不许空说已记下 / 除记忆外不写文件"）；**生产待上线窗口应用** |
-| 运行时模型（2026-10-24 更新） | **chat 伴侣页 `CHAT_MODEL` = `opencode/deepseek-v4.1-flash-free`**（#111：`mimo-v2.6-flash-free` 调不动 companion 插件的新工具 `project_sessions`，同插件 `session_status` 正常；deepseek 实测一次调通）；**chatcode 工作台 `DEFAULT_MODEL` 仍 `opencode/mimo-v2.6-flash-free`**（2026-10-12 二次拍板的理由继续适用，未动）。App 写死点：`services/conversation-kind.ts` 的 `CHAT_MODEL`（**单一事实源**，#76 起 ChatPanelZ 的本地副本已删）+ `model-registry.ts` 的 `DEFAULT_MODEL`——App 唯一真实目标是生产 opencode，而**生产没有 `opencode-go` provider**。**Go 档 `opencode-go/longcat-2.5-preview-free` 只用于本机/DSH 侧**（DSH 子代理 + 本机 memx 提炼；本机免费档被网关 403/429 挡），本机 `agents.companion.model` 已设 Go 档（与生产**有意差异**） |
+| 运行时模型（**2026-11-04 更新，旧版已作废**） | **chat 伴侣页 `CHAT_MODEL` = `opencode-go/deepseek-v4.1-flash`**（#193：免费档 `opencode/deepseek-v4.1-flash-free` 按 IP 限流且恢复时间不可预测，生产已订阅 OpenCode Go）（#111：`mimo-v2.6-flash-free` 调不动 companion 插件的新工具 `project_sessions`，同插件 `session_status` 正常；deepseek 实测一次调通）；**chatcode 工作台 `DEFAULT_MODEL` 仍 `opencode/mimo-v2.6-flash-free`**（2026-10-12 二次拍板的理由继续适用，未动）。App 写死点：`services/conversation-kind.ts` 的 `CHAT_MODEL`（**单一事实源**，#76 起 ChatPanelZ 的本地副本已删）+ `model-registry.ts` 的 `DEFAULT_MODEL`——**`providerID` 必须与生产模型目录一致**：2026-11-04 起生产已含 `opencode-go/*`，故 App 与生产同用 go 档；**撤销订阅必须同时回改三处**（App `CHAT_MODEL`、生产 `agents.companion.model`、`small_model`），漏一处即 `Model unavailable` |
 
 ✅ **真机端到端已验（2026-10-12，Go 模型 + 本机 serve + 隔离测试项目）**：P0-1 游标 `fresh→resumed`（各 `newTurns:1`）、P0-2 三态（`captured:1 refinements:1 invalidStreak:0`）、出口① `memory_write` 落地（`.mem` 文件 + MEMORY.md 索引 + diag `toolWrites:1`）；测试后 `USER.md`/`MEMORY.md` 已还原。仍未验 = **App 里 chip 的视觉呈现**。
 
@@ -273,9 +273,9 @@ cat ~/.opencode/USER.md
 
 | 项 | 状态 | 窗口动作 |
 |---|---|---|
-| 生产 opencode 认识 `opencode-go/*`？ | ❌ **不认识**——`opencode models` 只有 agnes / deepseek / opencode / sensenova / siliconflow-cn / stepfun（76 个模型） | **当前决定不用**（用户 2026-10-12：生产保持 mimo）。若将来要在生产用 Go 档，先解决这一项（刷新 models.dev 或按 DSH 侧 `~/.dsh/profiles/web/cordis.patch.yml` 显式声明 provider） |
+| 生产 opencode 认识 `opencode-go/*`？ | ✅ **认识（2026-11-04 起）**——生产已订阅 OpenCode Go，`opencode models` 含 `opencode-go/deepseek-v4.1-flash` 等；伴侣 `agents.companion.model` 与 `small_model` 均已切该档，App `CHAT_MODEL` 同步 | 2026-10-12 的旧结论「生产不认识、保持 mimo」**已作废**：当时未订阅。若撤销订阅，需同时回改三处（见 `AGENTS.md` 规则 11） |
 | 生产已装 memx？ | ❌ 无 `~/.config/opencode/plugins/` 目录；config 无 `plugins` 键 | 跑 memx `install.sh` + v2 `plugins` 注册 |
-| 生产 companion model | `opencode/mimo-v2.6-flash-free` | **保持不动**（用户 2026-10-12 二次拍板） |
+| 生产 companion model | `opencode/mimo-v2.6-flash-free` | ⚠️ **该行已作废**（2026-11-04 用户拍板切 `opencode-go/deepseek-v4.1-flash`，见上方运行时模型行） |
 | 生产 companion prompt | v0.1（无 memory_write 条款） | 应用 v0.2（`COMPANION_PROMPT_V0.md`） |
 | 生产 `instructions` | 已摘除（无记忆注入） | 窗口时决定是否恢复注入（memx `inject` 配置） |
 | 生产 `opencode` 命令指向 | ⚠️ `/usr/bin/opencode` → `../lib/node_modules/opencode-ai/bin/opencode.exe` = **v1.19.0**；v2 在 `/root/.opencode/bin/opencode`（`opencode2` 是同目录包装），**不在 PATH** → 直接敲 `opencode` 会用 v1 去读 v2 配置，报 `V2 permissions are not supported by OpenCode V1 … or run opencode2`（**配置本身没错**） | 推荐 `ln -sf /root/.opencode/bin/opencode /usr/bin/opencode`（先把旧 symlink 备份成 `.bak-v1`）——一行同时修好交互 shell 与微信桥的 `which opencode`。**别 `npm rm -g opencode-ai`**：它是现成的 v1 CLI 备用，真回滚物料是 `/root/backups/opencode-ai-1.18.34-installed.tgz` |
@@ -370,8 +370,8 @@ pnpm sync:op -- status|pull|push [--machine=<name>]  # 手工同步，与插件�
 | `opencode serve --service`（pid 1991381，2026-10-12 起就在跑） | 长期不重启 | `/root` | 127.0.0.1:49374 | 当前**无任何连接**；但 `opencode run` 默认连它 |
 
 - **`opencode run` 默认连"后台 service"守护进程**，不是 4096。要验证 app 路径上的插件行为，必须显式指定：
-  `OPENCODE_PASSWORD=<unit 里的值> opencode run --server http://127.0.0.1:4096 --model opencode/deepseek-v4.1-flash-free "…"`
-  （`opencode run --help` 里有 `--server` / `--standalone`；不加就是连后台 service。`--model` 取 App 侧 `CHAT_MODEL` 的当前值——2026-10-24 起是 `deepseek-v4.1-flash-free`，#111）
+  `OPENCODE_PASSWORD=<unit 里的值> opencode run --server http://127.0.0.1:4096 --model opencode-go/deepseek-v4.1-flash "…"`
+  （`opencode run --help` 里有 `--server` / `--standalone`；不加就是连后台 service。`--model` 取 App 侧 `CHAT_MODEL` 的当前值——**2026-11-04 起是 `opencode-go/deepseek-v4.1-flash`**，旧值 `deepseek-v4.1-flash-free` 已作废）
 - 踩坑实测：在 prod 上直接 `opencode run` 验证，拿到的是那个**常驻旧实例**的 diag —— `sync:{enabled:false}`、`lastPullAt` 不推进，看起来像"插件没生效"；改走 `--server …:4096` 后同一次验证立刻显示 `sync:{enabled:true, machineName:"prod"}` 且 `lastPullAt` 推进（插件实例是按目录/进程懒加载的，旧进程里的实例读的是**旧配置**）。
 - `HOME` 未设**没有**影响 memx（Bun/Node 的 `homedir()` 回落到 `getpwuid` → `/root`；证据：注入字节数 11280 = `/root/.opencode` 下 协议 4362 + USER 1865 + MEMORY 5053 之和），但属潜在隐患 —— 建议给 unit 补 `Environment=HOME=/root`（需窗口 + 重启）。
 - 那个常驻 `--service` 进程当前是**惰性**的；但任何经它跑的会话，其记忆**不会同步**（它的插件实例是旧配置）。来源疑似微信桥的重复拉起（`guraul/wechat-opencode-bridge#1`：把 v2 的 `/api/health` 401 当成"没在跑"）。

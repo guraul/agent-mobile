@@ -9,9 +9,10 @@
 // 决策（用户 2026-09-29）：全量切 `opencode/mimo-v2.6-flash-free`（实测可跑通）；
 // DeepSeek Pro 一律不用，且从模型选择器中排除。
 //
-// 2026-10-12 用户拍板（二次）：**App 侧保持 `opencode/mimo-v2.6-flash-free`**——App 的唯一
-// 真实目标是生产 opencode，而生产的模型目录里没有 `opencode-go`（写死 Go 档 = 手机端
-// Model unavailable）。Go 档只用于 DSH 子代理 + 本机 memx 提炼。
+// 2026-10-12 用户拍板（二次）：**chatcode 侧保持 `opencode/mimo-v2.6-flash-free`**。
+// 注：当时理由是「生产模型目录没有 `opencode-go`」，该前提**已于 2026-11-04 改变**——生产已
+// 订阅 OpenCode Go，伴侣页 `CHAT_MODEL` 已切 `opencode-go/deepseek-v4.1-flash`（#193）；
+// chatcode 侧（本文件的 DEFAULT_MODEL）暂不动，仍走免费档。
 //
 // 纯函数 + 零 RN 依赖，可单测。红线：勿把已下线模型写回本文件。
 
