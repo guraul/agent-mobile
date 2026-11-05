@@ -46,7 +46,10 @@
 10. **委派与职责二分**：见 `~/.dsh/AGENTS.md` §8（DSH 控制面 / opencode 执行面、必须委派范围、主模型只做、作用域边界、并发纪律、任务书体量）。
     - **本仓特有**：`merge-pr.sh` 的命令执行可委派；合并前的审核闸门、绕过条件与留痕要求，一律按全局 `~/.dsh/AGENTS.md` §7 第 6/7 条，本文件不复述。
 11. **子代理模型与委派质量**：见 `~/.dsh/AGENTS.md` §9（唯一档 / codebuddy 例外 / 不降级 / 任务体量与粒度 / 验收证据 / 失败判据 / `opencode run --model` / 不写死基线）。
-    - **本仓特有 · App/companion 运行时模型（2026-10-24 #111 起已改）**：chat 伴侣页 `CHAT_MODEL` = **`opencode/deepseek-v4.1-flash-free`**（`src/services/conversation-kind.ts`，单一事实源；原因：mimo 调不动 companion 插件的新工具 `project_sessions`，deepseek 实测一次调通）；chatcode 工作台 `DEFAULT_MODEL` 仍 `opencode/mimo-v2.6-flash-free`。**`providerID` 必须保持 `opencode`** —— App 唯一真实目标是生产 opencode，而**生产没有 `opencode-go` provider**，写死 Go 档会让手机端直接 `Model unavailable`。
+    - **本仓特有 · App/companion 运行时模型（2026-11-04 用户拍板改 go 档）**：chat 伴侣页 `CHAT_MODEL` = **`opencode-go/deepseek-v4.1-flash`**（`src/services/conversation-kind.ts`，单一事实源），chatcode 工作台 `DEFAULT_MODEL` 仍 `opencode/mimo-v2.6-flash-free`。
+    - 为什么改：免费档 `opencode/deepseek-v4.1-flash-free` 按 IP 限流且恢复时间不可预测，用户侧表现为「发消息有时没反应」；生产已订阅 OpenCode Go。
+    - 历史（2026-10-24 #111）：免费档时期选 deepseek 而非 mimo，是因为 mimo **调不动** companion 插件的 `project_sessions` 工具。
+    - ⚠️ **`providerID` 必须与生产 opencode 的模型目录一致**：2026-11-04 起生产已有 `opencode-go/*`，故用 go 档正确。**若将来撤销 go 订阅，必须同步改回 `opencode/...`**，否则手机端会 `Model unavailable`。
 12. **非限流故障不降级**：见 `~/.dsh/AGENTS.md` §9。
 13. **包管理器只用 pnpm**：见 `~/.dsh/AGENTS.md` §3。本仓注意：规则 1 里的 `npx expo install` 一律写成 `pnpm exec expo install`。
 14. **worktree 纪律**：通用纪律（关闭即清理、绝对路径 + 主仓根、外仓用仓库外容器）见 `~/.dsh/AGENTS.md` §7。
