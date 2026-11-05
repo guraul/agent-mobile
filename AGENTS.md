@@ -61,7 +61,7 @@
 12. **非限流故障不降级**：见 `~/.dsh/AGENTS.md` §9。
 13. **包管理器只用 pnpm**：见 `~/.dsh/AGENTS.md` §3。本仓注意：规则 1 里的 `npx expo install` 一律写成 `pnpm exec expo install`。
 14. **worktree 纪律**：通用纪律（关闭即清理、绝对路径 + 主仓根、外仓用仓库外容器）见 `~/.dsh/AGENTS.md` §7。
-    - **本仓特有 ④**：`merge-pr.sh` 已修（#102 → PR #103 `1f38630`）——从**主工作区**运行会「清该任务 worktree + 删本地分支 + 快进 main」，推荐 `scripts/pipeline/merge-pr.sh <PR号>`（shell 不会站在被删目录里）；从 worktree 内运行同样会清理，但**被清的就是你所在的 worktree**。**脚本自检**：`bash scripts/pipeline/test-merge-pr.sh`（PATH 打桩伪造 git/gh/node，不碰真实远端）。
+    - **本仓特有 ④**：`merge-pr.sh` 已修（#102 → PR #103 `1f38630`）——从**主工作区**运行会「清该任务 worktree + 删本地分支 + 快进 main」，推荐 `scripts/pipeline/merge-pr.sh <PR号>`（shell 不会站在被删目录里）；从 worktree 内运行同样会清理，但**被清的就是你所在的 worktree**。**脚本自检**：手写 `test-*.sh` 自检与 `lib.sh` 已随生成物移除（#220），现由共享包 `dsh-pipeline selftest --shims --config` 覆盖。
 15. **读写长期记忆**：见 `~/.dsh/AGENTS.md` §10（只走宿主工具、禁直写 `~/.opencode/**`）。旧的 `pnpm mem …` CLI 已在 memx PR #25（issue #24）删除；语义见 memx `AGENTS.md` 规则 17 与 `docs/knowledge-base/OPERATIONS.md`。
 
 ## BROWSER AUTOMATION (Playwright)

@@ -1,7 +1,7 @@
 # Pipeline 工作手册
 
 > 面向**任何人或任何 coding agent** 的交付流程说明。所有能力都是幂等 bash 脚本（`scripts/pipeline/`），不依赖任何特定 agent 的插件。
-> 进度台账见 [PROGRESS.md](PROGRESS.md)。
+> 目录里 6 个入口是共享包 `dsh-pipeline` 的**生成物**（见 [`scripts/pipeline/README.md`](../../scripts/pipeline/README.md)，禁止手改）；进度台账见 [PROGRESS.md](PROGRESS.md)。
 
 ## 一、流程总览
 
@@ -32,7 +32,7 @@
 # 任务入口（issue → worktree）
 scripts/pipeline/new-task.sh 12
 #   输出 worktree 路径，cd 进去开发；重复运行幂等
-#   自检（假包 + PATH 打桩，不碰真实 git 远端/GitHub）：bash scripts/pipeline/test-new-task.sh
+#   自检（墓碑）：原 test-new-task.sh 已随生成物移除（#220），由 dsh-pipeline selftest --shims 覆盖
 
 # 开 PR（推荐在 worktree 目录内运行）
 cd .worktrees/12-xxx && ../../scripts/pipeline/open-pr.sh
@@ -41,7 +41,7 @@ scripts/pipeline/open-pr.sh --worktree <dir>
 #   目标解析（issue #108）：-C/--worktree > 脚本自身所在工作区；**cwd 不参与**
 #     → 从主工作区用绝对路径调用 worktree 里的脚本，也会解析到那个 worktree，而不是 main
 #   在 main 工作区跑（分支不是 task/*）会拒绝；报错一律带「目标工作区 / 分支 / 调用 cwd」
-#   自检（假包 + PATH 打桩，不碰真实 git 远端/GitHub）：bash scripts/pipeline/test-open-pr.sh
+#   自检（墓碑）：原 test-open-pr.sh 已随生成物移除（#220），由 dsh-pipeline selftest --shims 覆盖
 
 # 审核（prepare 生成审核请求 + publish 判定落盘；共享包 review 子命令的薄转发壳，issue #194）
 scripts/pipeline/review.sh prepare 34 [--model <模型>]
@@ -49,7 +49,7 @@ scripts/pipeline/review.sh publish 34 --response <文件> [--round <n>] [--model
 scripts/pipeline/review.sh prepare 34 -C <dir>   # 指定目标工作区（同 --worktree；只影响 WORK_DIR，--root 仍取主工作区）
 #   prepare 产物写 <root>/.tmp/review/<pr>/request.json；publish 落 <root>/.dsh-web/reviews/<pr>-<sha>.json
 #   退出码：0 成功 / 1 环境错误（die）/ 2 用法错误（缺参、未知参数）/ 其余为包退出码原样透传
-#   自检（假包 + PATH 打桩，不碰真实 git 远端/GitHub）：bash scripts/pipeline/test-review.sh
+#   自检（墓碑）：原 test-review.sh 已随生成物移除（#220），由 dsh-pipeline selftest --shims 覆盖
 
 # 合并（审核方 APPROVE 且未命中高风险；绕过见全局 ~/.dsh/AGENTS.md §7.7）
 #   前置：在主工作区 tools/ 里 `pnpm install`（装 dsh-pipeline 的 tgz 构建物，见 tools/package.json）
@@ -68,7 +68,7 @@ scripts/pipeline/merge-pr.sh --force    # CI 失败时强行合并（慎用）
 #       main 快进到 origin/main。✅ 推荐用法（shell 不会站在被删的目录里）
 #     · 从 worktree 内运行（无参数）：同样会清理——被清的就是你所在的 worktree，shell 会被"连根
 #       带走"（目录已删）；建议先 cd 回主工作区再运行
-#   自检（PATH 打桩，不碰真实 git 远端/GitHub）：bash scripts/pipeline/test-merge-pr.sh
+#   自检（墓碑）：原 test-merge-pr.sh 已随生成物移除（#220），由 dsh-pipeline selftest --shims 覆盖
 
 # 手工部署 / 回滚（墓碑）
 # 手工部署已由 .github/workflows/deploy-web.yml 承接（workflow_dispatch 可手动触发）；
