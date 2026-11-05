@@ -13,7 +13,7 @@ export interface UseL1Result {
   statements: L1Statement[];
   /** 行情跑马灯投影（market-estimate 类） */
   funds: L1MarketEstimateData[];
-  /** Phase 12：Noticed 投影的 L1 statements（observation + retry-report + calendar + backlog-nudge） */
+  /** Phase 12：Noticed 投影的 L1 statements（observation + retry-report + calendar + backlog-nudge + inbox-nudge + assignment-done） */
   noticed: L1Statement[];
   connected: boolean;
   loading: boolean;
@@ -34,7 +34,7 @@ export function useL1(): UseL1Result {
   const mountedRef = useRef(true);
 
   // SSE 每帧是全量替换，但帧里只有内存态 L1（/stream 不含 agent_reports 持久报告）。
-  // 因此把上一状态里未过期的持久报告（retry-report / backlog-nudge）并回去，
+  // 因此把上一状态里未过期的持久报告（retry-report / backlog-nudge / inbox-nudge / assignment-done）并回去，
   // 否则 snapshot 拿到的报告会被下一帧冲掉。
   const apply = useCallback((items: L1Statement[]) => {
     if (!mountedRef.current) return;
@@ -42,7 +42,10 @@ export function useL1(): UseL1Result {
       const now = Date.now();
       const carried = prev.filter(
         (s) =>
-          (s.kind === "retry-report" || s.kind === "backlog-nudge" || s.kind === "inbox-nudge") &&
+          (s.kind === "retry-report" ||
+            s.kind === "backlog-nudge" ||
+            s.kind === "inbox-nudge" ||
+            s.kind === "assignment-done") &&
           (s.expiresAt === null || s.expiresAt > now),
       );
       if (carried.length === 0) return items;
@@ -94,14 +97,16 @@ export function useL1(): UseL1Result {
   // calendar 是外部 ICS 日历的今日陈述（外部域切片 2，agent-mobile#153），
   // backlog-nudge 是未处理事项积压提醒（homebase 33a5d49，同走 agent_reports），
   // inbox-nudge 是收件箱整理提醒（homebase #137，同走 agent_reports，有积压才有），
-  // 与 observation 同属 informational，文案由服务端 L1 rule 生成，原样透传。
+  // assignment-done 是一次性任务完成回音（homebase #139，同走 agent_reports；ongoing 不逐次报），
+  // 与 observation 同属 informational，文案由服务端生成（L1 rule 或写报告的 handler），原样透传。
   const noticed = statements.filter(
     (s) =>
       s.kind === "observation" ||
       s.kind === "retry-report" ||
       s.kind === "calendar" ||
       s.kind === "backlog-nudge" ||
-      s.kind === "inbox-nudge",
+      s.kind === "inbox-nudge" ||
+      s.kind === "assignment-done",
   );
 
   return { statements, funds, noticed, connected, loading, refresh };
