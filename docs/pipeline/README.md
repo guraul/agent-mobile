@@ -24,7 +24,7 @@
 
 **审核闸门**：`merge-pr.sh` 已改成共享包 `dsh-pipeline` 的薄转发壳（issue #187），闸门判定、CI 校验、squash 合并与现场清理都在包里，本仓不再保留第二份实现。审核方 `APPROVE` 且未命中高风险 → 直接合并，不再问人；三种人工介入情形与绕过规则见全局 `~/.dsh/AGENTS.md` §7 第 6/7 条。
 
-**任务入口与开 PR**：`new-task.sh` / `open-pr.sh` 同样是薄转发壳（issue #189），分别转发到包的 `task` / `pr` 子命令；`-C` / `--worktree` 映射成包的 `--root`，其余参数原样透传。退出码：`0` 成功、`1` 本壳的用法或环境错误（走 `die`）、其它为包的退出码原样透传（包用 `2` 表示用法或环境错误）。行为实现在包里，本仓只保留文件名与用法。
+**任务入口与开 PR**：`new-task.sh` / `open-pr.sh` 同样是薄转发壳（issue #189），分别转发到包的 `task` / `pr` 子命令；`-C` / `--worktree` 映射成包的 `--root`，其余参数原样透传。退出码：**入口是生成物，不改写任何退出码**——只有两种壳自身错误：未知入口 `2`、找不到共享包 `3`；其余一律透传包的退出码（包用 `2` 表示用法错误、`1` 表示业务拒绝）。行为实现在包里，本仓只保留生成的文件名。
 
 ## 二、脚本用法
 
@@ -75,9 +75,8 @@ scripts/pipeline/merge-pr.sh --force    # CI 失败时强行合并（慎用）
 # 原 scripts/pipeline/deploy.sh、rollback.sh 已于 2026-11-05 删除；
 # 应急直接用 ssh + ln -sfn releases/<id> dist + systemctl restart serve-9928
 
-# 收敛生产 `opencode` 命令到 v2（E1 升级遗留的 npm v1 残留；issue #84）
-scripts/pipeline/fix-opencode-binary.sh [--dry-run]
-#   备份旧 symlink → /root/backups/opencode-v1-symlink.bak → 重指 v2 → 校验 --version；幂等
+# 收敛生产 `opencode` 命令到 v2（E1 遗留）：原 fix-opencode-binary.sh 已于 2026-11-05 删除
+#   （它是 `scripts/pipeline/` 里最后一个手写脚本，依赖的 lib.sh 已随生成物移除；需要时查 git 历史）
 
 # 全链路状态（只读）
 scripts/pipeline/status.sh
@@ -95,7 +94,7 @@ scripts/pipeline/status.sh
 | 静态站目录 | `/root/project/agent-mobile/agent-mobile-app/dist`（当前为覆盖式部署；Phase 2 改 `releases/<id>` + `current` 软链） |
 | 仓库 checkout | `/root/project/agent-mobile`、`/root/project/homebase` |
 | node | v24.21.0（nodesource apt） |
-| 已知问题 | BFF 生产跑的是 `next dev`（Phase 3 修）；19235 阶段2 BFF 未运行；生产 `opencode` 命令曾解析到 v1（E1 探针包残留，issue #84 → `fix-opencode-binary.sh` 收敛，需窗口执行） |
+| 已知问题 | BFF 生产跑的是 `next dev`（Phase 3 修）；19235 阶段2 BFF 未运行；生产 `opencode` 命令曾解析到 v1（E1 探针包残留，issue #84；原 `fix-opencode-binary.sh` 已于 2026-11-05 删除，收敛步骤见 git 历史） |
 
 ## 四、关键约定（红线）
 

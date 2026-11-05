@@ -9,4 +9,4 @@ node tools/node_modules/dsh-pipeline/bin/cli.mjs shim install --root <仓库根>
 
 改生成逻辑去 `guraul/dsh-pipeline` 的 `docs/CONTRACT.md`（契约 §8 入口 shim），改完重新 `shim install` 覆盖本地入口。
 
-本仓 worktree 用默认仓内 `.worktrees/`（`.dsh/pipeline.json` 不设 `worktreesDir`）；`fix-opencode-binary.sh` 是手写脚本，不在生成物之列。
+本仓 worktree 用默认仓内 `.worktrees/`（`.dsh/pipeline.json` 不设 `worktreesDir`）。本目录**只有生成物**，不再保留任何手写脚本。
