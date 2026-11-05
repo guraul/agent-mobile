@@ -1,0 +1,33 @@
+name: rollback-web
+
+on:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: '留空=回滚到上一版'
+        type: string
+        required: false
+      dry_run:
+        description: '只看回滚计划，不实际切换'
+        type: boolean
+        default: false
+
+# 与 deploy-web 同一把锁：回滚与部署不同时跑
+concurrency:
+  group: deploy-web
+  cancel-in-progress: false
+
+jobs:
+  rollback:
+    uses: guraul/dsh-pipeline/.github/workflows/rollback.yml@bfa569e3053b6bb9feac660af52605f88f32a09f
+    with:
+      service: serve-9928
+      remote_dir: /root/project/agent-mobile/agent-mobile-app
+      release: ${{ inputs.release }}
+      ssh_host: 106.13.181.13
+      health_check: ssh
+      health_url: http://127.0.0.1:9929/
+      public_health_url: https://106.13.181.13/
+      public_health_insecure: true
+      dry_run: ${{ inputs.dry_run }}
+    secrets: inherit

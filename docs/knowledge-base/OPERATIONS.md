@@ -89,7 +89,7 @@ node test/bff-e2e.mjs      # 登录 → 横幅消失 → 打开项目 → 动态
 ## Web 部署（手机浏览器，静态产物）
 
 > **部署方式（2026-09-27 起，Pipeline Phase 2）**：**主路径 = GitHub Actions 自动部署**（`.github/workflows/deploy-web.yml`：main push 且 `agent-mobile-app/**` 变更 → tsc/test → expo export → rsync → 切软链 → restart → 线上验证）。
-> **手工部署**：已由 `.github/workflows/deploy-web.yml` 承接（`workflow_dispatch` 可手动触发）；原 `scripts/pipeline/deploy.sh`、`rollback.sh` 已于 2026-11-05 删除；应急直接用 `ssh` + `ln -sfn releases/<id> dist` + `systemctl restart serve-9928`。手册见 `docs/pipeline/README.md`。
+> **部署 / 回滚**：部署已由 `.github/workflows/deploy-web.yml` 承接（`workflow_dispatch` 可手动触发）；原 `scripts/pipeline/deploy.sh`、`rollback.sh` 已于 2026-11-05 删除。**回滚：Actions → `rollback-web` → Run workflow（`release` 留空=上一版，可先 `dry_run` 看计划）；GitHub 不可用**时才手工：① 查版本 `ssh root@<host> "ls -1dt <remote_dir>/releases/*/"`；② 确认当前 `ssh … "readlink <remote_dir>/dist"`；③ 切 `ssh … "cd <remote_dir> && ln -sfn releases/<目标> dist && systemctl restart serve-9928"`；④ 验活 `ssh … "curl -sS -m 8 -o /dev/null -w '%{http_code}' http://127.0.0.1:9929/"`（要 200）。手册见 `docs/pipeline/README.md`。
 >
 > **服务器布局**：`/root/project/agent-mobile/agent-mobile-app/` 下 `releases/<id>/` 为产物目录（保留最近 5 版），`dist` 是指向当前版本的软链；`serve-9928.service` 托管（enabled 开机自启），重启才刷新 gzipCache。
 > **2026-11-05 拓扑变更**：产品 App 改由 Caddy 在 **443** 同源提供（`/api/*` → BFF，其余 → 静态服务 `127.0.0.1:9929`）；**9928 让给财务后台**（Caddy 全量反代 BFF）。页面与 API 同源后 **不再依赖 CORS 允许列表**（旧 9928 origin 列表仅对历史 http 入口有效）。
@@ -97,7 +97,7 @@ node test/bff-e2e.mjs      # 登录 → 横幅消失 → 打开项目 → 动态
 ```bash
 # 自动部署：merge 到 main 即触发（actions 页面可见进度）；workflow_dispatch 也可手动触发
 # 手工部署/回滚（墓碑）：原 scripts/pipeline/deploy.sh、rollback.sh 已于 2026-11-05 删除
-# 应急：ssh + ln -sfn releases/<id> dist + systemctl restart serve-9928
+# 回滚：Actions → rollback-web（release 留空=上一版）；GitHub 不可用才手工：ln -sfn releases/<目标> dist + systemctl restart serve-9928
 scripts/pipeline/status.sh             # 全链路状态
 ```
 
