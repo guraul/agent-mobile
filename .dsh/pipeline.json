@@ -1,6 +1,6 @@
 {
   "repo": "guraul/agent-mobile",
-  "highRisk": ["deploy.sh", "rollback.sh", ".github/**"],
+  "highRisk": [".github/**"],
   "roles": {
     "reviewer": {
       "provider": "codebuddy",
