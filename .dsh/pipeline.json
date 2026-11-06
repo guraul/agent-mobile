@@ -1,5 +1,11 @@
 {
   "repo": "guraul/agent-mobile",
-  "ci": [],
-  "highRisk": ["deploy.sh", "rollback.sh", ".github/**"]
+  "highRisk": ["deploy.sh", "rollback.sh", ".github/**"],
+  "roles": {
+    "reviewer": {
+      "provider": "codebuddy",
+      "model": "codebuddy/glm-5.3-flash",
+      "instructions": "只读审核：不改任何文件；逐条对照 issue 验收标准给判定；判定行必须带请求里的 nonce 与 head SHA；证据不足或不确定时给 ESCALATE。"
+    }
+  }
 }
