@@ -1,6 +1,22 @@
 {
   "repo": "guraul/agent-mobile",
   "highRisk": [".github/**"],
+  "deploy": {
+    "artifact": "static-dir",
+    "service": "serve-9928",
+    "remoteDir": "/root/project/agent-mobile/agent-mobile-app",
+    "workDir": "agent-mobile-app",
+    "artifactDir": "dist",
+    "sshHost": "106.13.181.13",
+    "health": {
+      "url": "http://127.0.0.1:9929/",
+      "check": "ssh",
+      "publicUrl": "https://106.13.181.13/",
+      "insecure": true
+    },
+    "keepReleases": 5,
+    "paths": ["agent-mobile-app/**", ".github/workflows/deploy-web.yml"]
+  },
   "roles": {
     "reviewer": {
       "provider": "codebuddy",

@@ -1,8 +1,10 @@
+# >>> dsh-pipeline 生成区（勿手改，改配置后重跑 deploy init）
 name: deploy-web
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
     paths:
       - 'agent-mobile-app/**'
       - '.github/workflows/deploy-web.yml'
@@ -14,21 +16,25 @@ concurrency:
 
 jobs:
   deploy:
-    # pin 到具体提交而不是 @main：上游改动不该静默改变线上部署行为
-    uses: guraul/dsh-pipeline/.github/workflows/deploy.yml@4f376ebc5296db910604d6afae792647abdee1fd
+    uses: guraul/dsh-pipeline/.github/workflows/deploy.yml@106a8aae2f6b1084e98b39397a3d8779cbbacee3
     with:
-      mode: releases
-      service: serve-9928
-      remote_dir: /root/project/agent-mobile/agent-mobile-app
-      work_dir: agent-mobile-app
-      artifact_dir: dist
-      # 对外入口 2026-11-05 起只回 400（Caddy 只收 HTTPS），改为在服务器上探静态服务本地端口
-      health_check: ssh
-      health_url: http://127.0.0.1:9929/
-      ssh_host: 106.13.181.13
-      public_health_url: https://106.13.181.13/
+      mode: 'releases'
+      assemble: 'static-dir'
+      service: 'serve-9928'
+      remote_dir: '/root/project/agent-mobile/agent-mobile-app'
+      work_dir: 'agent-mobile-app'
+      artifact_dir: 'dist'
+      ssh_host: '106.13.181.13'
+      health_url: 'http://127.0.0.1:9929/'
+      health_check: 'ssh'
+      public_health_url: 'https://106.13.181.13/'
       public_health_insecure: true
+      keep_releases: 5
     secrets: inherit
+# <<< dsh-pipeline 生成区结束（以下可追加本仓自己的后置 job）
+# 生成区里的取值全部来自 .dsh/pipeline.json 的 deploy 段（改配置后重跑 deploy init）：
+#   health.check=ssh —— 对外入口 2026-11-05 起只回 400（Caddy 只收 HTTPS），改在服务器上探本地端口 9929
+#   uses 的 pin —— 等于本仓 tools/node_modules/dsh-pipeline/build.json 的 gitSha：上游改动不会静默改变线上部署行为
 
   post-deploy:
     needs: deploy
