@@ -40,6 +40,8 @@ jobs:
     needs: deploy
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
       - name: Setup deploy key
         run: |
           mkdir -p ~/.ssh
@@ -86,6 +88,7 @@ jobs:
       - name: Infra drift check
         continue-on-error: true
         run: |
+          set -o pipefail
           SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new root@106.13.181.13"
           if ! SSH_CMD="$SSH" bash deploy/check.sh 2>&1 | tail -40; then
             echo "::warning::基础设施与仓库不一致（见上方 diff），请人工确认后再决定是否同步"
