@@ -80,3 +80,13 @@ jobs:
           if ! $SSH "cd /root/project/agent-mobile/agent-mobile-app && timeout 900 pnpm e2e:nosend" 2>&1 | tail -40; then
             echo "::warning::e2e 冒烟失败（产物已上线，请人工复核）"
           fi
+
+      # 基础设施漂移检测（只告警不阻断）：deploy/ 里的 Caddy 与 systemd 配置是线上真源的副本，
+      # 有人手改线上会让两边不一致。这里只比对、只告警，绝不自动改线上入口配置（Caddy 重启有中断）。
+      - name: Infra drift check
+        continue-on-error: true
+        run: |
+          SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new root@106.13.181.13"
+          if ! SSH_CMD="$SSH" bash deploy/check.sh 2>&1 | tail -40; then
+            echo "::warning::基础设施与仓库不一致（见上方 diff），请人工确认后再决定是否同步"
+          fi

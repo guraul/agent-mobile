@@ -1,0 +1,27 @@
+{
+	auto_https off
+	admin off
+}
+
+:443 {
+	tls /etc/caddy/selfsigned.crt /etc/caddy/selfsigned.key
+	encode gzip
+
+	@bff path /api/* /_next/* /files/*
+	handle @bff {
+		reverse_proxy 127.0.0.1:19234 {
+			header_up X-Forwarded-Proto https
+		}
+	}
+	handle {
+		reverse_proxy 127.0.0.1:9929
+	}
+}
+
+:9928 {
+	tls /etc/caddy/selfsigned.crt /etc/caddy/selfsigned.key
+	encode gzip
+	reverse_proxy 127.0.0.1:19234 {
+		header_up X-Forwarded-Proto https
+	}
+}
