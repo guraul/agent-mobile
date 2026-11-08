@@ -15,7 +15,8 @@ export type L1Kind =
   | "calendar"
   | "backlog-nudge"
   | "inbox-nudge"
-  | "assignment-done";
+  | "assignment-done"
+  | "deploy-failed";
 
 export interface L1Statement {
   id: string;
