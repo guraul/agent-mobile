@@ -8,15 +8,26 @@ import { tokenHeader, handleUnauthorized } from "./auth";
 // SSE 语义：每帧全量替换当前生效 statements（无逐条 add/remove protocol）。
 // snapshot：首屏/重连对账。
 
-export type L1Kind =
-  | "market-estimate"
-  | "observation"
-  | "retry-report"
-  | "calendar"
-  | "backlog-nudge"
-  | "inbox-nudge"
-  | "assignment-done"
-  | "deploy-failed";
+/**
+ * 持久报告类 kind：由 homebase 写进 `agent_reports`，SSE 帧里**不含**它们，
+ * 必须靠 `carryPersistents` 把上一状态并回，否则会被下一帧冲掉（「闪一下就没」）。
+ * 新增此类 kind 只改这里一处——`carryPersistents` 与 `projectNoticed` 都从集合派生。
+ */
+export const PERSISTENT_L1_KINDS = [
+  "retry-report",
+  "backlog-nudge",
+  "inbox-nudge",
+  "assignment-done",
+  "deploy-failed",
+] as const;
+
+/** 非持久、但同样进「提醒」列表的 kind（行情走跑马灯，不在此列）。 */
+export const NOTICED_ONLY_L1_KINDS = ["observation", "calendar"] as const;
+
+export type PersistentL1Kind = (typeof PERSISTENT_L1_KINDS)[number];
+export type NoticedOnlyL1Kind = (typeof NOTICED_ONLY_L1_KINDS)[number];
+
+export type L1Kind = "market-estimate" | PersistentL1Kind | NoticedOnlyL1Kind;
 
 export interface L1Statement {
   id: string;

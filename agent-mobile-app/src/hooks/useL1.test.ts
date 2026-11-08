@@ -45,3 +45,27 @@ describe("deploy-failed（homebase #183/#184，agent_reports 持久报告）", (
     expect(carryPersistents(expired, [], Date.now())).toEqual([]);
   });
 });
+
+describe("kind 集合派生（新增 kind 只改 services/l1.ts 一处）", () => {
+  it("非持久 kind（observation / calendar / market-estimate）不被 carried", () => {
+    const prev: L1Statement[] = [
+      statement({ id: "o1", kind: "observation", expiresAt: null }),
+      statement({ id: "c1", kind: "calendar", expiresAt: null }),
+      statement({ id: "m1", kind: "market-estimate", expiresAt: null }),
+    ];
+    const nextFrame: L1Statement[] = [];
+    const merged = carryPersistents(prev, nextFrame);
+    expect(merged).toHaveLength(0);
+  });
+
+  it("expiresAt === null 的持久报告必须被 carried", () => {
+    const merged = carryPersistents([statement({ expiresAt: null })], []);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].kind).toBe("deploy-failed");
+  });
+
+  it("已过期的持久报告不被 carried", () => {
+    const merged = carryPersistents([statement({ expiresAt: Date.now() - 1000 })], []);
+    expect(merged).toHaveLength(0);
+  });
+});

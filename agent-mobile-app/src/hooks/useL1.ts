@@ -3,9 +3,16 @@ import {
   fetchL1,
   subscribeL1,
   toMarketEstimate,
+  PERSISTENT_L1_KINDS,
+  NOTICED_ONLY_L1_KINDS,
   type L1Statement,
   type L1MarketEstimateData,
 } from "@/services/l1";
+
+/** kind 是否属于持久报告（从单一集合派生，新增 kind 只改 `services/l1.ts`）。 */
+const PERSISTENT = new Set<string>(PERSISTENT_L1_KINDS);
+/** 「提醒」列表接受的 kind = 持久报告 ∪ observation/calendar。 */
+const NOTICED = new Set<string>([...PERSISTENT_L1_KINDS, ...NOTICED_ONLY_L1_KINDS]);
 import { tokenHeader, loadToken } from "@/services/auth";
 
 export interface UseL1Result {
@@ -31,13 +38,7 @@ export function carryPersistents(
   now: number = Date.now(),
 ): L1Statement[] {
   const carried = prev.filter(
-    (s) =>
-      (s.kind === "retry-report" ||
-        s.kind === "backlog-nudge" ||
-        s.kind === "inbox-nudge" ||
-        s.kind === "assignment-done" ||
-        s.kind === "deploy-failed") &&
-      (s.expiresAt === null || s.expiresAt > now),
+    (s) => PERSISTENT.has(s.kind) && (s.expiresAt === null || s.expiresAt > now),
   );
   if (carried.length === 0) return items;
   const ids = new Set(items.map((i) => i.id));
@@ -45,22 +46,13 @@ export function carryPersistents(
 }
 
 /**
- * Noticed 投影：哪些 kind 进「提醒」列表。retry-report / backlog-nudge / inbox-nudge /
- * assignment-done / deploy-failed 都是 agent_reports 持久报告，calendar 是外部 ICS 今日陈述，
- * 与 observation 同属 informational，文案由服务端生成，原样透传。
- * deploy-failed 是部署失败上报（homebase #183/#184，走 agent_reports）：缺 carried 会「闪一下就被下一帧冲掉」，缺 noticed 就完全不显示。
+ * Noticed 投影：哪些 kind 进「提醒」列表。清单来自 `services/l1.ts` 的两个集合
+ * （持久报告 + observation/calendar），文案由服务端生成，原样透传。
+ * 持久报告（含 deploy-failed，homebase #183/#184）缺 carried 会「闪一下就被下一帧冲掉」，
+ * 缺本投影就完全不显示——两处都从同一集合派生，新增 kind 不需要再改这里。
  */
 export function projectNoticed(statements: L1Statement[]): L1Statement[] {
-  return statements.filter(
-    (s) =>
-      s.kind === "observation" ||
-      s.kind === "retry-report" ||
-      s.kind === "calendar" ||
-      s.kind === "backlog-nudge" ||
-      s.kind === "inbox-nudge" ||
-      s.kind === "assignment-done" ||
-      s.kind === "deploy-failed",
-  );
+  return statements.filter((s) => NOTICED.has(s.kind));
 }
 
 /**
