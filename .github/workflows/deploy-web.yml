@@ -93,3 +93,26 @@ jobs:
           if ! SSH_CMD="$SSH" bash deploy/check.sh 2>&1 | tail -40; then
             echo "::warning::基础设施与仓库不一致（见上方 diff），请人工确认后再决定是否同步"
           fi
+
+  # 部署失败进 Pulse（homebase #183 的内部端点）：失败只体现在 Actions 红叉上没人看，
+  # 写一条 agent_reports 让它出现在每天都会看的 Pulse 里。
+  # 令牌留在服务器（从 bff 的 systemd 环境里取到变量，只用不打印），不进 GitHub Secrets。
+  notify-failure:
+    needs: [deploy, post-deploy]
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup deploy key
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+      - name: Report deploy failure to Pulse
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new root@106.13.181.13"
+          TEXT="部署失败：agent-mobile ${GITHUB_SHA:0:7}（${GITHUB_EVENT_NAME}）· ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          JSON=$(printf '{"kind":"deploy-failed","text":"%s"}' "$TEXT")
+          printf '%s' "$JSON" | $SSH "TOKEN=\$(systemctl show bff-19234 -p Environment --value | tr ' ' '\n' | sed -n 's/^INTERNAL_READ_TOKEN=//p'); if [ -z \"\$TOKEN\" ]; then echo '未取到内部令牌，跳过上报' >&2; exit 0; fi; curl -sS -m 8 -X POST http://127.0.0.1:19234/api/internal/agent-reports -H 'content-type: application/json' -H \"x-internal-token: \$TOKEN\" -d @-"
