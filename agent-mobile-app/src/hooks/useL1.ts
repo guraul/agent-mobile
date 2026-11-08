@@ -20,7 +20,7 @@ export interface UseL1Result {
   statements: L1Statement[];
   /** 行情跑马灯投影（market-estimate 类） */
   funds: L1MarketEstimateData[];
-  /** Phase 12：Noticed 投影的 L1 statements（observation + retry-report + calendar + backlog-nudge + inbox-nudge + assignment-done + deploy-failed） */
+  /** Phase 12：Noticed 投影的 L1 statements（kind 清单见 `services/l1.ts` 的两个集合） */
   noticed: L1Statement[];
   connected: boolean;
   loading: boolean;
@@ -30,7 +30,7 @@ export interface UseL1Result {
 /**
  * SSE 帧全量替换时的并回：帧里只有内存态 L1（/stream 不含 agent_reports 持久报告），
  * 因此把上一状态里未过期的持久报告并进新帧，否则 snapshot 拿到的报告会被下一帧冲掉。
- * deploy-failed 是部署失败上报（homebase #183/#184，走 agent_reports）：缺 carried 会「闪一下就被下一帧冲掉」，缺 noticed 就完全不显示。
+ * 「哪些 kind 算持久报告」只在 `services/l1.ts` 的 `PERSISTENT_L1_KINDS` 定义一次。
  */
 export function carryPersistents(
   prev: L1Statement[],

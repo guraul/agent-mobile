@@ -229,7 +229,7 @@ View root（#0B0A12 + companion backgroundGradient + 顶部紫光 topGlow）
 - **来源**：homebase `lib/product/assignment-triggers.ts` 的完成分支（`consumeOneShot` 成功、写 `assignment.completed` 之后）往 `agent_reports` 追一条 `kind="assignment-done"`，TTL 24h；文案固定「「<responsibility>」做完了」（标题 60 字截断 + `…`，换行压成空格），App 原样透传。
 - **噪音边界（用户 2026-11-05 拍板 D4）**：只报**一次性任务完成**与「周期任务最终结束」；**周期任务每次 occurrence 完成不报**——`consumeOneShot` 是 `state='completed'` 的唯一置位点，ongoing 根本走不到报告，因此不存在逐次播报。
 - **不是 Attention**：这是 PM §22 的 L1 statement——委托本身就授权「报告结果」，没有 obligation、不进 Featured、不产生 lifecycle；D5 决定**先不做可点开**（没有详情页 / 推送）。
-- **App 登记两处**：`services/l1.ts` 的 `L1Kind` 加 `"assignment-done"`；`hooks/useL1.ts` 的 `noticed` 过滤加同名条件。
+- **App 登记两处**（~~已作废，见 2026-11-08 小节：三处硬编码已收敛为 `PERSISTENT_L1_KINDS` 单一集合~~）：~~`services/l1.ts` 的 `L1Kind` 加 `"assignment-done"`；`hooks/useL1.ts` 的 `noticed` 过滤加同名条件。~~
 - **必须并回 SSE 帧**：与 `retry-report`/`backlog-nudge`/`inbox-nudge` 一样只出现在 `/api/product/l1` snapshot——`useL1.apply` 的 carried 过滤已含它。
 - **报告写失败不影响执行结论**：BFF 侧 catch + error 日志，已完成的 `assignment.completed` 不会被改写。
 

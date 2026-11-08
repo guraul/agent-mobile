@@ -68,4 +68,14 @@ describe("kind 集合派生（新增 kind 只改 services/l1.ts 一处）", () =
     const merged = carryPersistents([statement({ expiresAt: Date.now() - 1000 })], []);
     expect(merged).toHaveLength(0);
   });
+
+  it("projectNoticed 正反断言（deploy-failed/observation/calendar 进，market-estimate 不进）", () => {
+    const got = projectNoticed([
+      statement({ id: "d1", kind: "deploy-failed" }),
+      statement({ id: "o1", kind: "observation" }),
+      statement({ id: "c1", kind: "calendar" }),
+      statement({ id: "m1", kind: "market-estimate" }),
+    ]);
+    expect(got.map((s) => s.kind).sort()).toEqual(["calendar", "deploy-failed", "observation"]);
+  });
 });
