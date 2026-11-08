@@ -3,9 +3,16 @@ import {
   fetchL1,
   subscribeL1,
   toMarketEstimate,
+  PERSISTENT_L1_KINDS,
+  NOTICED_ONLY_L1_KINDS,
   type L1Statement,
   type L1MarketEstimateData,
 } from "@/services/l1";
+
+/** kind 是否属于持久报告（从单一集合派生，新增 kind 只改 `services/l1.ts`）。 */
+const PERSISTENT = new Set<string>(PERSISTENT_L1_KINDS);
+/** 「提醒」列表接受的 kind = 持久报告 ∪ observation/calendar。 */
+const NOTICED = new Set<string>([...PERSISTENT_L1_KINDS, ...NOTICED_ONLY_L1_KINDS]);
 import { tokenHeader, loadToken } from "@/services/auth";
 
 export interface UseL1Result {
@@ -13,11 +20,39 @@ export interface UseL1Result {
   statements: L1Statement[];
   /** 行情跑马灯投影（market-estimate 类） */
   funds: L1MarketEstimateData[];
-  /** Phase 12：Noticed 投影的 L1 statements（observation + retry-report + calendar + backlog-nudge + inbox-nudge + assignment-done） */
+  /** Phase 12：Noticed 投影的 L1 statements（kind 清单见 `services/l1.ts` 的两个集合） */
   noticed: L1Statement[];
   connected: boolean;
   loading: boolean;
   refresh: () => void;
+}
+
+/**
+ * SSE 帧全量替换时的并回：帧里只有内存态 L1（/stream 不含 agent_reports 持久报告），
+ * 因此把上一状态里未过期的持久报告并进新帧，否则 snapshot 拿到的报告会被下一帧冲掉。
+ * 「哪些 kind 算持久报告」只在 `services/l1.ts` 的 `PERSISTENT_L1_KINDS` 定义一次。
+ */
+export function carryPersistents(
+  prev: L1Statement[],
+  items: L1Statement[],
+  now: number = Date.now(),
+): L1Statement[] {
+  const carried = prev.filter(
+    (s) => PERSISTENT.has(s.kind) && (s.expiresAt === null || s.expiresAt > now),
+  );
+  if (carried.length === 0) return items;
+  const ids = new Set(items.map((i) => i.id));
+  return [...items, ...carried.filter((r) => !ids.has(r.id))];
+}
+
+/**
+ * Noticed 投影：哪些 kind 进「提醒」列表。清单来自 `services/l1.ts` 的两个集合
+ * （持久报告 + observation/calendar），文案由服务端生成，原样透传。
+ * 持久报告（含 deploy-failed，homebase #183/#184）缺 carried 会「闪一下就被下一帧冲掉」，
+ * 缺本投影就完全不显示——两处都从同一集合派生，新增 kind 不需要再改这里。
+ */
+export function projectNoticed(statements: L1Statement[]): L1Statement[] {
+  return statements.filter((s) => NOTICED.has(s.kind));
 }
 
 /**
@@ -33,25 +68,11 @@ export function useL1(): UseL1Result {
   const [loading, setLoading] = useState(true);
   const mountedRef = useRef(true);
 
-  // SSE 每帧是全量替换，但帧里只有内存态 L1（/stream 不含 agent_reports 持久报告）。
-  // 因此把上一状态里未过期的持久报告（retry-report / backlog-nudge / inbox-nudge / assignment-done）并回去，
-  // 否则 snapshot 拿到的报告会被下一帧冲掉。
+  // SSE 每帧是全量替换，但帧里只有内存态 L1（/stream 不含 agent_reports 持久报告），
+  // 因此用 carryPersistents 把上一状态里未过期的持久报告并回去（含 deploy-failed，见该函数注释）。
   const apply = useCallback((items: L1Statement[]) => {
     if (!mountedRef.current) return;
-    setStatements((prev) => {
-      const now = Date.now();
-      const carried = prev.filter(
-        (s) =>
-          (s.kind === "retry-report" ||
-            s.kind === "backlog-nudge" ||
-            s.kind === "inbox-nudge" ||
-            s.kind === "assignment-done") &&
-          (s.expiresAt === null || s.expiresAt > now),
-      );
-      if (carried.length === 0) return items;
-      const ids = new Set(items.map((i) => i.id));
-      return [...items, ...carried.filter((r) => !ids.has(r.id))];
-    });
+    setStatements((prev) => carryPersistents(prev, items));
     setLoading(false);
   }, []);
 
@@ -93,21 +114,8 @@ export function useL1(): UseL1Result {
     .map(toMarketEstimate)
     .filter((f): f is L1MarketEstimateData => f !== null);
 
-  // Phase 12：Noticed 投影。retry-report 是持久化的夜间补跑报告（agent_reports），
-  // calendar 是外部 ICS 日历的今日陈述（外部域切片 2，agent-mobile#153），
-  // backlog-nudge 是未处理事项积压提醒（homebase 33a5d49，同走 agent_reports），
-  // inbox-nudge 是收件箱整理提醒（homebase #137，同走 agent_reports，有积压才有），
-  // assignment-done 是一次性任务完成回音（homebase #139，同走 agent_reports；ongoing 不逐次报），
-  // 与 observation 同属 informational，文案由服务端生成（L1 rule 或写报告的 handler），原样透传。
-  const noticed = statements.filter(
-    (s) =>
-      s.kind === "observation" ||
-      s.kind === "retry-report" ||
-      s.kind === "calendar" ||
-      s.kind === "backlog-nudge" ||
-      s.kind === "inbox-nudge" ||
-      s.kind === "assignment-done",
-  );
+  // Phase 12：Noticed 投影，见 projectNoticed（各 kind 出处与 deploy-failed 注释都在那里）。
+  const noticed = projectNoticed(statements);
 
   return { statements, funds, noticed, connected, loading, refresh };
 }

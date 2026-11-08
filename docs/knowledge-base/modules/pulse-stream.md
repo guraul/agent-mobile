@@ -229,9 +229,18 @@ View root（#0B0A12 + companion backgroundGradient + 顶部紫光 topGlow）
 - **来源**：homebase `lib/product/assignment-triggers.ts` 的完成分支（`consumeOneShot` 成功、写 `assignment.completed` 之后）往 `agent_reports` 追一条 `kind="assignment-done"`，TTL 24h；文案固定「「<responsibility>」做完了」（标题 60 字截断 + `…`，换行压成空格），App 原样透传。
 - **噪音边界（用户 2026-11-05 拍板 D4）**：只报**一次性任务完成**与「周期任务最终结束」；**周期任务每次 occurrence 完成不报**——`consumeOneShot` 是 `state='completed'` 的唯一置位点，ongoing 根本走不到报告，因此不存在逐次播报。
 - **不是 Attention**：这是 PM §22 的 L1 statement——委托本身就授权「报告结果」，没有 obligation、不进 Featured、不产生 lifecycle；D5 决定**先不做可点开**（没有详情页 / 推送）。
-- **App 登记两处**：`services/l1.ts` 的 `L1Kind` 加 `"assignment-done"`；`hooks/useL1.ts` 的 `noticed` 过滤加同名条件。
+- **App 登记两处**（~~已作废，见 2026-11-08 小节：三处硬编码已收敛为 `PERSISTENT_L1_KINDS` 单一集合~~）：~~`services/l1.ts` 的 `L1Kind` 加 `"assignment-done"`；`hooks/useL1.ts` 的 `noticed` 过滤加同名条件。~~
 - **必须并回 SSE 帧**：与 `retry-report`/`backlog-nudge`/`inbox-nudge` 一样只出现在 `/api/product/l1` snapshot——`useL1.apply` 的 carried 过滤已含它。
 - **报告写失败不影响执行结论**：BFF 侧 catch + error 日志，已完成的 `assignment.completed` 不会被改写。
+
+### 事实登记（2026-11-08）：Noticed 新增 `deploy-failed`（部署失败进 Pulse，homebase #183/#184 + agent-mobile #240/#242）
+
+- **来源**：`deploy-web.yml` 的 `notify-failure` job（`if: failure()`）在部署失败时 SSH 到服务器，用 `.env.local` 里的内部令牌调 `POST /api/internal/agent-reports`（`kind="deploy-failed"`，TTL 24h）。端点鉴权与 `/api/internal/decisions` 同一套 `x-internal-token`，未配置/缺头/错值**一律 401**。
+- **为什么有它**：2026-11-08 发现部署连续失败 3 天、5 次无人察觉——失败只体现在 Actions 红叉上，不进日常视野。
+- **去重**：同一 kind 已有未过期报告时端点直接返回 `{ok:true,skipped:true}` 不重复写（CI 重试会连写，Noticed 只有 ≤5 预算）。
+- **App 登记**：`services/l1.ts` 的 `PERSISTENT_L1_KINDS` 加 `"deploy-failed"`——**只改这一处**，`carryPersistents` 与 `projectNoticed` 都从该集合派生（此前三处硬编码已收敛，见 #242）。
+- **必须并回 SSE 帧**：`/api/product/l1/stream` 每帧全量替换且不含 `agent_reports`，缺 carried 会「闪一下就被下一帧冲掉」；缺 noticed 则完全不显示。
+- **上报自身失败可见**：CI 侧校验 HTTP 状态码，非 200 打 `::warning::`；并在任何 SSH 之前先打一条 `::error title=部署失败`——服务器不可达时也有告警。
 
 ## Supporting 构成（SupportingList）
 
