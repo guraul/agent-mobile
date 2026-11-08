@@ -29,9 +29,10 @@ bash deploy/check.sh
 ```
 
 - 逐组把线上文件 `cat` 下来与仓库文件 `diff -u` 比对，一致打 `OK  <路径>`，不一致打印 diff 与 `DRIFT <路径>`，
-  远端不存在打 `MISSING <路径>`（算漂移）；ssh 连不上或仓库基准文件缺失打 `ERROR` / `MISSING-LOCAL`（算读取失败）。
+  远端不存在打 `MISSING <路径>`（算漂移）；ssh 连不上或仓库基准文件缺失打 `ERROR` / `MISSING-LOCAL`（算无法检查）。
 - 退出码三分：**0** 全一致；**1** 只有内容不一致（末尾打印「N 个文件漂移」）；
-  **2** 有文件读取失败（末尾打印「N 个文件读取失败（可能是网络/权限问题）」，与「不一致」分开，避免把连不上报成配置漂移）。
+  **2** 有文件无法检查（末尾打印「N 个文件无法检查（ssh 读取失败或仓库基准文件缺失）」，
+  与「不一致」分开，避免把连不上、本地缺文件报成配置漂移）。
 - diff 里 **`+` 是仓库内容、`-` 是线上内容**（仓库为基准，`--- 线上 …` / `+++ 仓库 …`）。
 - 只读：只 `cat` 上表那三个远端文件，不写线上、不执行任何变更命令、不打印凭据。
 - 连接方式可覆盖（默认 `ssh root@106.13.181.13`）：
@@ -48,8 +49,12 @@ bash deploy/check.sh
   SSH_CMD="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new root@106.13.181.13" bash deploy/check.sh
   ```
 
-- 自动化入口：`.github/workflows/deploy-web.yml` 的 `post-deploy` job 里有 `Infra drift check` 步骤，
-  每次部署后跑一次，`continue-on-error` —— 只在 Actions 里告警，**不阻断部署、不改线上**。
+- **主入口 `.github/workflows/infra-check.yml`**（只检查、不部署）：`main` 上改 `deploy/**` 时跑一次、
+  每天 09:00（北京时间）定时跑、也可手动 `workflow_dispatch`。它**不加** `continue-on-error` ——
+  漂移（退出码 1）与读取失败（退出码 2）都让这次运行变红，这是全仓唯一因漂移变红的地方。
+  漂移是服务器侧长期发生的，定时查比改仓库时查更有意义。
+- 辅助：`.github/workflows/deploy-web.yml` 的 `post-deploy` job 里还有 `Infra drift check` 步骤，
+  每次应用部署后顺带跑一次，`continue-on-error` —— 只在 Actions 里告警，**不阻断部署、不改线上**。
 
 ## 为什么检测自动化、应用显式化
 

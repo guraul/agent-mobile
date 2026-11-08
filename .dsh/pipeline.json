@@ -15,7 +15,7 @@
       "insecure": true
     },
     "keepReleases": 5,
-    "paths": ["agent-mobile-app/**", ".github/workflows/deploy-web.yml", "deploy/**"]
+    "paths": ["agent-mobile-app/**", ".github/workflows/deploy-web.yml"]
   },
   "roles": {
     "reviewer": {

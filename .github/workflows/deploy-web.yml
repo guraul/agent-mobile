@@ -8,7 +8,6 @@ on:
     paths:
       - 'agent-mobile-app/**'
       - '.github/workflows/deploy-web.yml'
-      - 'deploy/**'
   workflow_dispatch:
 
 concurrency:

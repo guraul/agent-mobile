@@ -2,7 +2,7 @@
 # 只读漂移检测：比对 deploy/ 里的 Caddy 与 systemd 配置副本和线上真源是否一致。
 # 只读远端文件，绝不改线上；不打印任何凭据。
 # bash 3.2 兼容：无关联数组、无 mapfile、无 ${VAR:-默认值} 参数展开。
-# 退出码：0 = 全一致，1 = 内容不一致（漂移），2 = 有文件读取失败（网络/权限）。
+# 退出码：0 = 全一致，1 = 内容不一致（漂移），2 = 有文件无法检查（ssh 读取失败或本地基准缺失）。
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
@@ -84,9 +84,9 @@ deploy/systemd/serve-9928.service|/etc/systemd/system/serve-9928.service
 deploy/systemd/serve-9928.service.d/port.conf|/etc/systemd/system/serve-9928.service.d/port.conf
 MAPPINGS
 
-# 退出码口径：2 = 有读取失败（网络/权限，先报），1 = 只有内容不一致，0 = 全一致
+# 退出码口径：2 = 有文件无法检查（先报），1 = 只有内容不一致，0 = 全一致
 if [[ "$ERRORS" -gt 0 ]]; then
-	echo "$ERRORS 个文件读取失败（可能是网络/权限问题）"
+	echo "$ERRORS 个文件无法检查（ssh 读取失败或仓库基准文件缺失）"
 	if [[ "$DRIFT" -gt 0 ]]; then
 		echo "$DRIFT 个文件漂移"
 	fi
