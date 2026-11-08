@@ -1,0 +1,13 @@
+[Unit]
+Description=Pulse static server 9928
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/project/agent-mobile/agent-mobile-app
+ExecStart=/usr/bin/node scripts/serve-static.mjs
+Restart=always
+Environment=PATH=/usr/bin:/bin
+
+[Install]
+WantedBy=multi-user.target

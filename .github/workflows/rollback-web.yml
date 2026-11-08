@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   rollback:
-    uses: guraul/dsh-pipeline/.github/workflows/rollback.yml@106a8aae2f6b1084e98b39397a3d8779cbbacee3
+    uses: guraul/dsh-pipeline/.github/workflows/rollback.yml@18289d54ee85ba2726e70680bd85820858b641b6
     with:
       service: 'serve-9928'
       remote_dir: '/root/project/agent-mobile/agent-mobile-app'

@@ -1,0 +1,27 @@
+name: infra-check
+
+on:
+  push:
+    branches: [main]
+    paths: ['deploy/**']
+  schedule:
+    - cron: '0 1 * * *'   # 每天 09:00 北京时间：漂移是服务器侧长期发生的，定时查比改仓库时查更有意义
+  workflow_dispatch:
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup deploy key
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+      - name: Infra drift check
+        run: |
+          set -o pipefail
+          SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new root@106.13.181.13"
+          SSH_CMD="$SSH" bash deploy/check.sh
