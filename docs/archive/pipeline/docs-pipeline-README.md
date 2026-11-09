@@ -1,5 +1,8 @@
 # docs/pipeline — 本仓流水线（入口说明）
 
+> **已归档（#246）**：接入 `init` 后本文件被 `docs/pipeline/README.md` 的生成骨架取代；
+> 其中的本仓约定已整理进现行手册的「五、本仓约定」一节。保留作历史参考，**不要再按本文操作**。
+
 > **规则不写在这里。** 命令面、参数、退出码、`.dsh/pipeline.json` schema、审核档位（inline / tools）、高风险默认清单
 > 都在共享包：`tools/node_modules/dsh-pipeline/docs/CONTRACT.md`（源码仓 `~/workspace/dsh-pipeline`）。本文件只写**本仓**才有的东西。
 

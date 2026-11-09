@@ -46,3 +46,33 @@
 契约是唯一规范来源：[`docs/CONTRACT.md`](https://github.com/guraul/dsh-pipeline/blob/main/docs/CONTRACT.md)。
 本文件只写「怎么跑」，不重复参数与退出码——逐命令细节查契约 §3 / §4。
 <!-- <<< dsh-pipeline 生成区结束（以下可追加本仓自己的内容） -->
+
+## 五、本仓约定（手写区，不参与 init 比对）
+
+> 标记之间是生成区，`init --check` 只比对那一段；本节及以下在标记之外，重跑 `init` 时原样保留。
+> 接入 `init` 之前的手写手册见 [`docs/archive/pipeline/docs-pipeline-README.md`](../archive/pipeline/docs-pipeline-README.md)（仅作历史参考）。
+
+- **工具链来源**：`tools/` 用 `link:` 指向 `~/workspace/dsh-pipeline/dist/pkg`（包仓 `pnpm run pack` 的唯一解包产物），**必须绝对路径**——相对路径在 worktree 下会错位（每个 worktree 各一份 `tools/`）。改包后重跑 pack，`dist/pkg` 原子切换即生效。
+- **仓库解析（#108）**：脚本的 `REPO_ROOT` 取脚本自身位置，与 cwd 无关；`open-pr.sh` / `merge-pr.sh` 支持 `-C <dir>` / `--worktree <dir>` 覆盖目标。
+- **worktree / 分支命名**：`.worktrees/<N>-<slug>`、`task/<N>-<slug>`；从主仓根用绝对路径创建。
+- **合并与清理**：`merge-pr.sh` 负责「移除 worktree → 主工作区 `fetch --prune` → `merge --ff-only origin/main` → 删本地分支（`-D`）」；它**不做** `git worktree prune`，也**不删远端分支**（远端分支交给 `gh pr merge` 与仓库的 auto-delete 设置）。
+- **门禁（在 `agent-mobile-app/` 内跑）**：
+
+  ```bash
+  ( cd agent-mobile-app && pnpm exec tsc --noEmit )
+  ( cd agent-mobile-app && pnpm test )     # vitest，src/**/*.test.ts
+  ( cd agent-mobile-app && pnpm lint )
+  ```
+
+  新 worktree 首次跑门禁前先 `( cd agent-mobile-app && pnpm install )`。
+- **远端走 SSH**：本仓 origin 自 2026-11-06 起是 SSH；HTTPS 抖动时显式 `git push git@github.com:guraul/agent-mobile.git <branch>`。
+- **`deploy-web.yml` 的 paths 过滤**：只认 `agent-mobile-app/**` 与 workflow 自身——合并流水线脚本、文档、知识库**不会触发部署**（homebase 不同，那边 `scripts/**` 在 paths 里）。
+- **高风险 = 人工放行**：命中 `.dsh/pipeline.json` 的 `highRisk`（本仓为 `.github/**`）或包默认策略（`.dsh/**`、`AGENTS.md`、`scripts/pipeline/**`、`docs/pipeline/**`、依赖变更、单次 >400 行等）时报 `E_POLICY`，需用户当场同意后用 `--no-review --reason=`；跳过审计由脚本自动写，**PR 评论要自己发**。
+
+## 六、服务器 / 部署 / 回滚
+
+不在本文重复：服务器布局、systemd 单元、部署与回滚步骤 → `docs/knowledge-base/OPERATIONS.md`；`gzipCache` 陷阱、CORS、凭据红线 → `docs/knowledge-base/CONVENTIONS.md`。
+
+## 七、改流程本身
+
+脚本、配置、本文件同样走 issue → worktree → PR，不直推 main。
