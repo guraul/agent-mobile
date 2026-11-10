@@ -1,12 +1,30 @@
 # Agent Mobile 项目知识库 · 索引总览
 
-> 最后更新：2026-10-12 · commit 6d432c5 · 新增「DSH 接入 OpenCode Go 订阅模型」路由行（正文见 OPERATIONS.md §DSH 接入 OpenCode Go）。
+> 最后更新: 2026-11-10 | commit: `68ef330`
+> 覆盖路径: `agent-mobile-app/package.json`, `agent-mobile-app/pnpm-workspace.yaml`, `agent-mobile-app/app.json`, `agent-mobile-app/src/app/_layout.tsx`, `agent-mobile-app/src/app/index.tsx`, `agent-mobile-app/src/components/index.ts`, `agent-mobile-app/src/services/opencode-client.ts`, `agent-mobile-app/src/theme/index.ts`, `agent-mobile-app/scripts/serve-static.mjs`, `deploy/**`
 > 上一版：2026-09-29 · **双 chat 页（epic #35）五项收官**：`/talk` 单路由 + 运行时 directory 判据分流到
 > chat（伴侣页）/ chatcode（工作台壳）两形态，含命令族回执 chip（#59 起取代内白卡）、工具折叠组、thinking、
 > diff 卡、composer 两态、排队队列。talk/assignments/kb 已全部浅色化。
 > 上一版：2026-09-28 RN 浅色迁移 epic #7 主体完成（PR #16-#23），基准 `docs/pipeline/RN_MIGRATION_BRIEF.md`，决策 D1-D10。
 > 聊天模块细节以 [modules/chat.md](modules/chat.md) 为准，分流判据以 [modules/router.md](modules/router.md) 为准。
 > 维护：见 [CONVENTIONS.md](CONVENTIONS.md)「知识库维护约定」
+
+## 文档导航
+
+| 文档 | 内容 |
+|---|---|
+| `docs/knowledge-base/INDEX.md` | 全局认知、技术栈、仓库拓扑、模块地图 |
+| `docs/knowledge-base/ARCHITECTURE.md` | 架构分层与数据流（BFF 中间层 + opencode） |
+| `docs/knowledge-base/API.md` | 对外接口（BFF / opencode v1） |
+| `docs/knowledge-base/DATA.md` | 数据位置与流动 |
+| `docs/knowledge-base/OPERATIONS.md` | 构建 / 部署 / 预览 / 测试 / 环境变量 |
+| `docs/knowledge-base/CONVENTIONS.md` | 编码约定、历史包袱、修改红线 |
+| `docs/knowledge-base/modules/chat.md` | 聊天界面（气泡 / 打字机 / 弹窗 / 输入区） |
+| `docs/knowledge-base/modules/components.md` | 组件库（primitives / feedback / navigation） |
+| `docs/knowledge-base/modules/pulse-stream.md` | Pulse 首页（Hero / Featured / Supporting / sheets） |
+| `docs/knowledge-base/modules/router.md` | 路由与页面分流 |
+| `docs/knowledge-base/modules/services.md` | opencode 对接（REST / SSE / reducer / 状态机） |
+| `docs/knowledge-base/modules/theme.md` | 主题与设计 token |
 
 ## 使用说明
 
@@ -145,12 +163,14 @@ agent-mobile/                                  # git 根仓库
         ├── app/assignments/                   # Responsibilities 列表 + 详情
         ├── app/attention/[id].tsx             # Attention 详情
         ├── app/kb/doc.tsx                     # KB 文档阅读
+        ├── app/login.tsx                      # 登录 gate（RN 迁移 #G）
         ├── app/memory.tsx / me.tsx            # legacy Redirect → /
         ├── config/opencode.ts                 # opencode 连接配置（env）
         ├── hooks/useProjectEvents.ts          # 项目事件聚合 hook
-        ├── services/                          # ★ opencode REST/SSE/reducer/step展开/状态机
-        ├── components/                        # primitives/feedback/navigation/chat/pulse + index.ts
-        └── theme/                             # colors/typography/spacing/radius/motion/icons/shadows
+        ├── i18n/                              # 零依赖类型化字典（en 默认 / zh）
+        ├── services/                          # ★ opencode REST/SSE/reducer/step展开/状态机；attention/assignment/proposal/memory/activity/agency 子域
+        ├── components/                        # primitives/feedback/navigation/chat（含 zcode）/pulse + index.ts
+        └── theme/                             # colors/typography/spacing/radius/motion/icons/shadows + light.ts + companion/**
 ```
 
 > **9928 端口现状**：由 `serve-9928.service` 托管 agent-mobile-app 静态版（2026-09-27 起 systemd 接管，开机自启；showcase2-9928.service 已删除）。

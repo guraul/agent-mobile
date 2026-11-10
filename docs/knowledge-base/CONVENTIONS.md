@@ -1,11 +1,12 @@
 # CONVENTIONS.md —— 约定与陷阱
 
-> 最后更新：2026-08-30 · commit：`d255c48`（CORS 探测 + 直开路由 token 恢复两条坑）
+> 最后更新: 2026-11-10 | commit: `68ef330`
+> 覆盖路径: `agent-mobile-app/package.json`, `agent-mobile-app/pnpm-workspace.yaml`, `agent-mobile-app/AGENTS.md`, `agent-mobile-app/app.json`, `agent-mobile-app/eas.json`, `agent-mobile-app/scripts/serve-static.mjs`, `scripts/pipeline/**`, `deploy/**`
 
 ## 代码风格与命名约定
 
 - TypeScript strict 模式；组件使用函数组件 + 显式 props 接口（`XxxProps`）。
-- 组件文件：`src/components/<分类>/<组件名>.tsx`，分类目录：`primitives/`（基础）、`feedback/`（状态）、`navigation/`（导航容器）、`chat/`（对话）、`session/`（会话管理）。
+- 组件文件：`src/components/<分类>/<组件名>.tsx`，分类目录：`primitives/`（基础）、`feedback/`（状态）、`navigation/`（导航容器）、`chat/`（对话）、`chat/zcode/`（chatcode 工作台壳）、`pulse/`（Pulse 浅色 Companion 层）。
 - 主题文件：`src/theme/<token组>.ts`，导出对象名 = 文件名（colors.ts → `colors`）。
 - 纯逻辑放 `src/services/*.ts`（无 UI 依赖），聚合状态放 `src/hooks/*.ts`，页面/组件用 `.tsx`。
 - 测试 ID 惯例：`project-<id>`（EventItem）、`<testID>-scrim`（BottomSheet 遮罩）、`project-chat-sheet`（全屏 sheet）。
@@ -73,7 +74,8 @@
 - **勿改 `StatusType` 取值集合**（running/idle/success/error/warning）—— 牵连 StatusDot/Pill/Callout、EventItem。
 - **勿删 `BottomSheet` 的 fullScreen 无 padding 布局约定** —— 内容组件（ProjectChat header、ChatPanel 输入区）依赖自身 padding；加回 padding 会导致输入框/header 不贴边。
 - **勿改消息数组的 chronological 语义** —— reducer 插入、ChatPanel 排序、step 展开顺序全部基于 `time.created`；任何"反向"假设都会重现消息错乱。
-- **勿把仓库根 `src/`（设计期源码）与 `agent-mobile-app/src/` 混为一谈** —— 两个独立代码库，改错位置 = 改到不运行的东西。
+- **勿在界面里硬编码文案**：走 `src/i18n/` 的 `t()`（默认 `en`，`zh` 用 `satisfies` 补齐）；service 纯函数直接调 `t()`，组件顶部调 `useLocale()` 订阅。用户数据 / 服务端错误 message 不进字典。
+- **浅色 token 只在 `theme/light.ts` / `theme/companion/**`**：Pulse / chatcode 等浅色组件不得直接写色值；暗色旧 token 与浅色命名空间并存（D1）。
 - **`EXPO_TOKEN` / `EXPO_PUBLIC_OPENCODE_PASSWORD` 为敏感凭据** —— 不写入代码/文档/提交。
 - **expo 依赖版本必须匹配 SDK 57** —— 用 `pnpm exec expo install`（**不用 `npx` / `npm`，见 AGENTS.md 规则 14**），勿手工改版本号。
 - 写代码前遵守 `agent-mobile-app/AGENTS.md`：先读 https://docs.expo.dev/versions/v57.0.0/ 版本化文档。

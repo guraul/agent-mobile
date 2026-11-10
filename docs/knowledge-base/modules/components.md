@@ -1,6 +1,7 @@
 # modules/components.md —— 组件库
 
-> 最后更新：2026-08-14 · commit：`108bd36`（BottomSheet web 黑框修复）
+> 最后更新: 2026-11-10 | commit: `68ef330`
+> 覆盖路径: `agent-mobile-app/src/components/index.ts`, `agent-mobile-app/src/components/primitives/**`, `agent-mobile-app/src/components/feedback/**`, `agent-mobile-app/src/components/navigation/**`, `agent-mobile-app/src/components/PlaceholderScreen.tsx`, `agent-mobile-app/src/i18n/**`, `agent-mobile-app/src/i18n/README.md`, `agent-mobile-app/src/theme/**`
 
 ## 模块职责
 
@@ -61,7 +62,14 @@
 | `pulse/PulseNoticed.tsx` | ghost 卡行浅色（style 透传 divider） |
 | `pulse/ActivitySheet.tsx` | 「她最近做了什么」只读审计 sheet：Settings 入口（7 天）/ Pulse 顶部一句话入口（`days=1`「今天」，本地日界过滤）。摘要一行 / 相对时间+标题+outcome chip（已命中/已检视/失败）/ 空态一句话 / 失败态「暂时读不到记录」+重试。暗色 `theme` token + 旧 BottomSheet；**无授权/撤销/重跑按钮**；取数走 `services/activity/client.fetchAgentActivity`（`GET /api/product/agent-activity`） |
 | `pulse/TodayDigest.tsx` | Pulse 顶部一句话「她今天替你做了什么」（Tier1 先做后报，纯只读）：文案由 `services/activity/digest.buildTodayDigest` 判定（failed > matched > 全正常）；无数据/页满截断/失败均不渲染，AppState active 刷新，失败最多重试 1 次 |
-| 旧组件保留 | ActionChips / ConversationEntry / AIOrb / AIStatus / 旧 BottomSheet（Settings/Memory/Knowledge sheet 用）——待后续批次删 |
+| `pulse/BoundariesSheet.tsx` | 自主边界只读 sheet（How we work together）+ Nightly retry 开关 + 积压提醒阈值旋钮（3/5/10） |
+| `pulse/CalendarSheet.tsx` | 外部日历（ICS）录入与删除 |
+| `pulse/ContinueThreads.tsx` | 「接着上次聊」区块（点击恢复原会话；显示「多久之前」） |
+| `pulse/MarketGroupItem.tsx` | market 同域提醒合并后的分组行 |
+| `pulse/SettingsSheet.tsx` / `KnowledgeSheet.tsx` / `MemorySheet.tsx` | 设置 / KB 检索 / 记忆（浅色重做后挂在 LightSheet 上） |
+| `pulse/AIComposer.tsx` / `ThinkingDots.tsx` / `ContextChip.tsx` / `PressableScale.tsx` / `ConversationMessage.tsx` / `NoticedListSheet.tsx` | 输入区、思考点、上下文 chip、按压缩放、会话消息、Noticed 列表 |
+| `theme/companion/**` | Companion 专用 token（colors/motion/spacing/surfaces/typography），浅色页优先 |
+| 旧组件保留 | ActionChips / ConversationEntry / AIOrb / AIStatus / 旧 BottomSheet（部分 sheet 仍用）——待后续批次删 |
 
 ## i18n（`src/i18n/`，第 0 期建能力 / 第 1–3 期迁移完成）
 

@@ -1,6 +1,7 @@
 # modules/pulse-stream.md —— Pulse 根界面（AI 伴侣 briefing 单表面）
 
-> 最后更新：2026-09-28 · **RN 浅色迁移（epic #7）A-G 完成、H 详情重做完成**（基准 `docs/pipeline/RN_MIGRATION_BRIEF.md`，D1-D10 决策）。当前形态以本节为准；下方 Companion 段及更早内容为历史参考。
+> 最后更新: 2026-09-28 | commit: `68ef330`
+> 覆盖路径: `agent-mobile-app/src/app/index.tsx`, `agent-mobile-app/src/components/pulse/**`, `agent-mobile-app/src/hooks/**`, `agent-mobile-app/src/services/agency/**`, `agent-mobile-app/src/services/activity/**`
 > 2026-10-29：补 Noticed 两类（observation / retry-report）/ TodayDigest / Settings 三入口事实登记，见下方「事实登记（2026-10-29）」。
 > 2026-10-29：market 同类合并（#140，呈现层）——见下方「事实登记（2026-10-29）· market 同域提醒合并」。
 > 2026-11-05：知识 sheet 空查询态「最近的决定」（A2，PR #208）、续接块相对时间（B1+，PR #209）——见下方「事实登记（2026-11-05）」。

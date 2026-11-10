@@ -1,6 +1,7 @@
 # DATA.md —— 数据查询指南
 
-> 最后更新：2026-08-30 · commit：`d255c48`（Me 页：BFF 地址/model 偏好/username 本地存储 + token 恢复）
+> 最后更新: 2026-11-10 | commit: `68ef330`
+> 覆盖路径: `agent-mobile-app/app.json`, `agent-mobile-app/eas.json`, `agent-mobile-app/src/config/opencode.ts`, `agent-mobile-app/src/services/message-merging.ts`, `agent-mobile-app/src/services/opencode-client.ts`, `agent-mobile-app/src/services/project-status.ts`, `agent-mobile-app/src/theme/colors.ts`
 
 ## 数据实体清单
 
@@ -10,7 +11,7 @@
 | OpenCodeSession | id/title/directory/agent/model/time/summary/cost | OpenCode Server（REST /session） | 同上 |
 | OpenCodeMessage | info(id/role/sessionID/time)/parts[] | OpenCode Server（REST /session/{id}/message + SSE） | 同上 |
 | ProjectEvent（聚合） | id/projectPath/name/status/statusLabel/summary/updated/sessionIDs | 运行时计算（useProjectEvents refs） | `agent-mobile-app/src/services/project-status.ts` |
-| DisplayStep（展开后） | kind/id/text/tool/status/createdAt | 运行时计算（mergeMessages） | `agent-mobile-app/src/services/message-merging.ts` |
+| DisplayStep（展开后） | kind（user/text/reasoning/tool/toolGroup/receipt/assignmentCard/handoffCard）/id/text/tool/status/createdAt | 运行时计算（mergeMessages） | `agent-mobile-app/src/services/message-merging.ts` |
 | 主题令牌 | colors/typography/spacing/radius/motion/icons/shadows | TS 常量 | `agent-mobile-app/src/theme/*.ts` |
 | 应用配置 | name/slug/package/主题色 | JSON | `agent-mobile-app/app.json` |
 | 构建配置 | build profiles | JSON | `agent-mobile-app/eas.json` |

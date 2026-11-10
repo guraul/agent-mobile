@@ -1,6 +1,7 @@
 # modules/chat.md —— 聊天（项目对话 / Talk）
 
-> 最后更新：2026-11-05 · 伴侣聊天模型 `CHAT_MODEL` → **`opencode-go/deepseek-v4.1-flash`**（#193，免费档限流不可预测）；`providerID` 必须与生产模型目录一致（生产已含 `opencode-go/*`）
+> 最后更新: 2026-11-05 | commit: `68ef330`
+> 覆盖路径: `agent-mobile-app/src/app/talk.tsx`, `agent-mobile-app/src/components/chat/**`, `agent-mobile-app/src/components/chat/zcode/**`, `agent-mobile-app/src/services/auth.ts`, `agent-mobile-app/src/services/message-merging.ts`, `agent-mobile-app/src/services/message-reducer.ts`, `agent-mobile-app/src/services/opencode-client.ts`, `agent-mobile-app/src/services/opencode-events.ts`, `agent-mobile-app/src/services/busy-signal.ts`, `agent-mobile-app/src/services/command-receipt.ts`, `agent-mobile-app/src/services/conversation-kind.ts`, `agent-mobile-app/src/services/assignment/**`, `agent-mobile-app/src/services/handoff/**`
 > 上一版：2026-10-10 · commit：`feat(chat): chat 页强制 agent=companion + 去 agent 选择器 + 思考卡收敛（#57 E3-a 客户端半边）`
 > 上一版：2026-10-10 · commit：`refactor(chat): 退役 /assignments /projects 斜杠内白卡 + 命令反馈改回执 chip + chatcode 开 Layers（#59）`
 > 上一版：2026-10-10 · commit：`feat(chat): busy 真实信号 + 状态行三点脉动（#58）`（数据层 `services/busy-signal.ts` 纯函数+单测；状态行由 `sending` 改 `busy`；#33 queue 分流仍未动）

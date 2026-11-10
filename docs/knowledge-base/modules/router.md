@@ -1,6 +1,7 @@
 # modules/router.md —— 路由与应用壳
 
-> 最后更新：2026-10-02 · commit：`feat(chat): sessions 抽屉 + 移动端边缘滑入手势 #34F (#47)`（epic #35 全部收官；新增抽屉导航路径，见"双 chat 页分流"节末）
+> 最后更新: 2026-10-02 | commit: `68ef330`
+> 覆盖路径: `agent-mobile-app/src/app/**`, `agent-mobile-app/src/components/pulse/*Sheet.tsx`, `agent-mobile-app/src/services/conversation-kind.ts`, `agent-mobile-app/src/services/drawer-gesture.ts`, `agent-mobile-app/src/services/attention/talk.ts`, `agent-mobile-app/src/theme/**`
 > 上一版：2026-09-21 `feat/companion-ui-migration`（Companion UI Migration：单表面导航，取消 4-tab）
 
 ## 模块职责
