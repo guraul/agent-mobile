@@ -62,14 +62,14 @@
 | `pulse/PulseNoticed.tsx` | ghost 卡行浅色（style 透传 divider） |
 | `pulse/ActivitySheet.tsx` | 「她最近做了什么」只读审计 sheet：Settings 入口（7 天）/ Pulse 顶部一句话入口（`days=1`「今天」，本地日界过滤）。摘要一行 / 相对时间+标题+outcome chip（已命中/已检视/失败）/ 空态一句话 / 失败态「暂时读不到记录」+重试。暗色 `theme` token + 旧 BottomSheet；**无授权/撤销/重跑按钮**；取数走 `services/activity/client.fetchAgentActivity`（`GET /api/product/agent-activity`） |
 | `pulse/TodayDigest.tsx` | Pulse 顶部一句话「她今天替你做了什么」（Tier1 先做后报，纯只读）：文案由 `services/activity/digest.buildTodayDigest` 判定（failed > matched > 全正常）；无数据/页满截断/失败均不渲染，AppState active 刷新，失败最多重试 1 次 |
-| `pulse/BoundariesSheet.tsx` | 自主边界 sheet（How we work together，边界只读）+ Nightly retry 开关 + 积压提醒阈值旋钮（3/5/10，两个控件写服务端） |
-| `pulse/CalendarSheet.tsx` | 外部日历（ICS）录入与删除 |
 | `pulse/ContinueThreads.tsx` | 「接着上次聊」区块（点击恢复原会话；显示「多久之前」） |
 | `pulse/MarketGroupItem.tsx` | market 同域提醒合并后的分组行 |
 | `pulse/SettingsSheet.tsx` / `KnowledgeSheet.tsx` / `MemorySheet.tsx` | 设置 / KB 检索 / 记忆（**仍用 `navigation/BottomSheet`**，未迁 LightSheet） |
 | `pulse/AIComposer.tsx` / `ThinkingDots.tsx` / `ContextChip.tsx` / `PressableScale.tsx` / `ConversationMessage.tsx` / `NoticedListSheet.tsx` | 输入区、思考点、上下文 chip、按压缩放、会话消息、Noticed 列表 |
 | `theme/companion/**` | Companion 专用**暗色** token（colors/motion/spacing/surfaces/typography）；现仅由 pulse 下遗留组件使用，**新代码不要再引**；浅色唯一来源是 `theme/light.ts` |
 | 旧组件保留 | ActionChips / ConversationEntry / AIOrb / AIStatus / 旧 BottomSheet（部分 sheet 仍用）——待后续批次删 |
+
+**暗色 legacy（不在上面的浅色小节）**：`pulse/BoundariesSheet.tsx`（自主边界 + Nightly retry / 积压阈值两个可写控件）、`pulse/CalendarSheet.tsx`（ICS 录入/删除）——样式走 `theme`（legacy `colors`）+ `navigation/BottomSheet`。
 
 ## i18n（`src/i18n/`，第 0 期建能力 / 第 1–3 期迁移完成）
 

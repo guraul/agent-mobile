@@ -100,7 +100,7 @@ Settings（连接/账号/BFF 地址/model 偏好）/ Memory / Knowledge / Fund �
 | 双 chat 页分流判据（directory → chat/chatcode，纯函数） | router | `agent-mobile-app/src/services/conversation-kind.ts` |
 | 命令族反馈回执 chip（Assignment 斜杠命令的留痕，反馈全文可多行；取代已退役的 Duties/Projects 内白卡） | chat | `agent-mobile-app/src/services/command-receipt.ts`（纯函数 + 单测）+ `ChatPanelZ.tsx`（`localSteps`）+ `zcode/MessageBubbleZ.tsx`（`kind === "receipt"` 渲染） |
 | Web 静态预览服务（`serve-static.mjs`，端口见下） | ops | `agent-mobile-app/scripts/serve-static.mjs` |
-| APK 下载服务（9928，备用） | ops | `test/download/pulse.apk`（python3 http.server） |
+| APK 下载服务（已退役；2026-11-05 起 9928 归财务后台） | ops | `test/download/pulse.apk`（历史） |
 | E2E 测试（Playwright） | ops | `agent-mobile-app/scripts/e2e/pulse-e2e.mjs` |
 
 ## 技术栈表
@@ -241,5 +241,5 @@ homebase BFF（对外 `https://106.13.181.13`，经 Caddy；内部 `127.0.0.1:19
 | 排查 opencode 机制（auto compact 等） | 源码在 `/root/project/opencode-src`（仓库外，含 .git 历史） |
 | 预览 web 版 | `pnpm exec expo export --platform web` + `scripts/serve-static.mjs`（生产由 `serve-9928.service` 托管在 `127.0.0.1:9929`，对外 `https://106.13.181.13`，见 OPERATIONS.md） |
 | 打 APK | `eas build -p android --profile preview`（见 OPERATIONS.md） |
-| 下载/分发 APK | `eas build:download --build-id <id>` → 覆盖 `test/download/pulse.apk` → `apk-download-9928.service`（备用） |
+| 下载/分发 APK | `eas build:download --build-id <id>` → 覆盖 `test/download/pulse.apk`（`apk-download-9928.service` 已退役，2026-11-05 起 9928 归财务后台） |
 | 改应用元信息（包名/名称/主题色） | `agent-mobile-app/app.json` |

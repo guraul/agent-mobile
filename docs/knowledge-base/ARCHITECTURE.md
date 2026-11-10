@@ -16,8 +16,6 @@
 | homebase BFF | Next.js（外部仓库） | ✅ 运行时依赖 | JWT 认证 + REST 转发 + SSE 缓冲合并（打字机）+ CORS |
 | OpenCode Server | 外部进程（`opencode serve`） | ✅ 运行时依赖 | 项目/会话/消息/权限的数据源（127.0.0.1:4096，仅 BFF 可达） |
 
-> 注意：仓库根 `src/` 与 `agent-mobile-app/src/` 是两个不同代码库，勿混淆。
-
 ## 应用内架构（agent-mobile-app）
 
 分层单向依赖：

@@ -131,9 +131,9 @@ npx expo start --port 9928 --host lan
 - **切换回 web 版**：`systemctl stop expo-metro-9928 && systemctl start serve-9928`
 - 热重载：改代码 Metro 实时刷新，比 web 版每次 export+重启快
 
-## APK 下载服务（当前方案，9928 端口）
+## APK 下载服务（已退役；2026-11-05 起 9928 归财务后台）
 
-**2026-08-16 起**：9928 由 APK 下载服务占用（替代 Expo Go Metro），手机浏览器直接下载最新 APK 侧载安装。
+**2026-08-16 起**：9928 曾由 APK 下载服务占用（替代 Expo Go Metro），手机浏览器直接下载最新 APK 侧载安装。**2026-11-05 起 9928 端口归财务后台（Caddy 反代 BFF），本服务已退役**；内部分发改用 EAS 下载链接或临时端口，下述命令仅作历史参考。
 
 ```bash
 # 服务（systemd 托管）
