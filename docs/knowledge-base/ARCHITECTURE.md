@@ -155,5 +155,5 @@ eas build -p android --profile preview
 **OpenCode Server 托管**（systemd transient）：
 
 ```
-OPENCODE_SERVER_PASSWORD=… opencode serve --port 4096 --hostname 0.0.0.0 --cors http://localhost:9928 --cors http://127.0.0.1:9928 --cors http://106.13.181.13:9928
+OPENCODE_SERVER_PASSWORD=… opencode serve --port 4096 --hostname 127.0.0.1   # 只绑本机，仅 BFF 可达（CORS 由 BFF 承担）
 ```

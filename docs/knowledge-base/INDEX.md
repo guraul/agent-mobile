@@ -122,7 +122,7 @@ Settings（连接/账号/BFF 地址/model 偏好）/ Memory / Knowledge / Fund �
 | 测试 | vitest | ^4.1.10 | 纯逻辑单元测试 |
 | E2E | playwright-core | — | 浏览器端到端（复用 playwright-skill 依赖） |
 | 构建(云) | eas-cli（EAS Build） | 21.x | Android APK/AAB |
-| 静态服务 | node:http（自写） | — | 9928 web 预览 |
+| 静态服务 | node:http（自写） | — | 9929 web 预览（生产，Caddy 443 对外） |
 
 ## 仓库拓扑
 
@@ -173,7 +173,7 @@ agent-mobile/                                  # git 根仓库
         └── theme/                             # colors/typography/spacing/radius/motion/icons/shadows + light.ts + companion/**
 ```
 
-> **9928 端口现状**：由 `serve-9928.service` 托管 agent-mobile-app 静态版（2026-09-27 起 systemd 接管，开机自启；showcase2-9928.service 已删除）。
+> **静态服务端口现状**：`serve-9928.service` 是历史单元名，当前托管的是**财务后台**；agent-mobile-app 静态版生产在 `127.0.0.1:9929`（Caddy 443 对外），重新部署仍是 `systemctl restart serve-9928`。
 > `agent-mobile-app/scripts/serve-static.mjs` 端口由 `PORT`/`BIND` 环境变量决定（默认 9928；生产 drop-in 设为 `127.0.0.1:9929`，由 Caddy 在 443 对外）；重新部署 = 覆盖 dist + `systemctl restart serve-9928`。
 
 ## 模块依赖关系
@@ -197,12 +197,12 @@ ops（serve-static.mjs / e2e；服务 dist/ 导出产物，与应用代码解耦
 ## 数据流向总览
 
 ```
-opencode server (127.0.0.1:4096, Basic auth)
-  ├── REST /project /session /session/{id}/message → opencodeClient
-  ├── SSE /global/event → opencode-events (rAF 批量 + 退避重连)
+App（手机 / web）
+  ├── REST → homebase BFF `/api/opencode/rest/*`（Bearer JWT）→ opencode 4096（Basic）
+  ├── SSE  → homebase BFF `/api/opencode/stream`（Bearer JWT；BFF 做 v2→v1 翻译 + 缓冲合并）
   │     ├── → useProjectEvents → index.tsx（RUNNING 行）
   │     └── → ChatPanelZ → message-reducer（增量 patch）→ message-merging → MessageBubbleZ
-  └── 发送消息：ChatPanelZ → sendMessageAsync (prompt_async) → SSE 回流
+  └── 发送消息：ChatPanelZ → sendMessageAsync（经 BFF）→ SSE 回流
 
 homebase BFF（对外 `https://106.13.181.13`，经 Caddy；内部 `127.0.0.1:19234`），JWT，全部为 projection（canonical 在 BFF SQLite / memx / vault）：
   ├── /api/product/attention（snapshot）+ /api/product/stream（SSE：attention.* + proposal.*）→ services/attention → useAttentions → Featured + Supporting(NEEDS YOU)

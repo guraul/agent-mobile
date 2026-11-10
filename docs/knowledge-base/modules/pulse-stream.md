@@ -1,6 +1,6 @@
 # modules/pulse-stream.md —— Pulse 根界面（AI 伴侣 briefing 单表面）
 
-> 最后更新: 2026-09-28 | commit: `68ef330`
+> 最后更新: 2026-11-10 | commit: `68ef330`
 > 覆盖路径: `agent-mobile-app/src/app/index.tsx`, `agent-mobile-app/src/components/pulse/**`, `agent-mobile-app/src/hooks/**`, `agent-mobile-app/src/services/agency/**`, `agent-mobile-app/src/services/activity/**`
 > 2026-10-29：补 Noticed 两类（observation / retry-report）/ TodayDigest / Settings 三入口事实登记，见下方「事实登记（2026-10-29）」。
 > 2026-10-29：market 同类合并（#140，呈现层）——见下方「事实登记（2026-10-29）· market 同域提醒合并」。

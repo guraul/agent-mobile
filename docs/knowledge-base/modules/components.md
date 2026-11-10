@@ -62,7 +62,7 @@
 | `pulse/PulseNoticed.tsx` | ghost 卡行浅色（style 透传 divider） |
 | `pulse/ActivitySheet.tsx` | 「她最近做了什么」只读审计 sheet：Settings 入口（7 天）/ Pulse 顶部一句话入口（`days=1`「今天」，本地日界过滤）。摘要一行 / 相对时间+标题+outcome chip（已命中/已检视/失败）/ 空态一句话 / 失败态「暂时读不到记录」+重试。暗色 `theme` token + 旧 BottomSheet；**无授权/撤销/重跑按钮**；取数走 `services/activity/client.fetchAgentActivity`（`GET /api/product/agent-activity`） |
 | `pulse/TodayDigest.tsx` | Pulse 顶部一句话「她今天替你做了什么」（Tier1 先做后报，纯只读）：文案由 `services/activity/digest.buildTodayDigest` 判定（failed > matched > 全正常）；无数据/页满截断/失败均不渲染，AppState active 刷新，失败最多重试 1 次 |
-| `pulse/BoundariesSheet.tsx` | 自主边界只读 sheet（How we work together）+ Nightly retry 开关 + 积压提醒阈值旋钮（3/5/10） |
+| `pulse/BoundariesSheet.tsx` | 自主边界 sheet（How we work together，边界只读）+ Nightly retry 开关 + 积压提醒阈值旋钮（3/5/10，两个控件写服务端） |
 | `pulse/CalendarSheet.tsx` | 外部日历（ICS）录入与删除 |
 | `pulse/ContinueThreads.tsx` | 「接着上次聊」区块（点击恢复原会话；显示「多久之前」） |
 | `pulse/MarketGroupItem.tsx` | market 同域提醒合并后的分组行 |

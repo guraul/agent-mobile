@@ -2,6 +2,7 @@
 
 > 最后更新: 2026-11-05 | commit: `68ef330`
 > 覆盖路径: `agent-mobile-app/package.json`, `agent-mobile-app/pnpm-workspace.yaml`, `deploy/**`, `scripts/pipeline/**`, `agent-mobile-app/scripts/serve-static.mjs`, `agent-mobile-app/app.json`, `.github/workflows/deploy-web.yml`
+> 本版（2026-11-05）：运行时模型切 go 档（#193）、入口改 443 同源、静态服务迁 9929（#212/#215）、旧结论清理（#199/#216）
 > 上一版：2026-10-11 · E1 生产 opencode 升级 v2.0.26（issue #53）
 > ⚠️ **opencode v2 要点（2026-10-11 生产窗口实测）**：
 > - **v2 没有任何 npm/GitHub 发布产物**（npm `opencode-ai@latest`=1.19.0 仍是 v1 线）——装机只能走官方 v2 脚本：`curl -fsSL https://opencode.ai/v2/install | bash -s -- --version 2.0.26`，落位 `~/.opencode/bin/opencode`（本机与生产同此）
