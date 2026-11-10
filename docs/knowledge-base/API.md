@@ -1,6 +1,7 @@
 # API.md —— 接口清单
 
-> 最后更新：2026-10-11 · E1 opencode v2 契约（issue #53）
+> 最后更新: 2026-10-11 | commit: `68ef330`
+> 覆盖路径: `agent-mobile-app/package.json`, `agent-mobile-app/pnpm-workspace.yaml`, `agent-mobile-app/src/services/opencode-client.ts`, `agent-mobile-app/src/services/opencode-events.ts`, `agent-mobile-app/src/services/busy-signal.ts`, `agent-mobile-app/src/services/auth.ts`
 > 上一版：2026-08-30 · commit：`d255c48`（补 /api/auth/logout 端点）
 
 > ⚠️ **2026-10-11 E1：opencode v2 契约（权威实测，详见 issue #53 评论与 PR #15/#68）**——BFF 对外契约不变（`/api/opencode/rest/*`、`/api/opencode/stream`），BFF 内部完成 v1→v2 翻译：

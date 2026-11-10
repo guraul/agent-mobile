@@ -1,6 +1,7 @@
 # ARCHITECTURE.md —— 架构与数据流
 
-> 最后更新：2026-08-30 · commit：`d255c48`（BFF 地址运行时覆盖——方案 C 重启生效）
+> 最后更新: 2026-11-10 | commit: `68ef330`
+> 覆盖路径: `agent-mobile-app/package.json`, `agent-mobile-app/pnpm-workspace.yaml`, `agent-mobile-app/app.json`, `agent-mobile-app/eas.json`, `agent-mobile-app/scripts/serve-static.mjs`, `agent-mobile-app/src/app/_layout.tsx`, `agent-mobile-app/src/theme/**`, `deploy/**`
 
 ## 整体架构
 
@@ -9,13 +10,11 @@
 | 工件 | 形态 | 状态 | 说明 |
 |---|---|---|---|
 | `agent-mobile-app/` | Expo SDK 57 应用 | ✅ 活跃开发 | 唯一可构建产物（Android APK / web 静态站） |
-| `src/`（仓库根） | React/TSX 源码 | ⚠️ 设计期，非运行态 | 早期屏幕设计（Agents/Activity/Settings），无 package.json |
-| `showcase/` | 静态 HTML | ⚠️ 原型 | 浏览器打开 `showcase/index.html`（iPhone 16 Pro 393×852 mockup） |
+| `docs/newdesign/` | 设计稿 + 设计文档 | ✅ 参考（用户活跃编辑，勿改） | UI 实现依据；`docs/redesign/` 为产品语义与迁移决策 |
+| `deploy/` | Caddy / systemd / 漂移检测 | ✅ 生产配置 | 与 `.github/workflows/*` 配套（见 OPERATIONS） |
 | `docs/knowledge-base/` | Markdown 文档 | ✅ 参考 | 设计规范与评审 + 知识库，是 UI 实现的依据 |
 | homebase BFF | Next.js（外部仓库） | ✅ 运行时依赖 | JWT 认证 + REST 转发 + SSE 缓冲合并（打字机）+ CORS |
 | OpenCode Server | 外部进程（`opencode serve`） | ✅ 运行时依赖 | 项目/会话/消息/权限的数据源（127.0.0.1:4096，仅 BFF 可达） |
-
-> 注意：仓库根 `src/` 与 `agent-mobile-app/src/` 是两个不同代码库，勿混淆。
 
 ## 应用内架构（agent-mobile-app）
 
@@ -26,7 +25,7 @@ app 层（路由 + 页面）        src/app/**
   ↓ 使用
 hooks 层（聚合状态）        src/hooks/useProjectEvents.ts
   ↓ 使用
-组件层（可复用 UI）         src/components/**（primitives / feedback / navigation / chat / session）
+组件层（可复用 UI）         src/components/**（primitives / feedback / navigation / chat / chat/zcode / pulse）
   ↓ 使用
 服务层（网络/状态/纯逻辑）   src/services/**（opencode-client, opencode-events, message-reducer,
                             message-merging, project-status）
@@ -37,7 +36,7 @@ hooks 层（聚合状态）        src/hooks/useProjectEvents.ts
 ```
 
 - **状态管理**：页面内 `useState` + 服务层 SSE 事件流订阅（无全局状态库）。
-- **网络层**：`fetch` + Basic auth 对接 OpenCode Server（v1 `/global/event` SSE + REST）。
+- **网络层**：`fetch` + **Bearer JWT 对接 homebase BFF**（`/api/opencode/rest/*` + `/api/opencode/stream`）；BFF 再以 Basic auth 访问 OpenCode Server（v2 `/api/event` 翻译回 v1）。App 不直连 4096。
 - **API 客户端**：`src/services/opencode-client.ts` 封装 REST 端点；`src/services/opencode-events.ts` 处理 SSE 流式订阅（16ms 批量合并 + 指数退避重连）。
 - **增量更新**：`src/services/message-reducer.ts` 纯函数处理 `message.*` 事件（含 `mergeRecentMessages` 轮询合并），避免全量 reload。
 - **显示层展开**：`src/services/message-merging.ts` 把 opencode 的 step 级消息**展开为独立 DisplayStep**（不做跨 step 合并；step-start/finish 过滤）。
@@ -45,7 +44,8 @@ hooks 层（聚合状态）        src/hooks/useProjectEvents.ts
 
 ## 跨端/跨服务通信
 
-- **应用 ↔ OpenCode Server**：HTTP + Basic auth，SSE 事件流（`/global/event`），端口 4096。
+- **应用 ↔ homebase BFF**：HTTP + Bearer JWT；REST 经 `/api/opencode/rest/*` 转发，事件流走 `/api/opencode/stream`（BFF 做 v2→v1 翻译与缓冲合并）。
+- **BFF ↔ OpenCode Server**：HTTP + Basic auth，端口 4096（仅 BFF 可达）。
 - **web 预览 ↔ 服务器**：静态文件服务，`agent-mobile-app/scripts/serve-static.mjs`（HTTP），端口 **9929**（2026-11-05 起；对外经 Caddy 443 提供，见 OPERATIONS）。
 - **构建 ↔ Expo 云**：EAS CLI 上传项目 → 云端 Gradle 构建 → 下载 APK。
 
@@ -90,7 +90,7 @@ hooks 层（聚合状态）        src/hooks/useProjectEvents.ts
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| kind | `"user" \| "text" \| "reasoning" \| "tool"` | step 类型（user/text 为气泡，reasoning/tool 为旁白） |
+| kind | `"user" \| "text" \| "reasoning" \| "tool" \| "toolGroup" \| "receipt" \| "assignmentCard" \| "handoffCard" \| "error"` | step 类型（user/text 为气泡，reasoning/tool 为旁白，toolGroup 为连续工具折叠组，receipt 为记忆写入回执，assignmentCard/handoffCard 为隐藏块剥出的气泡内白卡） |
 | id | string | 来源 part 的 id（无则 `${messageId}-${序号}`） |
 | text | string? | user/text 的文本内容 |
 | tool | string? | tool step 的工具名（如 `bash`） |
@@ -104,7 +104,8 @@ hooks 层（聚合状态）        src/hooks/useProjectEvents.ts
 | 数据 | 位置 | 格式 |
 |---|---|---|
 | 项目/会话/消息/权限 | OpenCode Server（进程内存 + 磁盘） | REST + SSE 流式增量 |
-| 主题 token | `agent-mobile-app/src/theme/*.ts` | TS 常量对象 |
+| 主题 token | `agent-mobile-app/src/theme/*.ts` + `theme/light.ts`（浅色命名空间）+ `theme/companion/**`（Companion 专用 token） | TS 常量对象 |
+| 界面文案 | `agent-mobile-app/src/i18n/*.ts` | 零依赖类型化字典（`en` 默认 / `zh`） |
 | 应用配置 | `agent-mobile-app/app.json` / `eas.json` | JSON |
 | 连接参数 | `agent-mobile-app/.env.local`（未提交）+ AsyncStorage `pulse_bff_url`（运行时覆盖，Me 页写入，重启生效） | `EXPO_PUBLIC_OPENCODE_URL` 默认值 + `getBaseUrl()` 统一读取 |
 | 测试数据 | `src/services/*.test.ts` 内联构造 | vitest fixtures |
@@ -152,5 +153,5 @@ eas build -p android --profile preview
 **OpenCode Server 托管**（systemd transient）：
 
 ```
-OPENCODE_SERVER_PASSWORD=… opencode serve --port 4096 --hostname 0.0.0.0 --cors http://localhost:9928 --cors http://127.0.0.1:9928 --cors http://106.13.181.13:9928
+OPENCODE_SERVER_PASSWORD=… opencode serve --port 4096 --hostname 127.0.0.1   # 只绑本机，仅 BFF 可达（CORS 由 BFF 承担）
 ```

@@ -1,6 +1,7 @@
 # modules/theme.md —— 设计 Token（暗色主题 + 浅色 light 命名空间）
 
-> 最后更新：2026-09-28 · commit：`feat: #8 light token 命名空间`（RN 迁移 #A：新增 `theme/light.ts` 浅色 token 与 Text light variant，暗色旧值不动）
+> 最后更新: 2026-09-28 | commit: `68ef330`
+> 覆盖路径: `agent-mobile-app/src/theme/**`, `agent-mobile-app/src/theme/companion/**`, `agent-mobile-app/src/components/pulse/**`
 
 ## ⚠️ 浅色 light 命名空间（2026-09-28，RN 迁移 epic #7 已完成 pulse 族/attention/登录）
 

@@ -1,12 +1,30 @@
 # Agent Mobile 项目知识库 · 索引总览
 
-> 最后更新：2026-10-12 · commit 6d432c5 · 新增「DSH 接入 OpenCode Go 订阅模型」路由行（正文见 OPERATIONS.md §DSH 接入 OpenCode Go）。
+> 最后更新: 2026-11-10 | commit: `68ef330`
+> 覆盖路径: `agent-mobile-app/package.json`, `agent-mobile-app/pnpm-workspace.yaml`, `agent-mobile-app/app.json`, `agent-mobile-app/src/app/_layout.tsx`, `agent-mobile-app/src/app/index.tsx`, `agent-mobile-app/src/components/index.ts`, `agent-mobile-app/src/services/opencode-client.ts`, `agent-mobile-app/src/theme/index.ts`, `agent-mobile-app/scripts/serve-static.mjs`, `deploy/**`
 > 上一版：2026-09-29 · **双 chat 页（epic #35）五项收官**：`/talk` 单路由 + 运行时 directory 判据分流到
 > chat（伴侣页）/ chatcode（工作台壳）两形态，含命令族回执 chip（#59 起取代内白卡）、工具折叠组、thinking、
 > diff 卡、composer 两态、排队队列。talk/assignments/kb 已全部浅色化。
 > 上一版：2026-09-28 RN 浅色迁移 epic #7 主体完成（PR #16-#23），基准 `docs/pipeline/RN_MIGRATION_BRIEF.md`，决策 D1-D10。
 > 聊天模块细节以 [modules/chat.md](modules/chat.md) 为准，分流判据以 [modules/router.md](modules/router.md) 为准。
 > 维护：见 [CONVENTIONS.md](CONVENTIONS.md)「知识库维护约定」
+
+## 文档导航
+
+| 文档 | 内容 |
+|---|---|
+| `docs/knowledge-base/INDEX.md` | 全局认知、技术栈、仓库拓扑、模块地图 |
+| `docs/knowledge-base/ARCHITECTURE.md` | 架构分层与数据流（BFF 中间层 + opencode） |
+| `docs/knowledge-base/API.md` | 对外接口（BFF / opencode v1） |
+| `docs/knowledge-base/DATA.md` | 数据位置与流动 |
+| `docs/knowledge-base/OPERATIONS.md` | 构建 / 部署 / 预览 / 测试 / 环境变量 |
+| `docs/knowledge-base/CONVENTIONS.md` | 编码约定、历史包袱、修改红线 |
+| `docs/knowledge-base/modules/chat.md` | 聊天界面（气泡 / 打字机 / 弹窗 / 输入区） |
+| `docs/knowledge-base/modules/components.md` | 组件库（primitives / feedback / navigation） |
+| `docs/knowledge-base/modules/pulse-stream.md` | Pulse 首页（Hero / Featured / Supporting / sheets） |
+| `docs/knowledge-base/modules/router.md` | 路由与页面分流 |
+| `docs/knowledge-base/modules/services.md` | opencode 对接（REST / SSE / reducer / 状态机） |
+| `docs/knowledge-base/modules/theme.md` | 主题与设计 token |
 
 ## 使用说明
 
@@ -82,7 +100,7 @@ Settings（连接/账号/BFF 地址/model 偏好）/ Memory / Knowledge / Fund �
 | 双 chat 页分流判据（directory → chat/chatcode，纯函数） | router | `agent-mobile-app/src/services/conversation-kind.ts` |
 | 命令族反馈回执 chip（Assignment 斜杠命令的留痕，反馈全文可多行；取代已退役的 Duties/Projects 内白卡） | chat | `agent-mobile-app/src/services/command-receipt.ts`（纯函数 + 单测）+ `ChatPanelZ.tsx`（`localSteps`）+ `zcode/MessageBubbleZ.tsx`（`kind === "receipt"` 渲染） |
 | Web 静态预览服务（`serve-static.mjs`，端口见下） | ops | `agent-mobile-app/scripts/serve-static.mjs` |
-| APK 下载服务（9928，备用） | ops | `test/download/pulse.apk`（python3 http.server） |
+| APK 下载服务（已退役；2026-11-05 起 9928 归财务后台） | ops | `test/download/pulse.apk`（历史） |
 | E2E 测试（Playwright） | ops | `agent-mobile-app/scripts/e2e/pulse-e2e.mjs` |
 
 ## 技术栈表
@@ -104,7 +122,7 @@ Settings（连接/账号/BFF 地址/model 偏好）/ Memory / Knowledge / Fund �
 | 测试 | vitest | ^4.1.10 | 纯逻辑单元测试 |
 | E2E | playwright-core | — | 浏览器端到端（复用 playwright-skill 依赖） |
 | 构建(云) | eas-cli（EAS Build） | 21.x | Android APK/AAB |
-| 静态服务 | node:http（自写） | — | 9928 web 预览 |
+| 静态服务 | node:http（自写） | — | 9929 web 预览（生产，Caddy 443 对外） |
 
 ## 仓库拓扑
 
@@ -145,15 +163,17 @@ agent-mobile/                                  # git 根仓库
         ├── app/assignments/                   # Responsibilities 列表 + 详情
         ├── app/attention/[id].tsx             # Attention 详情
         ├── app/kb/doc.tsx                     # KB 文档阅读
+        ├── app/login.tsx                      # 登录 gate（RN 迁移 #G）
         ├── app/memory.tsx / me.tsx            # legacy Redirect → /
         ├── config/opencode.ts                 # opencode 连接配置（env）
         ├── hooks/useProjectEvents.ts          # 项目事件聚合 hook
-        ├── services/                          # ★ opencode REST/SSE/reducer/step展开/状态机
-        ├── components/                        # primitives/feedback/navigation/chat/pulse + index.ts
-        └── theme/                             # colors/typography/spacing/radius/motion/icons/shadows
+        ├── i18n/                              # 零依赖类型化字典（en 默认 / zh）
+        ├── services/                          # ★ opencode REST/SSE/reducer/step展开/状态机；attention/assignment/proposal/memory/activity/agency 子域
+        ├── components/                        # primitives/feedback/navigation/chat（含 zcode）/pulse + index.ts
+        └── theme/                             # colors/typography/spacing/radius/motion/icons/shadows + light.ts + companion/**
 ```
 
-> **9928 端口现状**：由 `serve-9928.service` 托管 agent-mobile-app 静态版（2026-09-27 起 systemd 接管，开机自启；showcase2-9928.service 已删除）。
+> **静态服务端口现状**：`serve-9928.service` 是历史单元名，托管 **Pulse 静态站**（实际 `127.0.0.1:9929`，Caddy 443 对外）；`:9928` 端口归**财务后台**（Caddy 反代 BFF），与这个 unit 无关。重新部署 = 覆盖 dist + `systemctl restart serve-9928`。
 > `agent-mobile-app/scripts/serve-static.mjs` 端口由 `PORT`/`BIND` 环境变量决定（默认 9928；生产 drop-in 设为 `127.0.0.1:9929`，由 Caddy 在 443 对外）；重新部署 = 覆盖 dist + `systemctl restart serve-9928`。
 
 ## 模块依赖关系
@@ -177,12 +197,12 @@ ops（serve-static.mjs / e2e；服务 dist/ 导出产物，与应用代码解耦
 ## 数据流向总览
 
 ```
-opencode server (127.0.0.1:4096, Basic auth)
-  ├── REST /project /session /session/{id}/message → opencodeClient
-  ├── SSE /global/event → opencode-events (rAF 批量 + 退避重连)
+App（手机 / web）
+  ├── REST → homebase BFF `/api/opencode/rest/*`（Bearer JWT）→ opencode 4096（Basic）
+  ├── SSE  → homebase BFF `/api/opencode/stream`（Bearer JWT；BFF 做 v2→v1 翻译 + 缓冲合并）
   │     ├── → useProjectEvents → index.tsx（RUNNING 行）
   │     └── → ChatPanelZ → message-reducer（增量 patch）→ message-merging → MessageBubbleZ
-  └── 发送消息：ChatPanelZ → sendMessageAsync (prompt_async) → SSE 回流
+  └── 发送消息：ChatPanelZ → sendMessageAsync（经 BFF）→ SSE 回流
 
 homebase BFF（对外 `https://106.13.181.13`，经 Caddy；内部 `127.0.0.1:19234`），JWT，全部为 projection（canonical 在 BFF SQLite / memx / vault）：
   ├── /api/product/attention（snapshot）+ /api/product/stream（SSE：attention.* + proposal.*）→ services/attention → useAttentions → Featured + Supporting(NEEDS YOU)
@@ -221,5 +241,5 @@ homebase BFF（对外 `https://106.13.181.13`，经 Caddy；内部 `127.0.0.1:19
 | 排查 opencode 机制（auto compact 等） | 源码在 `/root/project/opencode-src`（仓库外，含 .git 历史） |
 | 预览 web 版 | `pnpm exec expo export --platform web` + `scripts/serve-static.mjs`（生产由 `serve-9928.service` 托管在 `127.0.0.1:9929`，对外 `https://106.13.181.13`，见 OPERATIONS.md） |
 | 打 APK | `eas build -p android --profile preview`（见 OPERATIONS.md） |
-| 下载/分发 APK | `eas build:download --build-id <id>` → 覆盖 `test/download/pulse.apk` → `apk-download-9928.service`（备用） |
+| 下载/分发 APK | `eas build:download --build-id <id>` → 覆盖 `test/download/pulse.apk`（`apk-download-9928.service` 已退役，2026-11-05 起 9928 归财务后台） |
 | 改应用元信息（包名/名称/主题色） | `agent-mobile-app/app.json` |

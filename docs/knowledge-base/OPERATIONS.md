@@ -1,7 +1,9 @@
 # OPERATIONS.md —— 构建与运维
 
-> 最后更新：2026-11-05 · 运行时模型切 go 档（#193）、入口改 443 同源、静态服务迁 9929（#212/#215）、旧结论清理（#199/#216）；更早：2026-10-12 · DSH 接入 OpenCode Go 订阅（`opencode-go` provider）配置 + 404/400 排查结论落档，见 §DSH 接入 OpenCode Go
-> 最后更新：2026-10-11 · E1 生产 opencode 升级 v2.0.26（issue #53）
+> 最后更新: 2026-11-05 | commit: `68ef330`
+> 覆盖路径: `agent-mobile-app/package.json`, `agent-mobile-app/pnpm-workspace.yaml`, `deploy/**`, `scripts/pipeline/**`, `agent-mobile-app/scripts/serve-static.mjs`, `agent-mobile-app/app.json`, `.github/workflows/deploy-web.yml`
+> 本版（2026-11-05）：运行时模型切 go 档（#193）、入口改 443 同源、静态服务迁 9929（#212/#215）、旧结论清理（#199/#216）
+> 上一版：2026-10-11 · E1 生产 opencode 升级 v2.0.26（issue #53）
 > ⚠️ **opencode v2 要点（2026-10-11 生产窗口实测）**：
 > - **v2 没有任何 npm/GitHub 发布产物**（npm `opencode-ai@latest`=1.19.0 仍是 v1 线）——装机只能走官方 v2 脚本：`curl -fsSL https://opencode.ai/v2/install | bash -s -- --version 2.0.26`，落位 `~/.opencode/bin/opencode`（本机与生产同此）
 > - **v2 serve 强制 Basic 密码鉴权**：`Environment=OPENCODE_PASSWORD=…`（systemd 单元内必须在 [Service] 段）+ BFF `.env.local` 同步同值；生产密码在服务器 `/root/backups/opencode-4096-password.txt`
@@ -129,9 +131,9 @@ npx expo start --port 9928 --host lan
 - **切换回 web 版**：`systemctl stop expo-metro-9928 && systemctl start serve-9928`
 - 热重载：改代码 Metro 实时刷新，比 web 版每次 export+重启快
 
-## APK 下载服务（当前方案，9928 端口）
+## APK 下载服务（已退役；2026-11-05 起 9928 归财务后台）
 
-**2026-08-16 起**：9928 由 APK 下载服务占用（替代 Expo Go Metro），手机浏览器直接下载最新 APK 侧载安装。
+**2026-08-16 起**：9928 曾由 APK 下载服务占用（替代 Expo Go Metro），手机浏览器直接下载最新 APK 侧载安装。**2026-11-05 起 9928 端口归财务后台（Caddy 反代 BFF），本服务已退役**；内部分发改用 EAS 下载链接或临时端口，下述命令仅作历史参考。
 
 ```bash
 # 服务（systemd 托管）
