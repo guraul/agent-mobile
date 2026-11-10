@@ -2,7 +2,7 @@
 
 > 最后更新: 2026-11-05 | commit: `68ef330`
 > 覆盖路径: `agent-mobile-app/package.json`, `agent-mobile-app/pnpm-workspace.yaml`, `deploy/**`, `scripts/pipeline/**`, `agent-mobile-app/scripts/serve-static.mjs`, `agent-mobile-app/app.json`, `.github/workflows/deploy-web.yml`
-> 最后更新：2026-10-11 · E1 生产 opencode 升级 v2.0.26（issue #53）
+> 上一版：2026-10-11 · E1 生产 opencode 升级 v2.0.26（issue #53）
 > ⚠️ **opencode v2 要点（2026-10-11 生产窗口实测）**：
 > - **v2 没有任何 npm/GitHub 发布产物**（npm `opencode-ai@latest`=1.19.0 仍是 v1 线）——装机只能走官方 v2 脚本：`curl -fsSL https://opencode.ai/v2/install | bash -s -- --version 2.0.26`，落位 `~/.opencode/bin/opencode`（本机与生产同此）
 > - **v2 serve 强制 Basic 密码鉴权**：`Environment=OPENCODE_PASSWORD=…`（systemd 单元内必须在 [Service] 段）+ BFF `.env.local` 同步同值；生产密码在服务器 `/root/backups/opencode-4096-password.txt`

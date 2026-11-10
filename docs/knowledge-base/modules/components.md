@@ -66,9 +66,9 @@
 | `pulse/CalendarSheet.tsx` | 外部日历（ICS）录入与删除 |
 | `pulse/ContinueThreads.tsx` | 「接着上次聊」区块（点击恢复原会话；显示「多久之前」） |
 | `pulse/MarketGroupItem.tsx` | market 同域提醒合并后的分组行 |
-| `pulse/SettingsSheet.tsx` / `KnowledgeSheet.tsx` / `MemorySheet.tsx` | 设置 / KB 检索 / 记忆（浅色重做后挂在 LightSheet 上） |
+| `pulse/SettingsSheet.tsx` / `KnowledgeSheet.tsx` / `MemorySheet.tsx` | 设置 / KB 检索 / 记忆（**仍用 `navigation/BottomSheet`**，未迁 LightSheet） |
 | `pulse/AIComposer.tsx` / `ThinkingDots.tsx` / `ContextChip.tsx` / `PressableScale.tsx` / `ConversationMessage.tsx` / `NoticedListSheet.tsx` | 输入区、思考点、上下文 chip、按压缩放、会话消息、Noticed 列表 |
-| `theme/companion/**` | Companion 专用 token（colors/motion/spacing/surfaces/typography），浅色页优先 |
+| `theme/companion/**` | Companion 专用**暗色** token（colors/motion/spacing/surfaces/typography）；未迁移页（talk/assignments/kb/chatcode）仍用；浅色唯一来源是 `theme/light.ts` |
 | 旧组件保留 | ActionChips / ConversationEntry / AIOrb / AIStatus / 旧 BottomSheet（部分 sheet 仍用）——待后续批次删 |
 
 ## i18n（`src/i18n/`，第 0 期建能力 / 第 1–3 期迁移完成）

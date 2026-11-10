@@ -92,7 +92,7 @@ hooks 层（聚合状态）        src/hooks/useProjectEvents.ts
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| kind | `"user" \| "text" \| "reasoning" \| "tool" \| "toolGroup" \| "receipt" \| "assignmentCard" \| "handoffCard"` | step 类型（user/text 为气泡，reasoning/tool 为旁白，toolGroup 为连续工具折叠组，receipt 为记忆写入回执，assignmentCard/handoffCard 为隐藏块剥出的气泡内白卡） |
+| kind | `"user" \| "text" \| "reasoning" \| "tool" \| "toolGroup" \| "receipt" \| "assignmentCard" \| "handoffCard" \| "error"` | step 类型（user/text 为气泡，reasoning/tool 为旁白，toolGroup 为连续工具折叠组，receipt 为记忆写入回执，assignmentCard/handoffCard 为隐藏块剥出的气泡内白卡） |
 | id | string | 来源 part 的 id（无则 `${messageId}-${序号}`） |
 | text | string? | user/text 的文本内容 |
 | tool | string? | tool step 的工具名（如 `bash`） |

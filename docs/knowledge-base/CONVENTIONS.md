@@ -75,7 +75,7 @@
 - **勿删 `BottomSheet` 的 fullScreen 无 padding 布局约定** —— 内容组件（ProjectChat header、ChatPanel 输入区）依赖自身 padding；加回 padding 会导致输入框/header 不贴边。
 - **勿改消息数组的 chronological 语义** —— reducer 插入、ChatPanel 排序、step 展开顺序全部基于 `time.created`；任何"反向"假设都会重现消息错乱。
 - **勿在界面里硬编码文案**：走 `src/i18n/` 的 `t()`（默认 `en`，`zh` 用 `satisfies` 补齐）；service 纯函数直接调 `t()`，组件顶部调 `useLocale()` 订阅。用户数据 / 服务端错误 message 不进字典。
-- **浅色 token 只在 `theme/light.ts` / `theme/companion/**`**：Pulse / chatcode 等浅色组件不得直接写色值；暗色旧 token 与浅色命名空间并存（D1）。
+- **浅色 token 只在 `theme/light.ts`**：Pulse 等已迁移浅色组件不得直接写色值。`theme/companion/**` 是**暗色** Companion token，talk / assignments / kb / chatcode 等未迁移页仍用（D1），不要往里塞浅色值。
 - **`EXPO_TOKEN` / `EXPO_PUBLIC_OPENCODE_PASSWORD` 为敏感凭据** —— 不写入代码/文档/提交。
 - **expo 依赖版本必须匹配 SDK 57** —— 用 `pnpm exec expo install`（**不用 `npx` / `npm`，见 AGENTS.md 规则 14**），勿手工改版本号。
 - 写代码前遵守 `agent-mobile-app/AGENTS.md`：先读 https://docs.expo.dev/versions/v57.0.0/ 版本化文档。
