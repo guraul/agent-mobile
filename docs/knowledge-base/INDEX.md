@@ -173,7 +173,7 @@ agent-mobile/                                  # git 根仓库
         └── theme/                             # colors/typography/spacing/radius/motion/icons/shadows + light.ts + companion/**
 ```
 
-> **静态服务端口现状**：`serve-9928.service` 是历史单元名，当前托管的是**财务后台**；agent-mobile-app 静态版生产在 `127.0.0.1:9929`（Caddy 443 对外），重新部署仍是 `systemctl restart serve-9928`。
+> **静态服务端口现状**：`serve-9928.service` 是历史单元名，托管 **Pulse 静态站**（实际 `127.0.0.1:9929`，Caddy 443 对外）；`:9928` 端口归**财务后台**（Caddy 反代 BFF），与这个 unit 无关。重新部署 = 覆盖 dist + `systemctl restart serve-9928`。
 > `agent-mobile-app/scripts/serve-static.mjs` 端口由 `PORT`/`BIND` 环境变量决定（默认 9928；生产 drop-in 设为 `127.0.0.1:9929`，由 Caddy 在 443 对外）；重新部署 = 覆盖 dist + `systemctl restart serve-9928`。
 
 ## 模块依赖关系

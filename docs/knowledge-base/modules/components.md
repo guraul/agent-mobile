@@ -68,7 +68,7 @@
 | `pulse/MarketGroupItem.tsx` | market 同域提醒合并后的分组行 |
 | `pulse/SettingsSheet.tsx` / `KnowledgeSheet.tsx` / `MemorySheet.tsx` | 设置 / KB 检索 / 记忆（**仍用 `navigation/BottomSheet`**，未迁 LightSheet） |
 | `pulse/AIComposer.tsx` / `ThinkingDots.tsx` / `ContextChip.tsx` / `PressableScale.tsx` / `ConversationMessage.tsx` / `NoticedListSheet.tsx` | 输入区、思考点、上下文 chip、按压缩放、会话消息、Noticed 列表 |
-| `theme/companion/**` | Companion 专用**暗色** token（colors/motion/spacing/surfaces/typography）；未迁移页（talk/assignments/kb/chatcode）仍用；浅色唯一来源是 `theme/light.ts` |
+| `theme/companion/**` | Companion 专用**暗色** token（colors/motion/spacing/surfaces/typography）；现仅由 pulse 下遗留组件使用，**新代码不要再引**；浅色唯一来源是 `theme/light.ts` |
 | 旧组件保留 | ActionChips / ConversationEntry / AIOrb / AIStatus / 旧 BottomSheet（部分 sheet 仍用）——待后续批次删 |
 
 ## i18n（`src/i18n/`，第 0 期建能力 / 第 1–3 期迁移完成）
