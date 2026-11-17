@@ -131,6 +131,32 @@ npx expo start --port 9928 --host lan
 - **切换回 web 版**：`systemctl stop expo-metro-9928 && systemctl start serve-9928`
 - 热重载：改代码 Metro 实时刷新，比 web 版每次 export+重启快
 
+## APK 构建（2026-11-16 起：GitHub Actions，不再走 EAS）
+
+真机验证要的 APK 现在由 `build-apk` workflow 产出，**不需要本机装 Android SDK、也不需要 EAS 排队**。
+
+| 项 | 值 |
+|---|---|
+| 触发 | Actions → `build-apk` → Run workflow；或 push main 动 `agent-mobile-app/**`；PR 也会跑 |
+| 可选参数 | `abi`（默认 `arm64-v8a`）、`ref`（留空 = 默认分支） |
+| 耗时 | 首次约 14 分钟（含 Gradle 缓存冷启），缓存命中后更快 |
+| 产物 | 运行页面底部 **Artifacts → `pulse-apk`**（`app-release.apk`，约 25 MB，保留 14 天） |
+| 签名 | **debug keystore**（Expo 生成工程的 release 默认行为）——只够真机侧载验证，**不能上架** |
+| 安装 | `adb install -r pulse-apk/app-release.apk`，或手机下载后侧载 |
+
+关键实现（`.github/workflows/build-apk.yml`）：
+
+```bash
+pnpm install --frozen-lockfile
+pnpm exec expo prebuild -p android --no-install   # 每次现生成，android/ 不入库
+cd android && ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon
+```
+
+- **只打一个 ABI**：`arm64-v8a` 覆盖绝大多数手机，原生打包时间砍一半；需要别的 ABI 时手动触发传参。
+- **`android/` 不入库**（`.gitignore` 已忽略）：保住 `app.json` 里 config plugin 的效力，需要原生工程时现生成。
+- **为什么不用 EAS**：EAS 每次要排队 5–20 分钟；本仓是公开仓，Actions 分钟数免费且用官方 x86_64 工具链。
+- **为什么不在手机（MI6/Termux）上打**：Android 官方 build-tools 只发 x86_64/macOS 版本，aarch64 要自建 aapt2 与 NDK 重打包，调通成本远高于收益（2026-11-16 调查结论）。
+
 ## APK 下载服务（已退役；2026-11-05 起 9928 归财务后台）
 
 **2026-08-16 起**：9928 曾由 APK 下载服务占用（替代 Expo Go Metro），手机浏览器直接下载最新 APK 侧载安装。**2026-11-05 起 9928 端口归财务后台（Caddy 反代 BFF），本服务已退役**；内部分发改用 EAS 下载链接或临时端口，下述命令仅作历史参考。

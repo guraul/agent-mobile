@@ -1,0 +1,105 @@
+# APK 构建（2026-11-16 用户拍板：不再走 EAS 排队，改 GitHub Actions）
+#
+# 为什么放 CI：本仓是公开仓，Actions 分钟数免费；runner 是 x86_64 + 官方 Android SDK，
+# 不需要 Termux/arm64 那套 aapt2 特调。本机只负责 `adb install`。
+#
+# 产物：Actions 页面 Artifacts 里的 pulse-apk（app-release.apk）。
+# 签名：Expo 生成的 android 工程 release 默认用 debug keystore —— **只够真机验证，不能上架**。
+# 边界：不接 EAS；不把 android/ 入库（.gitignore 已忽略），每次 prebuild 重新生成。
+
+name: build-apk
+
+on:
+  workflow_dispatch:
+    inputs:
+      abi:
+        description: '目标 ABI（默认 arm64-v8a，覆盖绝大多数手机）'
+        required: false
+        default: 'arm64-v8a'
+      ref:
+        description: '要构建的分支/提交（留空 = 当前默认分支）'
+        required: false
+        default: ''
+  push:
+    branches: [main]
+    paths:
+      - 'agent-mobile-app/**'
+      - '.github/workflows/build-apk.yml'
+  pull_request:
+    paths:
+      - 'agent-mobile-app/**'
+      - '.github/workflows/build-apk.yml'
+
+concurrency:
+  group: build-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: agent-mobile-app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: agent-mobile-app/pnpm-lock.yaml
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # Gradle 缓存是这套流程里最划算的一步：RN 依赖编译产物很大，缓存后第二次起快一半以上
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('agent-mobile-app/pnpm-lock.yaml') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      - name: Install JS deps
+        run: pnpm install --frozen-lockfile
+
+      # --no-install：依赖已装好，别让 prebuild 再跑一次包管理器
+      - name: Prebuild native project
+        run: pnpm exec expo prebuild -p android --no-install
+
+      - name: Accept Android licenses
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null 2>&1 || true
+
+      - name: Build release APK
+        run: |
+          set -o pipefail
+          ABI="${{ inputs.abi || 'arm64-v8a' }}"
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease -PreactNativeArchitectures="$ABI" --no-daemon 2>&1 | tail -60
+
+      - name: Locate APK
+        id: apk
+        run: |
+          set -eu
+          APK=$(find android/app/build/outputs/apk/release -name '*.apk' | head -1)
+          if [ -z "$APK" ]; then echo "没找到 APK，构建可能失败" >&2; exit 1; fi
+          echo "apk=$APK" >> "$GITHUB_OUTPUT"
+          ls -lh "$APK"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pulse-apk
+          path: agent-mobile-app/${{ steps.apk.outputs.apk }}
+          retention-days: 14
+          if-no-files-found: error
