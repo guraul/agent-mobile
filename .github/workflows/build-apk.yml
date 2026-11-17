@@ -3,7 +3,7 @@
 # 为什么放 CI：本仓是公开仓，Actions 分钟数免费；runner 是 x86_64 + 官方 Android SDK，
 # 不需要 Termux/arm64 那套 aapt2 特调。本机只负责 `adb install`。
 #
-# 产物：Actions 页面 Artifacts 里的 pulse-apk（app-release.apk）。
+# 产物：Actions 页面 Artifacts 里的 pulse-apk-<sha>-<abi>（内含 app-release.apk）。
 # 签名：Expo 生成的 android 工程 release 默认用 debug keystore —— **只够真机验证，不能上架**。
 # 边界：不接 EAS；不把 android/ 入库（.gitignore 已忽略），每次 prebuild 重新生成。
 
@@ -20,6 +20,10 @@ on:
         description: '要构建的分支/提交（留空 = 当前默认分支）'
         required: false
         default: ''
+      publish:
+        description: '构建后直接从 runner 推服务器（慢，~30 KB/s；一般用本机 pnpm apk:publish）'
+        required: false
+        default: 'false'
   # 打 tag 视为「留一个可安装包」（如 apk-v1.0.1）
   push:
     tags:
@@ -35,8 +39,13 @@ on:
       - 'agent-mobile-app/pnpm-lock.yaml'
       - '.github/workflows/build-apk.yml'
 
+# 只读仓库内容：本流程不需要写权限，显式收敛默认令牌的权限面（补审 #254）
+permissions:
+  contents: read
+
 concurrency:
-  group: build-apk-${{ github.ref }}
+  # 带上 inputs.ref：同一分支上两次手动触发、构建不同提交时不该互相取消
+  group: build-apk-${{ github.ref }}-${{ inputs.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -83,39 +92,60 @@ jobs:
         run: pnpm exec expo prebuild -p android --no-install
 
       - name: Accept Android licenses
-        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null 2>&1 || true
+        run: |
+          # 不用 `|| true` 静默吞错：runner 镜像通常已预接受，真失败时留一条可见警告
+          if ! yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null 2>&1; then
+            echo "::warning::sdkmanager 接受许可失败（runner 通常已预接受；若 gradle 报 license 错误，看这里）"
+          fi
 
       - name: Build release APK
+        env:
+          # 走 env 而不是直接内插：inputs 由触发者提供，直接拼进脚本等于给出命令注入面
+          ABI_INPUT: ${{ inputs.abi }}
         run: |
           set -o pipefail
-          ABI="${{ inputs.abi || 'arm64-v8a' }}"
+          ABI="${ABI_INPUT:-arm64-v8a}"
+          # 白名单：传错 ABI 时 gradle 照样「成功」，但产物可能不含任何 native 库，装机即崩
+          case "$ABI" in
+            armeabi-v7a|arm64-v8a|x86|x86_64) ;;
+            *) echo "::error::不支持的 ABI: $ABI" >&2; exit 1 ;;
+          esac
+          echo "目标 ABI: $ABI"
           cd android
           chmod +x gradlew
-          ./gradlew assembleRelease -PreactNativeArchitectures="$ABI" --no-daemon 2>&1 | tail -60
+          ./gradlew assembleRelease -PreactNativeArchitectures="$ABI" --no-daemon 2>&1 | tee /tmp/gradle.log | tail -60
 
       - name: Locate APK
         id: apk
         run: |
           set -eu
-          APK=$(find android/app/build/outputs/apk/release -name '*.apk' | head -1)
-          if [ -z "$APK" ]; then echo "没找到 APK，构建可能失败" >&2; exit 1; fi
+          # 优先 release 主产物；将来开 ABI split 出多个包时明确失败，而不是静默挑第一个
+          APK="android/app/build/outputs/apk/release/app-release.apk"
+          if [ ! -f "$APK" ]; then
+            COUNT=$(find android/app/build/outputs/apk/release -name '*.apk' | wc -l | tr -d ' ')
+            if [ "$COUNT" != "1" ]; then
+              echo "::error::没找到 app-release.apk，且 release 目录下有 $COUNT 个 APK（ABI split？）" >&2
+              ls -lh android/app/build/outputs/apk/release/ >&2
+              exit 1
+            fi
+            APK=$(find android/app/build/outputs/apk/release -name '*.apk')
+          fi
           echo "apk=$APK" >> "$GITHUB_OUTPUT"
           ls -lh "$APK"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: pulse-apk
+          name: pulse-apk-${{ github.sha }}-${{ inputs.abi || 'arm64-v8a' }}
           path: agent-mobile-app/${{ steps.apk.outputs.apk }}
           retention-days: 14
           if-no-files-found: error
 
-      # 传到生产机，让手机能直接下：homebase 的「文件管理器」以 /root/project 为允许根
-      # （lib/fileUtils.ts 的 ALLOWED_ROOTS），放到 /root/project/agent-mobile/downloads
-      # 就能在 https://<host>:9928/files 里点开下载，不需要新增 Caddy 路由、也不需要新凭据
-      # （复用 deploy-web 已在用的 DEPLOY_SSH_KEY）。
-      # 只在 tag / 手动构建时发布：PR 构建出来的包不该混进线上目录。
-      - name: Publish APK to server (visible in homebase 文件管理器)
-        if: github.event_name != 'pull_request'
+      # 传服务器**默认关闭**：2026-11-17 实测 GitHub runner（美国）→ 百度云只有 ~30 KB/s，
+      # 45 MB 的 APK 要 25 分钟且中途会断；而「GitHub → 本机 → 服务器」是 0.94 + 1.0 MB/s，
+      # 合计约 1.5 分钟。可靠路径改成在本机跑 `pnpm apk:publish`（scripts/publish-apk.sh）。
+      # 这里保留开关，只有显式传 publish=true 时才尝试慢速直推。
+      - name: Publish APK to server (slow path, opt-in)
+        if: github.event_name != 'pull_request' && inputs.publish == 'true'
         run: |
           set -o pipefail
           mkdir -p ~/.ssh
@@ -123,6 +153,10 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new root@106.13.181.13"
           VER=$(node -p "require('./app.json').expo.version")
+          # 这个值会拼进远端 shell 命令，先卡白名单（补审 #255）
+          case "$VER" in
+            ''|*[!0-9.]*) echo "::error::版本号只允许数字与点: $VER" >&2; exit 1 ;;
+          esac
           NAME="pulse-v${VER}-${GITHUB_SHA:0:7}.apk"
           $SSH "mkdir -p /root/project/agent-mobile/downloads"
           rsync -az -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new" \
