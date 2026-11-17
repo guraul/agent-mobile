@@ -20,14 +20,19 @@ on:
         description: '要构建的分支/提交（留空 = 当前默认分支）'
         required: false
         default: ''
+  # 打 tag 视为「留一个可安装包」（如 apk-v1.0.1）
   push:
-    branches: [main]
-    paths:
-      - 'agent-mobile-app/**'
-      - '.github/workflows/build-apk.yml'
+    tags:
+      - 'apk-*'
+  # PR 只在「可能影响原生构建」的改动上跑：纯 JS 改动的编译问题由 tsc + 测试兜，
+  # 不值得每个 PR 都花 14 分钟打一次包（2026-11-17 调整）。
   pull_request:
     paths:
-      - 'agent-mobile-app/**'
+      - 'agent-mobile-app/app.json'
+      - 'agent-mobile-app/app.config.js'
+      - 'agent-mobile-app/app.config.ts'
+      - 'agent-mobile-app/package.json'
+      - 'agent-mobile-app/pnpm-lock.yaml'
       - '.github/workflows/build-apk.yml'
 
 concurrency:
@@ -103,3 +108,25 @@ jobs:
           path: agent-mobile-app/${{ steps.apk.outputs.apk }}
           retention-days: 14
           if-no-files-found: error
+
+      # 传到生产机，让手机能直接下：homebase 的「文件管理器」以 /root/project 为允许根
+      # （lib/fileUtils.ts 的 ALLOWED_ROOTS），放到 /root/project/agent-mobile/downloads
+      # 就能在 https://<host>:9928/files 里点开下载，不需要新增 Caddy 路由、也不需要新凭据
+      # （复用 deploy-web 已在用的 DEPLOY_SSH_KEY）。
+      # 只在 tag / 手动构建时发布：PR 构建出来的包不该混进线上目录。
+      - name: Publish APK to server (visible in homebase 文件管理器)
+        if: github.event_name != 'pull_request'
+        run: |
+          set -o pipefail
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new root@106.13.181.13"
+          VER=$(node -p "require('./app.json').expo.version")
+          NAME="pulse-v${VER}-${GITHUB_SHA:0:7}.apk"
+          $SSH "mkdir -p /root/project/agent-mobile/downloads"
+          rsync -az -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new" \
+            "${{ steps.apk.outputs.apk }}" \
+            "root@106.13.181.13:/root/project/agent-mobile/downloads/$NAME"
+          # pulse-latest.apk 指向最新一版；只保留最近 5 个版本
+          $SSH "cd /root/project/agent-mobile/downloads && ln -sfn '$NAME' pulse-latest.apk && ls -t pulse-v*.apk | tail -n +6 | xargs -r rm -f && ls -lh"
