@@ -20,6 +20,10 @@ on:
         description: '要构建的分支/提交（留空 = 当前默认分支）'
         required: false
         default: ''
+      publish:
+        description: '构建后直接从 runner 推服务器（慢，~30 KB/s；一般用本机 pnpm apk:publish）'
+        required: false
+        default: 'false'
   # 打 tag 视为「留一个可安装包」（如 apk-v1.0.1）
   push:
     tags:
@@ -109,13 +113,12 @@ jobs:
           retention-days: 14
           if-no-files-found: error
 
-      # 传到生产机，让手机能直接下：homebase 的「文件管理器」以 /root/project 为允许根
-      # （lib/fileUtils.ts 的 ALLOWED_ROOTS），放到 /root/project/agent-mobile/downloads
-      # 就能在 https://<host>:9928/files 里点开下载，不需要新增 Caddy 路由、也不需要新凭据
-      # （复用 deploy-web 已在用的 DEPLOY_SSH_KEY）。
-      # 只在 tag / 手动构建时发布：PR 构建出来的包不该混进线上目录。
-      - name: Publish APK to server (visible in homebase 文件管理器)
-        if: github.event_name != 'pull_request'
+      # 传服务器**默认关闭**：2026-11-17 实测 GitHub runner（美国）→ 百度云只有 ~30 KB/s，
+      # 45 MB 的 APK 要 25 分钟且中途会断；而「GitHub → 本机 → 服务器」是 0.94 + 1.0 MB/s，
+      # 合计约 1.5 分钟。可靠路径改成在本机跑 `pnpm apk:publish`（scripts/publish-apk.sh）。
+      # 这里保留开关，只有显式传 publish=true 时才尝试慢速直推。
+      - name: Publish APK to server (slow path, opt-in)
+        if: github.event_name != 'pull_request' && inputs.publish == 'true'
         run: |
           set -o pipefail
           mkdir -p ~/.ssh
