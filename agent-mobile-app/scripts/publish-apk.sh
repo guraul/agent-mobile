@@ -24,7 +24,7 @@ SSH_USER="${APK_SSH_USER:-root}"
 REMOTE_DIR="${APK_REMOTE_DIR:-/root/project/agent-mobile/downloads}"
 KEEP="${APK_KEEP:-5}"
 
-REPO_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$REPO_ROOT"
 
 RUN_ID=""

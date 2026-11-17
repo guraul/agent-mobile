@@ -143,12 +143,25 @@ npx expo start --port 9928 --host lan
 | 产物 | 运行页面底部 **Artifacts → `pulse-apk`**（`app-release.apk`，约 25 MB，保留 14 天） |
 | 签名 | **debug keystore**（Expo 生成工程的 release 默认行为）——只够真机侧载验证，**不能上架** |
 | 安装 | `adb install -r pulse-apk/app-release.apk`；**或手机下载**（见下） |
-| 服务端存放 | `/root/project/agent-mobile/downloads/`（tag / 手动构建时自动 rsync 上传，保留最近 5 个 + `pulse-latest.apk` 软链） |
+| 发布到服务器 | 本机跑 `pnpm apk:publish`（下载最近一次产物 → scp 到服务器 → 切 `pulse-latest.apk` 软链 → 留最近 5 个） |
+| 服务端存放 | `/root/project/agent-mobile/downloads/` |
 | 手机下载 | 打开财务后台 `https://106.13.181.13:9928/files` → 进入 `/root/project/agent-mobile/downloads` → 点 `pulse-latest.apk` |
 
+> **为什么发布走本机而不是 CI 直推**（2026-11-17 实测）：
+>
+> | 路径 | 速度 | 45 MB 用时 |
+> |---|---|---|
+> | GitHub runner → 服务器 | ~30 KB/s | ~25 分钟，中途会断 |
+> | 服务器 → GitHub | 18 KB/s | 超时 |
+> | **Mac → 服务器** | **1 MB/s** | **45 秒** |
+> | GitHub → Mac | 0.94 MB/s | 48 秒 |
+>
+> 所以 CI 只负责出包（artifact），发布在本机做（合计约 1.5 分钟）。
+> `build-apk.yml` 里保留了直推开关（`publish=true`），但很慢，一般不用。
+>
 > 为什么放这个目录：homebase 文件管理器的允许根是 `/root/project`（`lib/fileUtils.ts` 的 `ALLOWED_ROOTS`），
-> 放进去就能在现有 UI 里下载，不需要新增 Caddy 路由、也不需要额外凭据（复用 `DEPLOY_SSH_KEY`）。
-> 注意 `/files` 在 443 入口目前是 404（Caddy 的 `/files/*` 匹配不含无斜杠形式），**用 `:9928` 入口**。
+> 放进去就能在现有 UI 里下载，不需要新增 Caddy 路由、也不需要额外凭据。
+> `/files` 在 443 入口曾 404（Caddy 匹配器缺无斜杠形式），已于 2026-11-17 修复（#256）。
 
 关键实现（`.github/workflows/build-apk.yml`）：
 
