@@ -7,7 +7,9 @@
 	tls /etc/caddy/selfsigned.crt /etc/caddy/selfsigned.key
 	encode gzip
 
-	@bff path /api/* /_next/* /files/*
+	# /files 必须单列：`/files/*` 不匹配无斜杠的 `/files`，而财务后台把 /files/ 308 到 /files，
+	# 不列就会落到静态服务变成 404（2026-11-17 实测）
+	@bff path /api/* /_next/* /files/* /files
 	handle @bff {
 		reverse_proxy 127.0.0.1:19234 {
 			header_up X-Forwarded-Proto https
