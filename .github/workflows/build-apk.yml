@@ -20,14 +20,19 @@ on:
         description: '要构建的分支/提交（留空 = 当前默认分支）'
         required: false
         default: ''
+  # 打 tag 视为「留一个可安装包」（如 apk-v1.0.1）
   push:
-    branches: [main]
-    paths:
-      - 'agent-mobile-app/**'
-      - '.github/workflows/build-apk.yml'
+    tags:
+      - 'apk-*'
+  # PR 只在「可能影响原生构建」的改动上跑：纯 JS 改动的编译问题由 tsc + 测试兜，
+  # 不值得每个 PR 都花 14 分钟打一次包（2026-11-17 调整）。
   pull_request:
     paths:
-      - 'agent-mobile-app/**'
+      - 'agent-mobile-app/app.json'
+      - 'agent-mobile-app/app.config.js'
+      - 'agent-mobile-app/app.config.ts'
+      - 'agent-mobile-app/package.json'
+      - 'agent-mobile-app/pnpm-lock.yaml'
       - '.github/workflows/build-apk.yml'
 
 concurrency:
