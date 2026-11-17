@@ -137,12 +137,12 @@ npx expo start --port 9928 --host lan
 
 | 项 | 值 |
 |---|---|
-| 触发 | Actions → `build-apk` → Run workflow；或 push main 动 `agent-mobile-app/**`；PR 也会跑 |
+| 触发 | Actions → `build-apk` → Run workflow；或打 tag `apk-*`；PR 只在改 `app.json` / `app.config.*` / `package.json` / `pnpm-lock.yaml` 时跑 |
 | 可选参数 | `abi`（默认 `arm64-v8a`）、`ref`（留空 = 默认分支）、`publish`（默认 `false`，改成 `true` 才从 runner 直推服务器——很慢，一般用本机 `pnpm apk:publish`） |
 | 耗时 | 首次约 14 分钟（含 Gradle 缓存冷启），缓存命中后更快 |
-| 产物 | 运行页面底部 **Artifacts → `pulse-apk`**（`app-release.apk`，约 25 MB，保留 14 天） |
+| 产物 | 运行页面底部 **Artifacts → `pulse-apk-<sha>-<abi>`**（内含 `app-release.apk`，约 45 MB，保留 14 天） |
 | 签名 | **debug keystore**（Expo 生成工程的 release 默认行为）——只够真机侧载验证，**不能上架** |
-| 安装 | `adb install -r pulse-apk/app-release.apk`；**或手机下载**（见下） |
+| 安装 | 先 `gh run download <run-id> -p 'pulse-apk*'`，再 `adb install -r <解压目录>/app-release.apk`；**或手机下载**（见下） |
 | 发布到服务器 | 本机跑 `pnpm apk:publish`（下载最近一次产物 → scp 到服务器 → 切 `pulse-latest.apk` 软链 → 留最近 5 个） |
 | 服务端存放 | `/root/project/agent-mobile/downloads/` |
 | 手机下载 | 打开财务后台 `https://106.13.181.13:9928/files` → 进入 `/root/project/agent-mobile/downloads` → 点 `pulse-latest.apk` |

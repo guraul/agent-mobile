@@ -3,7 +3,7 @@
 # 为什么放 CI：本仓是公开仓，Actions 分钟数免费；runner 是 x86_64 + 官方 Android SDK，
 # 不需要 Termux/arm64 那套 aapt2 特调。本机只负责 `adb install`。
 #
-# 产物：Actions 页面 Artifacts 里的 pulse-apk（app-release.apk）。
+# 产物：Actions 页面 Artifacts 里的 pulse-apk-<sha>-<abi>（内含 app-release.apk）。
 # 签名：Expo 生成的 android 工程 release 默认用 debug keystore —— **只够真机验证，不能上架**。
 # 边界：不接 EAS；不把 android/ 入库（.gitignore 已忽略），每次 prebuild 重新生成。
 
