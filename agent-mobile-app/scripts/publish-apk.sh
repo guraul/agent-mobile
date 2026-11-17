@@ -24,18 +24,28 @@ SSH_USER="${APK_SSH_USER:-root}"
 REMOTE_DIR="${APK_REMOTE_DIR:-/root/project/agent-mobile/downloads}"
 KEEP="${APK_KEEP:-5}"
 
+CALLER_CWD="$(pwd)"
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$REPO_ROOT"
 
 RUN_ID=""
 LOCAL_FILE=""
+BUILD_SHA=""
 while [ $# -gt 0 ]; do
   case "$1" in
-    --file) LOCAL_FILE="$2"; shift 2 ;;
+    --file)
+      LOCAL_FILE="$2"
+      case "$LOCAL_FILE" in /*) ;; *) LOCAL_FILE="$CALLER_CWD/$LOCAL_FILE" ;; esac
+      shift 2 ;;
     -h|--help) sed -n '2,25p' "$0"; exit 0 ;;
     *) RUN_ID="$1"; shift ;;
   esac
 done
+
+if [ -n "$LOCAL_FILE" ] && [ -n "$RUN_ID" ]; then
+  echo "--file 与 run-id 只能给一个" >&2
+  exit 1
+fi
 
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
@@ -51,14 +61,28 @@ else
       exit 1
     fi
   fi
-  echo "==> 下载 artifact（run $RUN_ID）"
+  BUILD_SHA="$(gh run view "$RUN_ID" --json headSha --jq '.headSha' 2>/dev/null || true)"
+  echo "==> 下载 artifact（run $RUN_ID，构建提交 ${BUILD_SHA:0:7}）"
   gh run download "$RUN_ID" -n pulse-apk -D "$TMP_DIR"
   APK="$(find "$TMP_DIR" -name '*.apk' | head -1)"
   [ -n "$APK" ] || { echo "artifact 里没有 apk" >&2; exit 1; }
 fi
 
-VERSION="$(node -p "require('./agent-mobile-app/app.json').expo.version")"
-SHA7="$(git rev-parse --short=7 HEAD)"
+# 文件名必须指向「这份 APK 是从哪个提交构建的」，不是本机 HEAD——
+# 否则用旧 run 的包发布会张冠李戴，且同名会互相覆盖。
+if [ -n "$BUILD_SHA" ]; then
+  SHA7="$(printf '%s' "$BUILD_SHA" | cut -c1-7)"
+  VERSION="$(git show "$BUILD_SHA:agent-mobile-app/app.json" 2>/dev/null \
+    | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{console.log(JSON.parse(s).expo.version)}catch{console.log("")}})')"
+  if [ -z "$VERSION" ]; then
+    VERSION="$(node -p "require('./agent-mobile-app/app.json').expo.version")"
+    echo "提示：取不到 $SHA7 那次提交的 app.json，版本号退回本机值（$VERSION）" >&2
+  fi
+else
+  SHA7="$(git rev-parse --short=7 HEAD)"
+  VERSION="$(node -p "require('./agent-mobile-app/app.json').expo.version")"
+  echo "警告：--file 模式无法得知 APK 来自哪次提交，文件名里的 $SHA7 是本机 HEAD，不代表产物来源" >&2
+fi
 NAME="pulse-v${VERSION}-${SHA7}.apk"
 
 echo "==> 上传 $(du -h "$APK" | cut -f1) → ${SSH_USER}@${SSH_HOST}:${REMOTE_DIR}/${NAME}"

@@ -138,7 +138,7 @@ npx expo start --port 9928 --host lan
 | 项 | 值 |
 |---|---|
 | 触发 | Actions → `build-apk` → Run workflow；或 push main 动 `agent-mobile-app/**`；PR 也会跑 |
-| 可选参数 | `abi`（默认 `arm64-v8a`）、`ref`（留空 = 默认分支） |
+| 可选参数 | `abi`（默认 `arm64-v8a`）、`ref`（留空 = 默认分支）、`publish`（默认 `false`，改成 `true` 才从 runner 直推服务器——很慢，一般用本机 `pnpm apk:publish`） |
 | 耗时 | 首次约 14 分钟（含 Gradle 缓存冷启），缓存命中后更快 |
 | 产物 | 运行页面底部 **Artifacts → `pulse-apk`**（`app-release.apk`，约 25 MB，保留 14 天） |
 | 签名 | **debug keystore**（Expo 生成工程的 release 默认行为）——只够真机侧载验证，**不能上架** |
