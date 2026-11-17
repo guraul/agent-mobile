@@ -61,9 +61,14 @@ else
       exit 1
     fi
   fi
+  # 取不到构建提交就停下：静默降级会让文件名又变回本机 HEAD（补审 #257 minor）
   BUILD_SHA="$(gh run view "$RUN_ID" --json headSha --jq '.headSha' 2>/dev/null || true)"
+  if [ -z "$BUILD_SHA" ] || [ "$BUILD_SHA" = "null" ]; then
+    echo "取不到 run $RUN_ID 的 headSha（gh 未登录 / 网络 / run 不存在），中止：文件名必须指向构建提交" >&2
+    exit 1
+  fi
   echo "==> 下载 artifact（run $RUN_ID，构建提交 ${BUILD_SHA:0:7}）"
-  gh run download "$RUN_ID" -n pulse-apk -D "$TMP_DIR"
+  gh run download "$RUN_ID" -p "pulse-apk*" -D "$TMP_DIR"
   APK="$(find "$TMP_DIR" -name '*.apk' | head -1)"
   [ -n "$APK" ] || { echo "artifact 里没有 apk" >&2; exit 1; }
 fi
@@ -83,6 +88,9 @@ else
   VERSION="$(node -p "require('./agent-mobile-app/app.json').expo.version")"
   echo "警告：--file 模式无法得知 APK 来自哪次提交，文件名里的 $SHA7 是本机 HEAD，不代表产物来源" >&2
 fi
+case "$VERSION" in
+  ''|*[!0-9.]*) echo "版本号只允许数字与点（会拼进远端命令）: $VERSION" >&2; exit 1 ;;
+esac
 NAME="pulse-v${VERSION}-${SHA7}.apk"
 
 echo "==> 上传 $(du -h "$APK" | cut -f1) → ${SSH_USER}@${SSH_HOST}:${REMOTE_DIR}/${NAME}"

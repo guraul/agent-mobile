@@ -14,7 +14,7 @@
 
 **443 / 9928 拓扑**（`auto_https off` + `admin off`，证书用 `/etc/caddy/selfsigned.crt|key` 自签）：
 
-- `:443`（产品 App Pulse）：`/api/*`、`/_next/*`、`/files/*` → BFF `127.0.0.1:19234`；其余全部 → 静态服务 `127.0.0.1:9929`（SPA 回退与 `[id].html` 动态路由都在这一侧）。页面与 API 同源，没有 CORS 问题。
+- `:443`（产品 App Pulse）：`/api/*`、`/_next/*`、`/files/*`、`/files` → BFF `127.0.0.1:19234`；其余全部 → 静态服务 `127.0.0.1:9929`（SPA 回退与 `[id].html` 动态路由都在这一侧）。页面与 API 同源，没有 CORS 问题。
 - `:9928`（财务后台）：全量反代 → BFF `127.0.0.1:19234`。
 - 两处反代都带 `header_up X-Forwarded-Proto https`，让 BFF 知道外层是 HTTPS；`encode gzip` 开启压缩。
 
