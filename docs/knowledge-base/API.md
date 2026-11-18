@@ -1,6 +1,6 @@
 # API.md —— 接口清单
 
-> 最后更新: 2026-10-11 | commit: `68ef330`
+> 最后更新: 2026-11-18 | commit: `f9378ff`
 > 覆盖路径: `agent-mobile-app/package.json`, `agent-mobile-app/pnpm-workspace.yaml`, `agent-mobile-app/src/services/opencode-client.ts`, `agent-mobile-app/src/services/opencode-events.ts`, `agent-mobile-app/src/services/busy-signal.ts`, `agent-mobile-app/src/services/auth.ts`
 > 上一版：2026-08-30 · commit：`d255c48`（补 /api/auth/logout 端点）
 
@@ -51,6 +51,7 @@
 
 **认证**：`Authorization: Bearer <JWT>`（`/api/auth/login` 签发）。401 → 手机端清 token + 显示登录横幅。
 **CORS**：2026-11-05 起产品 App 由 Caddy 在 443 **同源**提供（页面与 `/api` 同一 origin），**不再依赖 CORS 允许列表**；旧列表 `http://…:9928`（`lib/cors.ts` `CORS_ORIGINS`）只对历史 http 入口有效。OPTIONS 预检返回 204 + CORS 头。
+**443 入口路由**：Caddy 只把 `/api/*`、`/_next/*`、`/files/*`、`/files` 转给 BFF，其余交静态服务（`127.0.0.1:9929`）——所以能到 API 的路径就是这张表，新增对外路径前缀要同时改 `deploy/caddy/Caddyfile`（`@bff` 匹配器，`/files` 无斜杠形式是 2026-11-17 补的，见 #256）。
 **BFF 环境变量**：`JWT_SECRET`、`ADMIN_USERNAME`、`ADMIN_PASSWORD`、`OPENCODE_USERNAME`、`OPENCODE_PASSWORD`、`OPENCODE_BASE_URL`（默认 `http://127.0.0.1:4096`）。
 
 ### stream 协议（打字机）
