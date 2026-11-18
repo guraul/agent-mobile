@@ -1,6 +1,6 @@
 # OPERATIONS.md —— 构建与运维
 
-> 最后更新: 2026-11-05 | commit: `68ef330`
+> 最后更新: 2026-11-18 | commit: `f9378ff`
 > 覆盖路径: `agent-mobile-app/package.json`, `agent-mobile-app/pnpm-workspace.yaml`, `deploy/**`, `scripts/pipeline/**`, `agent-mobile-app/scripts/serve-static.mjs`, `agent-mobile-app/app.json`, `.github/workflows/deploy-web.yml`
 > 本版（2026-11-05）：运行时模型切 go 档（#193）、入口改 443 同源、静态服务迁 9929（#212/#215）、旧结论清理（#199/#216）
 > 上一版：2026-10-11 · E1 生产 opencode 升级 v2.0.26（issue #53）
@@ -94,7 +94,7 @@ node test/bff-e2e.mjs      # 登录 → 横幅消失 → 打开项目 → 动态
 > **部署 / 回滚**：部署已由 `.github/workflows/deploy-web.yml` 承接（`workflow_dispatch` 可手动触发）；原 `scripts/pipeline/deploy.sh`、`rollback.sh` 已于 2026-11-05 删除。**回滚：Actions → `rollback-web` → Run workflow（`release` 留空=上一版，可先 `dry_run` 看计划）；GitHub 不可用**时才手工：① 查版本 `ssh root@<host> "ls -1dt <remote_dir>/releases/*/"`；② 确认当前 `ssh … "readlink <remote_dir>/dist"`；③ 切 `ssh … "cd <remote_dir> && ln -sfn releases/<目标> dist && systemctl restart serve-9928"`；④ 验活 `ssh … "curl -sS -m 8 -o /dev/null -w '%{http_code}' http://127.0.0.1:9929/"`（要 200）。手册见 `docs/pipeline/README.md`。
 >
 > **服务器布局**：`/root/project/agent-mobile/agent-mobile-app/` 下 `releases/<id>/` 为产物目录（保留最近 5 版），`dist` 是指向当前版本的软链；`serve-9928.service` 托管（enabled 开机自启），重启才刷新 gzipCache。
-> **2026-11-05 拓扑变更**：产品 App 改由 Caddy 在 **443** 同源提供（`/api/*` → BFF，其余 → 静态服务 `127.0.0.1:9929`）；**9928 让给财务后台**（Caddy 全量反代 BFF）。页面与 API 同源后 **不再依赖 CORS 允许列表**（旧 9928 origin 列表仅对历史 http 入口有效）。
+> **2026-11-05 拓扑变更**：产品 App 改由 Caddy 在 **443** 同源提供（`/api/*`、`/_next/*`、`/files/*`、`/files` → BFF，其余 → 静态服务 `127.0.0.1:9929`；`/files` 无斜杠形式 2026-11-17 补进 `@bff` 匹配器，见 #256）；**9928 让给财务后台**（Caddy 全量反代 BFF）。页面与 API 同源后 **不再依赖 CORS 允许列表**（旧 9928 origin 列表仅对历史 http 入口有效）。
 
 ```bash
 # 自动部署：merge 到 main 即触发（actions 页面可见进度）；workflow_dispatch 也可手动触发

@@ -1,6 +1,6 @@
 # Agent Mobile 项目知识库 · 索引总览
 
-> 最后更新: 2026-11-10 | commit: `68ef330`
+> 最后更新: 2026-11-18 | commit: `f9378ff`
 > 覆盖路径: `agent-mobile-app/package.json`, `agent-mobile-app/pnpm-workspace.yaml`, `agent-mobile-app/app.json`, `agent-mobile-app/src/app/_layout.tsx`, `agent-mobile-app/src/app/index.tsx`, `agent-mobile-app/src/components/index.ts`, `agent-mobile-app/src/services/opencode-client.ts`, `agent-mobile-app/src/theme/index.ts`, `agent-mobile-app/scripts/serve-static.mjs`, `deploy/**`
 > 上一版：2026-09-29 · **双 chat 页（epic #35）五项收官**：`/talk` 单路由 + 运行时 directory 判据分流到
 > chat（伴侣页）/ chatcode（工作台壳）两形态，含命令族回执 chip（#59 起取代内白卡）、工具折叠组、thinking、
@@ -240,6 +240,6 @@ homebase BFF（对外 `https://106.13.181.13`，经 Caddy；内部 `127.0.0.1:19
 | 写临时测试脚本/存截图 | `agent-mobile/test/`（勿放 /tmp） |
 | 排查 opencode 机制（auto compact 等） | 源码在 `/root/project/opencode-src`（仓库外，含 .git 历史） |
 | 预览 web 版 | `pnpm exec expo export --platform web` + `scripts/serve-static.mjs`（生产由 `serve-9928.service` 托管在 `127.0.0.1:9929`，对外 `https://106.13.181.13`，见 OPERATIONS.md） |
-| 打 APK | `eas build -p android --profile preview`（见 OPERATIONS.md） |
-| 下载/分发 APK | `eas build:download --build-id <id>` → 覆盖 `test/download/pulse.apk`（`apk-download-9928.service` 已退役，2026-11-05 起 9928 归财务后台） |
+| 打 APK | `build-apk` workflow（Actions → Run workflow，或打 tag `apk-*`）产出 artifact `pulse-apk-<sha>-<abi>`（见 OPERATIONS.md；本机不再需要 Android SDK / EAS） |
+| 发布/分发 APK | 本机 `pnpm apk:publish`（取最近一次构建产物 → scp 到服务器 → 切 `pulse-latest.apk` 软链 → 留最近 5 个）；手机在财务后台 `https://106.13.181.13:9928/files` 下载（`apk-download-9928.service` 已退役） |
 | 改应用元信息（包名/名称/主题色） | `agent-mobile-app/app.json` |

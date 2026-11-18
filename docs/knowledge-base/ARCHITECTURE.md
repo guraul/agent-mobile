@@ -1,6 +1,6 @@
 # ARCHITECTURE.md —— 架构与数据流
 
-> 最后更新: 2026-11-10 | commit: `68ef330`
+> 最后更新: 2026-11-18 | commit: `f9378ff`
 > 覆盖路径: `agent-mobile-app/package.json`, `agent-mobile-app/pnpm-workspace.yaml`, `agent-mobile-app/app.json`, `agent-mobile-app/eas.json`, `agent-mobile-app/scripts/serve-static.mjs`, `agent-mobile-app/src/app/_layout.tsx`, `agent-mobile-app/src/theme/**`, `deploy/**`
 
 ## 整体架构
@@ -47,6 +47,7 @@ hooks 层（聚合状态）        src/hooks/useProjectEvents.ts
 - **应用 ↔ homebase BFF**：HTTP + Bearer JWT；REST 经 `/api/opencode/rest/*` 转发，事件流走 `/api/opencode/stream`（BFF 做 v2→v1 翻译与缓冲合并）。
 - **BFF ↔ OpenCode Server**：HTTP + Basic auth，端口 4096（仅 BFF 可达）。
 - **web 预览 ↔ 服务器**：静态文件服务，`agent-mobile-app/scripts/serve-static.mjs`（HTTP），端口 **9929**（2026-11-05 起；对外经 Caddy 443 提供，见 OPERATIONS）。
+- **对外 443 入口 ↔ BFF / 静态服务**：Caddy（`deploy/caddy/Caddyfile`）按路径分流——`/api/*`、`/_next/*`、`/files/*`、`/files` → BFF `127.0.0.1:19234`，其余 → 静态服务 `127.0.0.1:9929`；**`/files` 必须单列**（`/files/*` 不匹配无斜杠形式，否则 443 入口 404，2026-11-17 #256）。
 - **构建 ↔ Expo 云**：EAS CLI 上传项目 → 云端 Gradle 构建 → 下载 APK。
 
 ## 数据模型定义
