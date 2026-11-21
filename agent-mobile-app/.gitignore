@@ -28,7 +28,9 @@ yarn-error.*
 
 # macOS
 .DS_Store
+# 私钥一律不入库；下面那条是**公钥证书**（服务端自签 CA），要跟 App 一起构建
 *.pem
+!assets/certs/server-ca.pem
 
 # local env files
 .env*.local
